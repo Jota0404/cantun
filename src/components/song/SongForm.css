@@ -1,0 +1,92 @@
+.song-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.song-form__row {
+  display: flex;
+  gap: 16px;
+}
+
+.song-form__row .song-form__field {
+  flex: 1;
+}
+
+.song-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.song-form__field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.song-form__field input,
+.song-form__field select,
+.song-form__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #d9d5e0;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.song-form__field textarea {
+  resize: vertical;
+}
+
+.song-form__field input[aria-invalid='true'],
+.song-form__field select[aria-invalid='true'],
+.song-form__field textarea[aria-invalid='true'] {
+  border-color: #c0392b;
+}
+
+.song-form__error {
+  font-size: 13px;
+  color: #c0392b;
+}
+
+.song-form__success {
+  font-size: 15px;
+  color: #1e7d32;
+  background: #eaf7ec;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.song-form button {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background: var(--text-h);
+  color: var(--bg);
+  cursor: pointer;
+}
+
+.song-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .song-form__row {
+    flex-direction: column;
+  }
+
+  .song-form button {
+    width: 100%;
+  }
+}
