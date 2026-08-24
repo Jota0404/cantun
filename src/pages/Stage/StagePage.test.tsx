@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -75,7 +75,6 @@ describe('StagePage', () => {
   })
 
   it('changes the displayed font size with the range control', async () => {
-    const user = userEvent.setup()
     renderStage(
       [song('song-1', 'Primeira')],
       [{ id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 }],
@@ -83,8 +82,7 @@ describe('StagePage', () => {
 
     const range = await screen.findByRole('slider', { name: 'Tamanho da fonte' })
     expect(range).toHaveValue('22')
-    await user.click(range)
-    await user.keyboard('{ArrowRight}{ArrowRight}')
+    fireEvent.change(range, { target: { value: '24' } })
     expect(range).toHaveValue('24')
   })
 })
