@@ -51,7 +51,10 @@ describe('getStageSongs', () => {
 
   it('ignores repertoire entries whose songs no longer exist', async () => {
     const setlistSongs: Pick<SetlistSongRepository, 'listBySetlistId'> = {
-      listBySetlistId: async () => [entries[1], { ...entries[1], songId: 'missing' }],
+      listBySetlistId: async () => [
+        { ...entries[0], position: 1 },
+        { ...entries[1], position: 2, songId: 'missing' },
+      ],
     }
     const songs: Pick<SongRepository, 'list'> = {
       list: async () => [songB],
