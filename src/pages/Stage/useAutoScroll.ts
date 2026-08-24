@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export const AUTO_SCROLL_SPEEDS = [
   { value: 20, label: 'Lenta' },
@@ -22,7 +22,7 @@ export function useAutoScroll() {
     speedRef.current = speed
   }, [speed])
 
-  function stop() {
+  const stop = useCallback(() => {
     if (frameRef.current !== null) {
       window.cancelAnimationFrame(frameRef.current)
       frameRef.current = null
@@ -30,9 +30,9 @@ export function useAutoScroll() {
     lastTimestampRef.current = null
     isScrollingRef.current = false
     setIsScrolling(false)
-  }
+  }, [])
 
-  function tick(timestamp: number) {
+  const tick = useCallback((timestamp: number) => {
     if (!isScrollingRef.current) return
 
     const lastTimestamp = lastTimestampRef.current ?? timestamp
@@ -47,9 +47,9 @@ export function useAutoScroll() {
 
     window.scrollBy({ top: (speedRef.current * elapsed) / 1000, behavior: 'auto' })
     frameRef.current = window.requestAnimationFrame(tick)
-  }
+  }, [stop])
 
-  function start() {
+  const start = useCallback(() => {
     if (isScrollingRef.current) return
 
     if (frameRef.current !== null) {
@@ -60,13 +60,13 @@ export function useAutoScroll() {
     setIsScrolling(true)
     lastTimestampRef.current = null
     frameRef.current = window.requestAnimationFrame(tick)
-  }
+  }, [tick])
 
-  function pause() {
+  const pause = useCallback(() => {
     stop()
-  }
+  }, [stop])
 
-  function restartAtCurrentPosition() {
+  const restartAtCurrentPosition = useCallback(() => {
     if (!isScrollingRef.current) return
 
     if (frameRef.current !== null) {
@@ -74,9 +74,9 @@ export function useAutoScroll() {
     }
     lastTimestampRef.current = null
     frameRef.current = window.requestAnimationFrame(tick)
-  }
+  }, [tick])
 
-  useEffect(() => () => stop(), [])
+  useEffect(() => () => stop(), [stop])
 
   return {
     speed,
