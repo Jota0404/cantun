@@ -46,7 +46,7 @@ function isMusicalKey(value: string): value is MusicalKey {
 }
 
 function normalizeChordSheetLine(line: string): string {
-  const cleaned = line.replace(/^\s*">\s?/, '').trimEnd()
+  const cleaned = line.replace(/^\s*">\s?/, '').trim()
 
   if (!cleaned || cleaned.startsWith('[')) {
     return cleaned
