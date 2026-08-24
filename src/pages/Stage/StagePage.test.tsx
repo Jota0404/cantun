@@ -1,0 +1,90 @@
+// @vitest-environment jsdom
+
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { describe, expect, it, vi } from 'vitest'
+import { StagePage } from './StagePage'
+import type { Song } from '../../domain/songs/song'
+import type { SongRepository } from '../../db/repositories/songRepository'
+import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
+
+function song(id: string, title: string): Song {
+  return {
+    id,
+    title,
+    originalKey: 'C',
+    currentKey: 'C',
+    lyrics: `[C]${title}`,
+    notes: 'Observação',
+    bpm: 90,
+    isFavorite: false,
+    createdAt: '2026-08-23T00:00:00.000Z',
+    updatedAt: '2026-08-23T00:00:00.000Z',
+  }
+}
+
+function renderStage(
+  songs: Song[],
+  entries: Array<{ id: string; setlistId: string; songId: string; position: number }>,
+) {
+  const songRepository = {
+    list: vi.fn(async () => songs),
+    getById: vi.fn(async (id: string) => songs.find((item) => item.id === id)),
+  } as unknown as SongRepository
+
+  const setlistSongRepository = {
+    listBySetlistId: vi.fn(async () => entries),
+  } as unknown as SetlistSongRepository
+
+  return render(
+    <MemoryRouter initialEntries={['/stage/setlist/setlist-1']}>
+      <Routes>
+        <Route
+          path="/stage/setlist/:setlistId"
+          element={(
+            <StagePage
+              repository={songRepository}
+              setlistSongRepository={setlistSongRepository}
+            />
+          )}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('StagePage', () => {
+  it('shows the first repertoire song and navigates to the next song', async () => {
+    const user = userEvent.setup()
+    renderStage(
+      [song('song-1', 'Primeira'), song('song-2', 'Segunda')],
+      [
+        { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+        { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
+      ],
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Primeira' })).toBeInTheDocument()
+    const next = screen.getByRole('button', { name: 'Próxima →' })
+    await user.click(next)
+
+    expect(screen.getByRole('heading', { name: 'Segunda' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '← Anterior' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Próxima →' })).toBeDisabled()
+  })
+
+  it('changes the displayed font size with the range control', async () => {
+    const user = userEvent.setup()
+    renderStage(
+      [song('song-1', 'Primeira')],
+      [{ id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 }],
+    )
+
+    const range = await screen.findByRole('slider', { name: 'Tamanho da fonte' })
+    expect(range).toHaveValue('22')
+    await user.click(range)
+    await user.keyboard('{ArrowRight}{ArrowRight}')
+    expect(range).toHaveValue('24')
+  })
+})
