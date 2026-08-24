@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SongForm } from '../../components/song/SongForm'
 import { parseSongText } from '../../domain/songs/parseSongText'
@@ -10,7 +11,7 @@ export function ImportSongPage() {
   const [fileError, setFileError] = useState<string | null>(null)
   const navigate = useNavigate()
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setSongData(null)
     setFileError(null)
@@ -54,7 +55,11 @@ export function ImportSongPage() {
         />
       </div>
 
-      {fileError && <p className="import-song-page__error" role="alert">{fileError}</p>}
+      {fileError && (
+        <p className="import-song-page__error" role="alert">
+          {fileError}
+        </p>
+      )}
 
       {songData && (
         <div className="import-song-page__preview">
