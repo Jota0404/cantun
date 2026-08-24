@@ -3,11 +3,18 @@ import type { CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
 import { getStageSongs } from '../../application/stage/getStageSongs'
-import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
+import {
+  getSemitoneDistance,
+  transposeSongLyrics,
+} from '../../domain/music/transpose'
 import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import type { Song } from '../../domain/songs/song'
-import { AUTO_SCROLL_SPEEDS, getAutoScrollSpeedLabel, useAutoScroll } from './useAutoScroll'
+import {
+  AUTO_SCROLL_SPEEDS,
+  getAutoScrollSpeedLabel,
+  useAutoScroll,
+} from './useAutoScroll'
 import './StagePage.css'
 
 type StagePageProps = {
@@ -15,10 +22,18 @@ type StagePageProps = {
   setlistSongRepository?: SetlistSongRepository
 }
 
-export function StagePage({ repository, setlistSongRepository }: StagePageProps) {
-  const { setlistId, songId } = useParams<{ setlistId?: string; songId?: string }>()
+export function StagePage({
+  repository,
+  setlistSongRepository,
+}: StagePageProps) {
+  const { setlistId, songId } = useParams<{
+    setlistId?: string
+    songId?: string
+  }>()
+
   const navigate = useNavigate()
   const isSetlistMode = Boolean(setlistId) && !songId
+
   const [songs, setSongs] = useState<Song[]>([])
   const [currentSong, setCurrentSong] = useState<Song | undefined>()
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -26,6 +41,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+
   const {
     speed: autoScrollSpeed,
     setSpeed: setAutoScrollSpeed,
@@ -42,29 +58,35 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     async function load() {
       setError(undefined)
       setLoading(true)
+
       if (isSetlistMode && setlistId) {
         const result = await getStageSongs(setlistId, {
           songs: repository,
           setlistSongs: setlistSongRepository,
         })
+
         if (!cancelled) {
           const loadedSongs = result.map(({ song }) => song)
+
           setSongs(loadedSongs)
           setCurrentSong(loadedSongs[0])
           setCurrentIndex(0)
           setLoading(false)
         }
+
         return
       }
 
       if (songId) {
         const song = await getStageSong(songId, repository)
+
         if (!cancelled) {
           setSongs(song ? [song] : [])
           setCurrentSong(song)
           setCurrentIndex(0)
           setLoading(false)
         }
+
         return
       }
 
@@ -84,10 +106,17 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     return () => {
       cancelled = true
     }
-  }, [isSetlistMode, repository, setlistId, setlistSongRepository, songId])
+  }, [
+    isSetlistMode,
+    repository,
+    setlistId,
+    setlistSongRepository,
+    songId,
+  ])
 
   useEffect(() => {
     if (!currentSong) return
+
     window.scrollTo({ top: 0 })
     restartAtCurrentPosition()
   }, [currentSong, restartAtCurrentPosition])
@@ -96,18 +125,38 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     function handleFullscreenChange() {
       setIsFullscreen(Boolean(document.fullscreenElement))
     }
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+
+    document.addEventListener(
+      'fullscreenchange',
+      handleFullscreenChange,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'fullscreenchange',
+        handleFullscreenChange,
+      )
+    }
   }, [])
 
   const displayedLyrics = useMemo(() => {
     if (!currentSong) return ''
-    const semitones = getSemitoneDistance(currentSong.originalKey, currentSong.currentKey)
-    return transposeSongLyrics(currentSong.lyrics, semitones, currentSong.currentKey)
+
+    const semitones = getSemitoneDistance(
+      currentSong.originalKey,
+      currentSong.currentKey,
+    )
+
+    return transposeSongLyrics(
+      currentSong.lyrics,
+      semitones,
+      currentSong.currentKey,
+    )
   }, [currentSong])
 
   function selectSong(index: number) {
     if (index < 0 || index >= songs.length) return
+
     setCurrentIndex(index)
     setCurrentSong(songs[index])
   }
@@ -120,7 +169,9 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
         await document.documentElement.requestFullscreen()
       }
     } catch {
-      setError('Tela cheia não está disponível neste dispositivo.')
+      setError(
+        'Tela cheia não está disponível neste dispositivo.',
+      )
     }
   }
 
@@ -135,46 +186,89 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   if (error || !currentSong) {
     return (
       <main className="stage-page stage-page--dark">
-        <p role="alert">{error ?? 'Nenhuma música disponível para o Modo Palco.'}</p>
-        <button type="button" onClick={() => navigate(-1)}>Voltar</button>
+        <p role="alert">
+          {error ??
+            'Nenhuma música disponível para o Modo Palco.'}
+        </p>
+
+        <button type="button" onClick={() => navigate(-1)}>
+          Voltar
+        </button>
       </main>
     )
   }
 
   const hasPrevious = currentIndex > 0
   const hasNext = currentIndex < songs.length - 1
-  const autoScrollSpeedIndex = AUTO_SCROLL_SPEEDS.findIndex((option) => option.value === autoScrollSpeed)
+
+  const autoScrollSpeedIndex = AUTO_SCROLL_SPEEDS.findIndex(
+    (option) => option.value === autoScrollSpeed,
+  )
 
   return (
     <main
       className="stage-page stage-page--dark"
-      style={{ '--stage-font-size': `${fontSize}px` } as CSSProperties}
+      style={
+        {
+          '--stage-font-size': `${fontSize}px`,
+        } as CSSProperties
+      }
     >
       <header className="stage-toolbar">
         <button
           type="button"
-          onClick={() => navigate(isSetlistMode ? `/repertoires/${setlistId}` : `/songs/${currentSong.id}`)}
+          onClick={() =>
+            navigate(
+              isSetlistMode
+                ? `/repertoires/${setlistId}`
+                : `/songs/${currentSong.id}`,
+            )
+          }
         >
           Sair
         </button>
+
         <div className="stage-toolbar__title">
           <strong>{currentSong.title}</strong>
-          {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
+
+          {songs.length > 1 && (
+            <span>
+              {currentIndex + 1}/{songs.length}
+            </span>
+          )}
         </div>
-        <button type="button" onClick={() => void toggleFullscreen()}>
+
+        <button
+          type="button"
+          onClick={() => void toggleFullscreen()}
+        >
           {isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
         </button>
       </header>
 
-      <section className="stage-meta" aria-label="Informações da música">
-        {currentSong.artist && <span>{currentSong.artist}</span>}
+      <section
+        className="stage-meta"
+        aria-label="Informações da música"
+      >
+        {currentSong.artist && (
+          <span>{currentSong.artist}</span>
+        )}
+
         <span>Tom: {currentSong.currentKey}</span>
-        {currentSong.bpm !== undefined && <span>BPM: {currentSong.bpm}</span>}
+
+        {currentSong.bpm !== undefined && (
+          <span>BPM: {currentSong.bpm}</span>
+        )}
       </section>
 
-      <section className="stage-content" aria-labelledby="stage-song-title">
-        <h1 id="stage-song-title">{currentSong.title}</h1>
-        <pre style={{ fontSize: 'var(--stage-font-size)' }}>{displayedLyrics}</pre>
+      <section
+        className="stage-content"
+        aria-label={`Letra de ${currentSong.title}`}
+      >
+        <pre style={{ fontSize: 'var(--stage-font-size)' }}>
+          {displayedLyrics}
+        </pre>
+
         {currentSong.notes && (
           <aside className="stage-notes">
             <strong>Observações</strong>
@@ -184,47 +278,87 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
       </section>
 
       <footer className="stage-controls">
-        <button type="button" disabled={!hasPrevious} onClick={() => selectSong(currentIndex - 1)}>
+        <button
+          type="button"
+          disabled={!hasPrevious}
+          onClick={() => selectSong(currentIndex - 1)}
+        >
           ← Anterior
         </button>
-        <div className="stage-controls__auto-scroll" aria-label="Controles de auto-scroll">
+
+        <div
+          className="stage-controls__auto-scroll"
+          aria-label="Controles de auto-scroll"
+        >
           <div className="stage-controls__auto-scroll-row">
-            <span aria-live="polite">Auto-scroll: {isAutoScrolling ? 'Ativo' : 'Pausado'}</span>
+            <span aria-live="polite">
+              Auto-scroll:{' '}
+              {isAutoScrolling ? 'Ativo' : 'Pausado'}
+            </span>
+
             {isAutoScrolling ? (
-              <button type="button" onClick={pauseAutoScroll}>Pausar</button>
+              <button
+                type="button"
+                onClick={pauseAutoScroll}
+              >
+                Pausar
+              </button>
             ) : (
-              <button type="button" onClick={startAutoScroll}>
+              <button
+                type="button"
+                onClick={startAutoScroll}
+              >
                 {hasAutoScrollStarted ? 'Retomar' : 'Iniciar'}
               </button>
             )}
           </div>
+
           <label>
-            Velocidade: {getAutoScrollSpeedLabel(autoScrollSpeed)}
+            Velocidade:{' '}
+            {getAutoScrollSpeedLabel(autoScrollSpeed)}
+
             <input
               type="range"
               min="0"
               max="2"
               step="1"
               value={autoScrollSpeedIndex}
-              onChange={(event) => setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[Number(event.target.value)].value)}
+              onChange={(event) => {
+                const index = Number(event.target.value)
+
+                setAutoScrollSpeed(
+                  AUTO_SCROLL_SPEEDS[index].value,
+                )
+              }}
               aria-label="Velocidade do auto-scroll"
-              aria-valuetext={getAutoScrollSpeedLabel(autoScrollSpeed)}
+              aria-valuetext={getAutoScrollSpeedLabel(
+                autoScrollSpeed,
+              )}
             />
           </label>
         </div>
+
         <label>
           Fonte
+
           <input
             type="range"
             min="16"
             max="36"
             step="1"
             value={fontSize}
-            onChange={(event) => setFontSize(Number(event.target.value))}
+            onChange={(event) =>
+              setFontSize(Number(event.target.value))
+            }
             aria-label="Tamanho da fonte"
           />
         </label>
-        <button type="button" disabled={!hasNext} onClick={() => selectSong(currentIndex + 1)}>
+
+        <button
+          type="button"
+          disabled={!hasNext}
+          onClick={() => selectSong(currentIndex + 1)}
+        >
           Próxima →
         </button>
       </footer>
