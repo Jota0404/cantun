@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
 import { getStageSongs } from '../../application/stage/getStageSongs'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import type { Song } from '../../domain/songs/song'
+import type { SongRepository } from '../../db/repositories/songRepository'
+import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 import './StagePage.css'
 
 type StagePageProps = {
-  repository?: Parameters<typeof getStageSong>[1]
-  setlistSongRepository?: Parameters<typeof getStageSongs>[1]['setlistSongs']
+  repository?: SongRepository
+  setlistSongRepository?: SetlistSongRepository
 }
 
 export function StagePage({ repository, setlistSongRepository }: StagePageProps) {
@@ -68,6 +71,14 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     window.scrollTo({ top: 0 })
   }, [currentSong])
 
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
   const displayedLyrics = useMemo(() => {
     if (!currentSong) return ''
     const semitones = getSemitoneDistance(currentSong.originalKey, currentSong.currentKey)
@@ -87,7 +98,6 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
       } else {
         await document.documentElement.requestFullscreen()
       }
-      setIsFullscreen(Boolean(document.fullscreenElement))
     } catch {
       setError('Tela cheia não está disponível neste dispositivo.')
     }
@@ -114,9 +124,15 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   const hasNext = currentIndex < songs.length - 1
 
   return (
-    <main className="stage-page stage-page--dark" style={{ '--stage-font-size': `${fontSize}px` } as React.CSSProperties}>
+    <main
+      className="stage-page stage-page--dark"
+      style={{ '--stage-font-size': `${fontSize}px` } as CSSProperties}
+    >
       <header className="stage-toolbar">
-        <button type="button" onClick={() => navigate(isSetlistMode ? `/repertoires/${setlistId}` : `/songs/${currentSong.id}`)}>
+        <button
+          type="button"
+          onClick={() => navigate(isSetlistMode ? `/repertoires/${setlistId}` : `/songs/${currentSong.id}`)}
+        >
           Sair
         </button>
         <div className="stage-toolbar__title">
