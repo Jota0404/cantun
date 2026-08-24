@@ -39,19 +39,20 @@ export async function duplicateSetlist(
 
   await setlists.create(duplicated)
 
+  const createdEntries: SetlistSong[] = []
   try {
-    await Promise.all(
-      entries.map((entry) => {
-        const duplicatedEntry: SetlistSong = {
-          id: crypto.randomUUID(),
-          setlistId: duplicated.id,
-          songId: entry.songId,
-          position: entry.position,
-        }
-        return setlistSongs.create(duplicatedEntry)
-      }),
-    )
+    for (const entry of entries) {
+      const duplicatedEntry: SetlistSong = {
+        id: crypto.randomUUID(),
+        setlistId: duplicated.id,
+        songId: entry.songId,
+        position: entry.position,
+      }
+      await setlistSongs.create(duplicatedEntry)
+      createdEntries.push(duplicatedEntry)
+    }
   } catch (error) {
+    await Promise.all(createdEntries.map((entry) => setlistSongs.remove(entry.id)))
     await setlists.remove(duplicated.id)
     throw error
   }
