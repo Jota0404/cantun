@@ -18,6 +18,7 @@ export function useAutoScroll() {
   const lastTimestampRef = useRef<number | null>(null)
   const speedRef = useRef(speed)
   const isScrollingRef = useRef(false)
+  const tickRef = useRef<FrameRequestCallback>(() => undefined)
 
   useEffect(() => {
     speedRef.current = speed
@@ -33,29 +34,31 @@ export function useAutoScroll() {
     setIsScrolling(false)
   }, [])
 
-  const tick = useCallback((timestamp: number) => {
-    if (!isScrollingRef.current) return
+  useEffect(() => {
+    tickRef.current = (timestamp) => {
+      if (!isScrollingRef.current) return
 
-    const lastTimestamp = lastTimestampRef.current ?? timestamp
-    const elapsed = Math.min(timestamp - lastTimestamp, 100)
-    lastTimestampRef.current = timestamp
+      const lastTimestamp = lastTimestampRef.current ?? timestamp
+      const elapsed = Math.min(timestamp - lastTimestamp, 100)
+      lastTimestampRef.current = timestamp
 
-    const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-    const remaining = maxScrollTop - window.scrollY
-    if (remaining <= 0) {
-      stop()
-      return
+      const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      const remaining = maxScrollTop - window.scrollY
+      if (remaining <= 0) {
+        stop()
+        return
+      }
+
+      const distance = (speedRef.current * elapsed) / 1000
+      window.scrollBy({ top: Math.min(distance, remaining), behavior: 'auto' })
+
+      if (distance >= remaining) {
+        stop()
+        return
+      }
+
+      frameRef.current = window.requestAnimationFrame(tickRef.current)
     }
-
-    const distance = (speedRef.current * elapsed) / 1000
-    window.scrollBy({ top: Math.min(distance, remaining), behavior: 'auto' })
-
-    if (distance >= remaining) {
-      stop()
-      return
-    }
-
-    frameRef.current = window.requestAnimationFrame(tick)
   }, [stop])
 
   const start = useCallback(() => {
@@ -69,8 +72,8 @@ export function useAutoScroll() {
     setHasStarted(true)
     setIsScrolling(true)
     lastTimestampRef.current = null
-    frameRef.current = window.requestAnimationFrame(tick)
-  }, [tick])
+    frameRef.current = window.requestAnimationFrame(tickRef.current)
+  }, [])
 
   const pause = useCallback(() => {
     stop()
@@ -83,8 +86,8 @@ export function useAutoScroll() {
       window.cancelAnimationFrame(frameRef.current)
     }
     lastTimestampRef.current = null
-    frameRef.current = window.requestAnimationFrame(tick)
-  }, [tick])
+    frameRef.current = window.requestAnimationFrame(tickRef.current)
+  }, [])
 
   useEffect(() => () => stop(), [stop])
 
