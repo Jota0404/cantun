@@ -9,9 +9,8 @@ import {
   type SongRepository,
 } from '../../db/repositories/songRepository'
 
-export type UpdateSongInput = SongValidationInput & {
-  id: Song['id']
-}
+export type UpdateSongInput = SongValidationInput &
+  Pick<Song, 'id' | 'artist' | 'notes'>
 
 export type UpdateSongResult =
   | { success: true; song: Song }
@@ -47,10 +46,12 @@ export async function updateSong(
   const song: Song = {
     ...existingSong,
     title: input.title,
+    artist: input.artist,
     originalKey: input.originalKey,
     currentKey: input.currentKey,
     lyrics: input.lyrics,
     bpm: input.bpm,
+    notes: input.notes,
     updatedAt: new Date().toISOString(),
   }
 

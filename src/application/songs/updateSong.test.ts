@@ -11,8 +11,10 @@ function validInput(
     title: 'Grandioso És Tu',
     originalKey: 'D',
     currentKey: 'D',
+    artist: 'Harpa Cristã',
     lyrics: '[D]Grandioso és [A]Tu',
     bpm: 90,
+    notes: 'Introdução suave',
     ...overrides,
   }
 }
@@ -59,8 +61,10 @@ describe('updateSong', () => {
     expect(result.song.id).toBe('song-1')
     expect(result.song.title).toBe('Grandioso És Tu')
     expect(result.song.currentKey).toBe('D')
+    expect(result.song.artist).toBe('Harpa Cristã')
     expect(result.song.lyrics).toBe('[D]Grandioso és [A]Tu')
     expect(result.song.bpm).toBe(90)
+    expect(result.song.notes).toBe('Introdução suave')
   })
 
   it('preserves identity and creation metadata', async () => {

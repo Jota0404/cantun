@@ -2,6 +2,8 @@ import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createSong } from '../../application/songs/createSong'
 import type { CreateSongInput } from '../../application/songs/createSong'
+import { updateSong } from '../../application/songs/updateSong'
+import type { Song } from '../../domain/songs/song'
 import { MUSICAL_KEYS } from '../../domain/music/musicalKey'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { SongValidationField } from '../../domain/songs/validateSong'
@@ -29,11 +31,33 @@ const initialState: FormState = {
   notes: '',
 }
 
-export function SongForm() {
-  const [form, setForm] = useState<FormState>(initialState)
+type SongFormProps = {
+  song?: Song
+  onSuccess?: (song: Song) => void
+}
+
+function formStateFromSong(song?: Song): FormState {
+  if (!song) {
+    return initialState
+  }
+
+  return {
+    title: song.title,
+    artist: song.artist ?? '',
+    originalKey: song.originalKey,
+    currentKey: song.currentKey,
+    bpm: song.bpm?.toString() ?? '',
+    lyrics: song.lyrics,
+    notes: song.notes ?? '',
+  }
+}
+
+export function SongForm({ song, onSuccess }: SongFormProps) {
+  const [form, setForm] = useState<FormState>(() => formStateFromSong(song))
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const titleId = useId()
   const artistId = useId()
@@ -60,11 +84,13 @@ export function SongForm() {
     })
 
     setSuccessMessage(null)
+    setSubmitError(null)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSuccessMessage(null)
+    setSubmitError(null)
     setSubmitting(true)
 
     const input: CreateSongInput = {
@@ -77,23 +103,34 @@ export function SongForm() {
       notes: form.notes.trim() ? form.notes.trim() : undefined,
     }
 
-    const result = await createSong(input)
+    try {
+      const result = song
+        ? await updateSong({ ...input, id: song.id })
+        : await createSong(input)
 
-    if (result.success) {
-      setErrors({})
-      setForm(initialState)
-      setSuccessMessage(`"${result.song.title}" cadastrada com sucesso.`)
-    } else {
-      const nextErrors: FieldErrors = {}
+      if (result.success) {
+        setErrors({})
+        if (song) {
+          setSuccessMessage(`"${result.song.title}" atualizada com sucesso.`)
+        } else {
+          setForm(initialState)
+          setSuccessMessage(`"${result.song.title}" cadastrada com sucesso.`)
+        }
+        onSuccess?.(result.song)
+      } else {
+        const nextErrors: FieldErrors = {}
 
-      for (const error of result.errors) {
-        nextErrors[error.field] = error.message
+        for (const error of result.errors) {
+          nextErrors[error.field] = error.message
+        }
+
+        setErrors(nextErrors)
       }
-
-      setErrors(nextErrors)
+    } catch {
+      setSubmitError('Não foi possível salvar a música. Tente novamente.')
+    } finally {
+      setSubmitting(false)
     }
-
-    setSubmitting(false)
   }
 
   return (
@@ -103,6 +140,7 @@ export function SongForm() {
           {successMessage}
         </p>
       )}
+      {submitError && <p role="alert">{submitError}</p>}
 
       <div className="song-form__field">
         <label htmlFor={titleId}>Título</label>
@@ -241,7 +279,7 @@ export function SongForm() {
       </div>
 
       <button type="submit" disabled={submitting}>
-        {submitting ? 'Salvando…' : 'Salvar música'}
+        {submitting ? 'Salvando…' : song ? 'Salvar alterações' : 'Salvar música'}
       </button>
     </form>
   )
