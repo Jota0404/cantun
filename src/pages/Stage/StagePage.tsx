@@ -7,7 +7,7 @@ import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/tra
 import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import type { Song } from '../../domain/songs/song'
-import { getAutoScrollSpeedLabel, useAutoScroll } from './useAutoScroll'
+import { AUTO_SCROLL_SPEEDS, getAutoScrollSpeedLabel, useAutoScroll } from './useAutoScroll'
 import './StagePage.css'
 
 type StagePageProps = {
@@ -142,6 +142,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
 
   const hasPrevious = currentIndex > 0
   const hasNext = currentIndex < songs.length - 1
+  const autoScrollSpeedIndex = AUTO_SCROLL_SPEEDS.findIndex((option) => option.value === autoScrollSpeed)
 
   return (
     <main
@@ -198,11 +199,11 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
             Velocidade: {getAutoScrollSpeedLabel(autoScrollSpeed)}
             <input
               type="range"
-              min="20"
-              max="70"
-              step="10"
-              value={autoScrollSpeed}
-              onChange={(event) => setAutoScrollSpeed(Number(event.target.value))}
+              min="0"
+              max="2"
+              step="1"
+              value={autoScrollSpeedIndex}
+              onChange={(event) => setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[Number(event.target.value)].value)}
               aria-label="Velocidade do auto-scroll"
             />
           </label>
