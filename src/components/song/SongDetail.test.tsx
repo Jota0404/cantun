@@ -53,7 +53,6 @@ describe('SongDetail', () => {
     expect(screen.getByText('[E]Grandioso és [B]Tu')).toBeInTheDocument()
   })
 
-
   it('offers transpose controls when provided', async () => {
     const user = userEvent.setup()
     const onTranspose = vi.fn()
@@ -91,6 +90,17 @@ describe('SongDetail', () => {
     await user.click(screen.getByRole('button', { name: 'Editar' }))
 
     expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers a stage mode action when provided', async () => {
+    const user = userEvent.setup()
+    const onStage = vi.fn()
+
+    render(<SongDetail song={song()} onStage={onStage} />)
+
+    await user.click(screen.getByRole('button', { name: 'Modo Palco' }))
+
+    expect(onStage).toHaveBeenCalledTimes(1)
   })
 
   it('offers an action to add a song to favorites', async () => {
