@@ -48,27 +48,47 @@ function isMusicalKey(value: string): value is MusicalKey {
 export function parseSongText(text: string): SongTextParseResult {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const headers: Partial<Record<HeaderField, string>> = {}
-  let lyricsStartIndex = lines.length
+  let index = 0
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
+  while (index < lines.length && lines[index].trim() === '') {
+    index += 1
+  }
 
-    if (line.trim() === '') {
-      lyricsStartIndex = index + 1
-      break
+  const firstHeader = parseHeader(lines[index] ?? '')
+
+  // Also accept the common chord-sheet layout used by existing .txt files:
+  // title on line 1, artist on line 2, then metadata such as "Tom: D".
+  if (!firstHeader && lines[index]?.trim()) {
+    headers.title = lines[index].trim()
+    index += 1
+
+    while (index < lines.length && lines[index].trim() === '') {
+      index += 1
     }
 
-    const header = parseHeader(line)
+    if (index < lines.length && !parseHeader(lines[index])) {
+      headers.artist = lines[index].trim()
+      index += 1
+    }
+  }
+
+  while (index < lines.length) {
+    if (lines[index].trim() === '') {
+      index += 1
+      continue
+    }
+
+    const header = parseHeader(lines[index])
 
     if (!header) {
-      lyricsStartIndex = index
       break
     }
 
     headers[header.field] = header.value
+    index += 1
   }
 
-  const lyrics = lines.slice(lyricsStartIndex).join('\n').trim()
+  const lyrics = lines.slice(index).join('\n').trim()
   const title = headers.title?.trim() ?? ''
   const key = headers.key?.trim() ?? ''
   const artist = headers.artist?.trim() || undefined
