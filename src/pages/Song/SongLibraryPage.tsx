@@ -48,6 +48,10 @@ export function SongLibraryPage({ repository }: SongLibraryPageProps) {
 
   return (
     <section className="song-library-page">
+      <button type="button" onClick={() => navigate('/songs/import')}>
+        Importar música (.txt)
+      </button>
+
       <label className="song-library-page__search-label" htmlFor="song-search">
         Buscar músicas
       </label>
