@@ -13,6 +13,7 @@ export function getAutoScrollSpeedLabel(speed: number) {
 export function useAutoScroll() {
   const [speed, setSpeed] = useState(40)
   const [isScrolling, setIsScrolling] = useState(false)
+  const [hasStarted, setHasStarted] = useState(false)
   const frameRef = useRef<number | null>(null)
   const lastTimestampRef = useRef<number | null>(null)
   const speedRef = useRef(speed)
@@ -65,6 +66,7 @@ export function useAutoScroll() {
     }
 
     isScrollingRef.current = true
+    setHasStarted(true)
     setIsScrolling(true)
     lastTimestampRef.current = null
     frameRef.current = window.requestAnimationFrame(tick)
@@ -90,6 +92,7 @@ export function useAutoScroll() {
     speed,
     setSpeed,
     isScrolling,
+    hasStarted,
     start,
     pause,
     restartAtCurrentPosition,
