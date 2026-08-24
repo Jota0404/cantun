@@ -4,6 +4,7 @@ import { SongDetail } from '../../components/song/SongDetail'
 import { deleteSong } from '../../application/songs/deleteSong'
 import { getSongById } from '../../application/songs/getSongById'
 import { updateSong } from '../../application/songs/updateSong'
+import { transposeSong } from '../../application/songs/transposeSong'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import './SongDetailPage.css'
@@ -21,6 +22,8 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
   const [deleteError, setDeleteError] = useState<string | undefined>()
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | undefined>()
+  const [isTransposing, setIsTransposing] = useState(false)
+  const [transposeError, setTransposeError] = useState<string | undefined>()
 
   useEffect(() => {
     let cancelled = false
@@ -94,6 +97,26 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
     }
   }
 
+  async function handleTranspose(semitones: number) {
+    if (!song) return
+    setTransposeError(undefined)
+    setIsTransposing(true)
+    try {
+      const result = repository
+        ? await transposeSong({ id: song.id, semitones }, repository)
+        : await transposeSong({ id: song.id, semitones })
+      if (!result.success) {
+        setTransposeError(result.error.message)
+        return
+      }
+      setSong(result.song)
+    } catch {
+      setTransposeError('Não foi possível transpor a música. Tente novamente.')
+    } finally {
+      setIsTransposing(false)
+    }
+  }
+
   async function handleToggleFavorite() {
     if (!song) {
       return
@@ -135,10 +158,13 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
         onDelete={handleDelete}
         isDeleting={isDeleting}
         onToggleFavorite={handleToggleFavorite}
+        onTranspose={handleTranspose}
+        isTransposing={isTransposing}
         isUpdatingFavorite={isUpdatingFavorite}
       />
       {deleteError && <p role="alert">{deleteError}</p>}
       {favoriteError && <p role="alert">{favoriteError}</p>}
+      {transposeError && <p role="alert">{transposeError}</p>}
     </section>
   )
 }

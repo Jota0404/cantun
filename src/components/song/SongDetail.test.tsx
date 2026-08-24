@@ -13,7 +13,7 @@ function song(overrides: Partial<Song> = {}): Song {
     artist: 'Harpa Cristã',
     originalKey: 'D',
     currentKey: 'E',
-    lyrics: '[E]Grandioso és [B]Tu',
+    lyrics: '[D]Grandioso és [A]Tu',
     notes: 'Introdução suave',
     bpm: 90,
     isFavorite: false,
@@ -51,6 +51,17 @@ describe('SongDetail', () => {
     render(<SongDetail song={song()} />)
 
     expect(screen.getByText('[E]Grandioso és [B]Tu')).toBeInTheDocument()
+  })
+
+
+  it('offers transpose controls when provided', async () => {
+    const user = userEvent.setup()
+    const onTranspose = vi.fn()
+    render(<SongDetail song={song()} onTranspose={onTranspose} />)
+    await user.click(screen.getByRole('button', { name: 'Próximo tom' }))
+    await user.click(screen.getByRole('button', { name: 'Tom anterior' }))
+    expect(onTranspose).toHaveBeenNthCalledWith(1, 1)
+    expect(onTranspose).toHaveBeenNthCalledWith(2, -1)
   })
 
   it('renders notes when available', () => {

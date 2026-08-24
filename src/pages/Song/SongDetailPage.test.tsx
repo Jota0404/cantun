@@ -10,6 +10,7 @@ import { SongDetailPage } from './SongDetailPage'
 const getSongByIdMock = vi.fn()
 const deleteSongMock = vi.fn()
 const updateSongMock = vi.fn()
+const transposeSongMock = vi.fn()
 
 vi.mock('../../application/songs/getSongById', () => ({
   getSongById: (...args: unknown[]) => getSongByIdMock(...args),
@@ -23,6 +24,10 @@ vi.mock('../../application/songs/updateSong', () => ({
   updateSong: (...args: unknown[]) => updateSongMock(...args),
 }))
 
+vi.mock('../../application/songs/transposeSong', () => ({
+  transposeSong: (...args: unknown[]) => transposeSongMock(...args),
+}))
+
 function song(overrides: Partial<Song> = {}): Song {
   return {
     id: 'song-1',
@@ -30,7 +35,7 @@ function song(overrides: Partial<Song> = {}): Song {
     artist: 'Harpa Cristã',
     originalKey: 'D',
     currentKey: 'E',
-    lyrics: '[E]Grandioso és [B]Tu',
+    lyrics: '[D]Grandioso és [A]Tu',
     bpm: 90,
     isFavorite: false,
     createdAt: '2026-08-20T10:00:00.000Z',
@@ -44,6 +49,7 @@ describe('SongDetailPage', () => {
     getSongByIdMock.mockReset()
     deleteSongMock.mockReset()
     updateSongMock.mockReset()
+    transposeSongMock.mockReset()
     vi.restoreAllMocks()
   })
 
@@ -69,6 +75,20 @@ describe('SongDetailPage', () => {
     })
 
     expect(getSongByIdMock).toHaveBeenCalledWith('song-1')
+  })
+
+
+  it('transposes the song and updates the displayed key and lyrics', async () => {
+    const user = userEvent.setup()
+    const currentSong = song()
+    const transposedSong = { ...currentSong, currentKey: 'F' }
+    getSongByIdMock.mockResolvedValue(currentSong)
+    transposeSongMock.mockResolvedValue({ success: true, song: transposedSong })
+    renderPage('/songs/song-1')
+    await user.click(await screen.findByRole('button', { name: 'Próximo tom' }))
+    await waitFor(() => expect(transposeSongMock).toHaveBeenCalledWith({ id:'song-1', semitones:1 }))
+    expect(screen.getByText('Tom atual: F')).toBeInTheDocument()
+    expect(screen.getByText('[F]Grandioso és [C]Tu')).toBeInTheDocument()
   })
 
   it('renders a not found message when the song does not exist', async () => {

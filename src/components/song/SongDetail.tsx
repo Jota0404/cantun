@@ -1,4 +1,5 @@
 import type { Song } from '../../domain/songs/song'
+import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import './SongDetail.css'
 
 type SongDetailProps = {
@@ -6,8 +7,10 @@ type SongDetailProps = {
   onEdit?: () => void
   onDelete?: () => void
   onToggleFavorite?: () => void
+  onTranspose?: (semitones: number) => void
   isDeleting?: boolean
   isUpdatingFavorite?: boolean
+  isTransposing?: boolean
 }
 
 export function SongDetail({
@@ -17,7 +20,11 @@ export function SongDetail({
   onToggleFavorite,
   isDeleting = false,
   isUpdatingFavorite = false,
+  onTranspose,
+  isTransposing = false,
 }: SongDetailProps) {
+  const semitones = getSemitoneDistance(song.originalKey, song.currentKey)
+  const displayedLyrics = transposeSongLyrics(song.lyrics, semitones, song.currentKey)
   return (
     <article className="song-detail">
       <header className="song-detail__header">
@@ -36,9 +43,21 @@ export function SongDetail({
         {song.bpm !== undefined && <p>BPM: {song.bpm}</p>}
       </div>
 
+      {onTranspose && (
+        <div className="song-detail__transpose" aria-label="Transposição">
+          <button type="button" onClick={() => onTranspose(-1)} disabled={isTransposing}>
+            Tom anterior
+          </button>
+          <span aria-live="polite">Tom: {song.currentKey}</span>
+          <button type="button" onClick={() => onTranspose(1)} disabled={isTransposing}>
+            Próximo tom
+          </button>
+        </div>
+      )}
+
       <section className="song-detail__section" aria-labelledby="song-lyrics">
         <h3 id="song-lyrics">Cifra/letra</h3>
-        <pre>{song.lyrics}</pre>
+        <pre>{displayedLyrics}</pre>
       </section>
 
       {song.notes && (
