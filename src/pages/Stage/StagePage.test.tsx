@@ -59,6 +59,12 @@ describe('StagePage', () => {
   let nextFrameId: number
   let scrollPosition: number
 
+  function runFrame(id: number, timestamp: number) {
+    const callback = callbacks.get(id)
+    callbacks.delete(id)
+    callback?.(timestamp)
+  }
+
   beforeEach(() => {
     callbacks = new Map()
     nextFrameId = 1
@@ -142,7 +148,7 @@ describe('StagePage', () => {
     expect(callbacks.size).toBe(1)
 
     const firstFrame = [...callbacks.keys()][0]
-    callbacks.get(firstFrame)?.(1000)
+    runFrame(firstFrame, 1000)
     expect(callbacks.size).toBe(1)
 
     await user.click(screen.getByRole('button', { name: 'Pausar' }))
@@ -169,16 +175,16 @@ describe('StagePage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Iniciar' }))
     const firstFrame = [...callbacks.keys()][0]
-    callbacks.get(firstFrame)?.(1000)
+    runFrame(firstFrame, 1000)
     const secondFrame = [...callbacks.keys()][0]
-    callbacks.get(secondFrame)?.(1100)
+    runFrame(secondFrame, 1100)
 
     expect(scrollPosition).toBeCloseTo(7)
     expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
 
     scrollPosition = 1000
     const activeFrame = [...callbacks.keys()][0]
-    callbacks.get(activeFrame)?.(1200)
+    runFrame(activeFrame, 1200)
     expect(screen.getByText('Auto-scroll: Pausado')).toBeInTheDocument()
     expect(callbacks.size).toBe(0)
   })
