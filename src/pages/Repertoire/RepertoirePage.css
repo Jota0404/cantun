@@ -24,6 +24,7 @@
 }
 
 .repertoire-create,
+.repertoire-rename,
 .repertoire-section {
   display: flex;
   flex-direction: column;
@@ -41,7 +42,8 @@
   gap: 12px;
 }
 
-.repertoire-create input {
+.repertoire-create input,
+.repertoire-rename input {
   min-width: 0;
   flex: 1;
   box-sizing: border-box;
@@ -79,6 +81,16 @@
 .repertoire-card h4 {
   margin: 0 0 4px;
   color: var(--text-h);
+}
+
+.repertoire-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.repertoire-title-row h2 {
+  margin: 8px 0;
 }
 
 .repertoire-card__position {
@@ -124,5 +136,10 @@
 
   .repertoire-card__actions button {
     flex: 1;
+  }
+
+  .repertoire-title-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
