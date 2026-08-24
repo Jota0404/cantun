@@ -19,6 +19,23 @@ describe('parseSongText', () => {
     })
   })
 
+  it('parses a common chord-sheet layout with title and artist on the first lines', () => {
+    const result = parseSongText(`Santo Espírito\nLaura Souguellis\n\nTom: D\n\n[Refrão]\nD9\nSanto Espírito, és bem-vindo aqui\nG5(7M)\nVem inundar, encher esse lugar`)
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        title: 'Santo Espírito',
+        artist: 'Laura Souguellis',
+        originalKey: 'D',
+        currentKey: 'D',
+        bpm: undefined,
+        lyrics: '[Refrão]\nD9\nSanto Espírito, és bem-vindo aqui\nG5(7M)\nVem inundar, encher esse lugar',
+        notes: undefined,
+      },
+    })
+  })
+
   it('supports optional artist, bpm and notes', () => {
     const result = parseSongText('Título: Oceano\nTom: D\n\n[D]Tu és...')
 
