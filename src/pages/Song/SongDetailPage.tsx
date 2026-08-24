@@ -138,13 +138,13 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
           })
 
       if (!result.success) {
-        setFavoriteError('NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.')
+        setFavoriteError('Não foi possível atualizar os favoritos. Tente novamente.')
         return
       }
 
       setSong(result.song)
     } catch {
-      setFavoriteError('NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.')
+      setFavoriteError('Não foi possível atualizar os favoritos. Tente novamente.')
     } finally {
       setIsUpdatingFavorite(false)
     }
@@ -161,6 +161,7 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
         onTranspose={handleTranspose}
         isTransposing={isTransposing}
         isUpdatingFavorite={isUpdatingFavorite}
+        onStage={() => navigate(`/stage/song/${song.id}`)}
       />
       {deleteError && <p role="alert">{deleteError}</p>}
       {favoriteError && <p role="alert">{favoriteError}</p>}
