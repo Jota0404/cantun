@@ -201,8 +201,12 @@ describe('StagePage', () => {
 
     await screen.findByRole('heading', { name: 'Primeira' })
     await user.click(screen.getByRole('button', { name: 'Iniciar' }))
-    scrollPosition = 300
+    const fontRange = screen.getByRole('slider', { name: 'Tamanho da fonte' })
+    fireEvent.change(fontRange, { target: { value: '30' } })
+    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
+    expect(callbacks.size).toBe(1)
 
+    scrollPosition = 300
     await user.click(screen.getByRole('button', { name: 'Próxima →' }))
 
     expect(screen.getByRole('heading', { name: 'Segunda' })).toBeInTheDocument()
