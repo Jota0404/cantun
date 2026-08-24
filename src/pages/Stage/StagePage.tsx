@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
@@ -7,21 +7,12 @@ import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/tra
 import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import type { Song } from '../../domain/songs/song'
+import { getAutoScrollSpeedLabel, useAutoScroll } from './useAutoScroll'
 import './StagePage.css'
 
 type StagePageProps = {
   repository?: SongRepository
   setlistSongRepository?: SetlistSongRepository
-}
-
-const AUTO_SCROLL_SPEEDS = [
-  { value: 20, label: 'Lenta' },
-  { value: 40, label: 'Normal' },
-  { value: 70, label: 'Rápida' },
-] as const
-
-function getAutoScrollSpeedLabel(speed: number) {
-  return AUTO_SCROLL_SPEEDS.find((option) => option.value === speed)?.label ?? 'Normal'
 }
 
 export function StagePage({ repository, setlistSongRepository }: StagePageProps) {
@@ -32,63 +23,17 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   const [currentSong, setCurrentSong] = useState<Song | undefined>()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [fontSize, setFontSize] = useState(22)
-  const [autoScrollSpeed, setAutoScrollSpeed] = useState(40)
-  const [isAutoScrolling, setIsAutoScrolling] = useState(false)
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const autoScrollFrameRef = useRef<number | null>(null)
-  const autoScrollLastTimestampRef = useRef<number | null>(null)
-  const autoScrollSpeedRef = useRef(autoScrollSpeed)
-  const isAutoScrollingRef = useRef(false)
-
-  useEffect(() => {
-    autoScrollSpeedRef.current = autoScrollSpeed
-  }, [autoScrollSpeed])
-
-  function stopAutoScroll() {
-    if (autoScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(autoScrollFrameRef.current)
-      autoScrollFrameRef.current = null
-    }
-    autoScrollLastTimestampRef.current = null
-    isAutoScrollingRef.current = false
-    setIsAutoScrolling(false)
-  }
-
-  function runAutoScroll(timestamp: number) {
-    if (!isAutoScrollingRef.current) return
-
-    const lastTimestamp = autoScrollLastTimestampRef.current ?? timestamp
-    const elapsed = Math.min(timestamp - lastTimestamp, 100)
-    autoScrollLastTimestampRef.current = timestamp
-
-    const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-    if (window.scrollY >= maxScrollTop) {
-      stopAutoScroll()
-      return
-    }
-
-    window.scrollBy({ top: (autoScrollSpeedRef.current * elapsed) / 1000, behavior: 'auto' })
-    autoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll)
-  }
-
-  function startAutoScroll() {
-    if (isAutoScrollingRef.current) return
-
-    if (autoScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(autoScrollFrameRef.current)
-    }
-
-    isAutoScrollingRef.current = true
-    setIsAutoScrolling(true)
-    autoScrollLastTimestampRef.current = null
-    autoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll)
-  }
-
-  function pauseAutoScroll() {
-    stopAutoScroll()
-  }
+  const {
+    speed: autoScrollSpeed,
+    setSpeed: setAutoScrollSpeed,
+    isScrolling: isAutoScrolling,
+    start: startAutoScroll,
+    pause: pauseAutoScroll,
+    restartAtCurrentPosition,
+  } = useAutoScroll()
 
   useEffect(() => {
     let cancelled = false
@@ -143,14 +88,8 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   useEffect(() => {
     if (!currentSong) return
     window.scrollTo({ top: 0 })
-    if (isAutoScrollingRef.current) {
-      if (autoScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(autoScrollFrameRef.current)
-      }
-      autoScrollLastTimestampRef.current = null
-      autoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll)
-    }
-  }, [currentSong])
+    restartAtCurrentPosition()
+  }, [currentSong, restartAtCurrentPosition])
 
   useEffect(() => {
     function handleFullscreenChange() {
@@ -159,8 +98,6 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
-
-  useEffect(() => () => stopAutoScroll(), [])
 
   const displayedLyrics = useMemo(() => {
     if (!currentSong) return ''
