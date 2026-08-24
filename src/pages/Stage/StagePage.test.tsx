@@ -153,9 +153,10 @@ describe('StagePage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Pausar' }))
     expect(screen.getByText('Auto-scroll: Pausado')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retomar' })).toBeInTheDocument()
     expect(callbacks.size).toBe(0)
 
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    await user.click(screen.getByRole('button', { name: 'Retomar' }))
     expect(callbacks.size).toBe(1)
   })
 
