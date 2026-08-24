@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { SongDetail } from '../../components/song/SongDetail'
+import { deleteSong } from '../../application/songs/deleteSong'
 import { getSongById } from '../../application/songs/getSongById'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
@@ -15,6 +16,8 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
   const navigate = useNavigate()
   const [song, setSong] = useState<Song | undefined>()
   const [loadedSongId, setLoadedSongId] = useState<string | undefined>()
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | undefined>()
 
   useEffect(() => {
     let cancelled = false
@@ -62,9 +65,41 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
     )
   }
 
+  async function handleDelete() {
+    if (!songId || !window.confirm('Deseja excluir esta música?')) {
+      return
+    }
+
+    setDeleteError(undefined)
+    setIsDeleting(true)
+
+    try {
+      const result = repository
+        ? await deleteSong(songId, repository)
+        : await deleteSong(songId)
+
+      if (!result.success) {
+        setDeleteError(result.error.message)
+        return
+      }
+
+      navigate('/songs')
+    } catch {
+      setDeleteError('Não foi possível excluir a música. Tente novamente.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <section className="song-detail-page">
-      <SongDetail song={song} onEdit={() => navigate(`/songs/${song.id}/edit`)} />
+      <SongDetail
+        song={song}
+        onEdit={() => navigate(`/songs/${song.id}/edit`)}
+        onDelete={handleDelete}
+        isDeleting={isDeleting}
+      />
+      {deleteError && <p role="alert">{deleteError}</p>}
     </section>
   )
 }

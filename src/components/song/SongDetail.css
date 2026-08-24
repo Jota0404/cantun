@@ -51,3 +51,15 @@
   white-space: pre-wrap;
   font: inherit;
 }
+
+.song-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.song-detail__delete {
+  color: #fff;
+  background: #b42318;
+}

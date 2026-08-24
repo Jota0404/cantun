@@ -2,14 +2,20 @@
 
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Song } from '../../domain/songs/song'
 import { SongDetailPage } from './SongDetailPage'
 
 const getSongByIdMock = vi.fn()
+const deleteSongMock = vi.fn()
 
 vi.mock('../../application/songs/getSongById', () => ({
   getSongById: (...args: unknown[]) => getSongByIdMock(...args),
+}))
+
+vi.mock('../../application/songs/deleteSong', () => ({
+  deleteSong: (...args: unknown[]) => deleteSongMock(...args),
 }))
 
 function song(): Song {
@@ -28,6 +34,12 @@ function song(): Song {
 }
 
 describe('SongDetailPage', () => {
+  beforeEach(() => {
+    getSongByIdMock.mockReset()
+    deleteSongMock.mockReset()
+    vi.restoreAllMocks()
+  })
+
   function renderPage(path: string) {
     return render(
       <MemoryRouter initialEntries={[path]}>
@@ -70,5 +82,60 @@ describe('SongDetailPage', () => {
     renderPage('/songs/song-1')
 
     expect(screen.getByText('Carregando música...')).toBeInTheDocument()
+  })
+
+  it('does not delete the song when deletion is cancelled', async () => {
+    const user = userEvent.setup()
+    getSongByIdMock.mockResolvedValue(song())
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    renderPage('/songs/song-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+
+    expect(confirmMock).toHaveBeenCalledWith('Deseja excluir esta música?')
+    expect(deleteSongMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Grandioso És Tu' })).toBeInTheDocument()
+  })
+
+  it('deletes the song and returns to the library after confirmation', async () => {
+    const user = userEvent.setup()
+    getSongByIdMock.mockResolvedValue(song())
+    deleteSongMock.mockResolvedValue({ success: true })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(
+      <MemoryRouter initialEntries={['/songs/song-1']}>
+        <Routes>
+          <Route path="/songs/:songId" element={<SongDetailPage />} />
+          <Route path="/songs" element={<p>Biblioteca atualizada</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+
+    await waitFor(() => {
+      expect(deleteSongMock).toHaveBeenCalledWith('song-1')
+    })
+    expect(screen.getByText('Biblioteca atualizada')).toBeInTheDocument()
+  })
+
+  it('shows an error when deletion fails', async () => {
+    const user = userEvent.setup()
+    getSongByIdMock.mockResolvedValue(song())
+    deleteSongMock.mockResolvedValue({
+      success: false,
+      error: { field: 'id', message: 'Música não encontrada.' },
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderPage('/songs/song-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+
+    expect(
+      await screen.findByRole('alert'),
+    ).toHaveTextContent('Música não encontrada.')
   })
 })

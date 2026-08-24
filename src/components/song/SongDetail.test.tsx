@@ -81,4 +81,15 @@ describe('SongDetail', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
+
+  it('offers a delete action when provided', async () => {
+    const user = userEvent.setup()
+    const onDelete = vi.fn()
+
+    render(<SongDetail song={song()} onDelete={onDelete} />)
+
+    await user.click(screen.getByRole('button', { name: 'Excluir' }))
+
+    expect(onDelete).toHaveBeenCalledTimes(1)
+  })
 })

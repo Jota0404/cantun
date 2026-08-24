@@ -4,9 +4,11 @@ import './SongDetail.css'
 type SongDetailProps = {
   song: Song
   onEdit?: () => void
+  onDelete?: () => void
+  isDeleting?: boolean
 }
 
-export function SongDetail({ song, onEdit }: SongDetailProps) {
+export function SongDetail({ song, onEdit, onDelete, isDeleting = false }: SongDetailProps) {
   return (
     <article className="song-detail">
       <header className="song-detail__header">
@@ -37,11 +39,23 @@ export function SongDetail({ song, onEdit }: SongDetailProps) {
         </section>
       )}
 
-      {onEdit && (
-        <button type="button" className="song-detail__edit" onClick={onEdit}>
-          Editar
-        </button>
-      )}
+      <div className="song-detail__actions">
+        {onEdit && (
+          <button type="button" className="song-detail__edit" onClick={onEdit}>
+            Editar
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            className="song-detail__delete"
+            onClick={onDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Excluindo...' : 'Excluir'}
+          </button>
+        )}
+      </div>
     </article>
   )
 }
