@@ -9,6 +9,7 @@ import { SongDetailPage } from './SongDetailPage'
 
 const getSongByIdMock = vi.fn()
 const deleteSongMock = vi.fn()
+const updateSongMock = vi.fn()
 
 vi.mock('../../application/songs/getSongById', () => ({
   getSongById: (...args: unknown[]) => getSongByIdMock(...args),
@@ -18,7 +19,11 @@ vi.mock('../../application/songs/deleteSong', () => ({
   deleteSong: (...args: unknown[]) => deleteSongMock(...args),
 }))
 
-function song(): Song {
+vi.mock('../../application/songs/updateSong', () => ({
+  updateSong: (...args: unknown[]) => updateSongMock(...args),
+}))
+
+function song(overrides: Partial<Song> = {}): Song {
   return {
     id: 'song-1',
     title: 'Grandioso És Tu',
@@ -30,6 +35,7 @@ function song(): Song {
     isFavorite: false,
     createdAt: '2026-08-20T10:00:00.000Z',
     updatedAt: '2026-08-22T10:00:00.000Z',
+    ...overrides,
   }
 }
 
@@ -37,6 +43,7 @@ describe('SongDetailPage', () => {
   beforeEach(() => {
     getSongByIdMock.mockReset()
     deleteSongMock.mockReset()
+    updateSongMock.mockReset()
     vi.restoreAllMocks()
   })
 
@@ -137,5 +144,54 @@ describe('SongDetailPage', () => {
     expect(
       await screen.findByRole('alert'),
     ).toHaveTextContent('Música não encontrada.')
+  })
+
+  it('marks a song as favorite and updates the detail', async () => {
+    const user = userEvent.setup()
+    const currentSong = song()
+    const favoriteSong = { ...currentSong, isFavorite: true }
+    getSongByIdMock.mockResolvedValue(currentSong)
+    updateSongMock.mockResolvedValue({ success: true, song: favoriteSong })
+
+    renderPage('/songs/song-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Adicionar aos favoritos' }))
+
+    await waitFor(() => {
+      expect(updateSongMock).toHaveBeenCalledWith({ ...currentSong, isFavorite: true })
+    })
+    expect(screen.getByRole('button', { name: 'Remover dos favoritos' })).toBeInTheDocument()
+  })
+
+  it('removes a song from favorites', async () => {
+    const user = userEvent.setup()
+    const currentSong = song({ isFavorite: true })
+    const nonFavoriteSong = { ...currentSong, isFavorite: false }
+    getSongByIdMock.mockResolvedValue(currentSong)
+    updateSongMock.mockResolvedValue({ success: true, song: nonFavoriteSong })
+
+    renderPage('/songs/song-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Remover dos favoritos' }))
+
+    await waitFor(() => {
+      expect(updateSongMock).toHaveBeenCalledWith({ ...currentSong, isFavorite: false })
+    })
+    expect(screen.getByRole('button', { name: 'Adicionar aos favoritos' })).toBeInTheDocument()
+  })
+
+  it('keeps the favorite state and shows an error when persistence fails', async () => {
+    const user = userEvent.setup()
+    getSongByIdMock.mockResolvedValue(song())
+    updateSongMock.mockRejectedValue(new Error('IndexedDB unavailable'))
+
+    renderPage('/songs/song-1')
+
+    await user.click(await screen.findByRole('button', { name: 'Adicionar aos favoritos' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.',
+    )
+    expect(screen.getByRole('button', { name: 'Adicionar aos favoritos' })).toBeInTheDocument()
   })
 })

@@ -82,6 +82,27 @@ describe('SongDetail', () => {
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
+  it('offers an action to add a song to favorites', async () => {
+    const user = userEvent.setup()
+    const onToggleFavorite = vi.fn()
+
+    render(<SongDetail song={song()} onToggleFavorite={onToggleFavorite} />)
+
+    const button = screen.getByRole('button', { name: 'Adicionar aos favoritos' })
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    await user.click(button)
+
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers an action to remove a favorite song from favorites', () => {
+    render(<SongDetail song={song({ isFavorite: true })} onToggleFavorite={vi.fn()} />)
+
+    expect(
+      screen.getByRole('button', { name: 'Remover dos favoritos' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('offers a delete action when provided', async () => {
     const user = userEvent.setup()
     const onDelete = vi.fn()

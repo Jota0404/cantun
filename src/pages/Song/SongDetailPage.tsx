@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { SongDetail } from '../../components/song/SongDetail'
 import { deleteSong } from '../../application/songs/deleteSong'
 import { getSongById } from '../../application/songs/getSongById'
+import { updateSong } from '../../application/songs/updateSong'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import './SongDetailPage.css'
@@ -18,6 +19,8 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
   const [loadedSongId, setLoadedSongId] = useState<string | undefined>()
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | undefined>()
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | undefined>()
 
   useEffect(() => {
     let cancelled = false
@@ -91,6 +94,39 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
     }
   }
 
+  async function handleToggleFavorite() {
+    if (!song) {
+      return
+    }
+
+    const currentSong = song
+    setFavoriteError(undefined)
+    setIsUpdatingFavorite(true)
+
+    try {
+      const result = repository
+        ? await updateSong(
+            { ...currentSong, isFavorite: !currentSong.isFavorite },
+            repository,
+          )
+        : await updateSong({
+            ...currentSong,
+            isFavorite: !currentSong.isFavorite,
+          })
+
+      if (!result.success) {
+        setFavoriteError('NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.')
+        return
+      }
+
+      setSong(result.song)
+    } catch {
+      setFavoriteError('NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.')
+    } finally {
+      setIsUpdatingFavorite(false)
+    }
+  }
+
   return (
     <section className="song-detail-page">
       <SongDetail
@@ -98,8 +134,11 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
         onEdit={() => navigate(`/songs/${song.id}/edit`)}
         onDelete={handleDelete}
         isDeleting={isDeleting}
+        onToggleFavorite={handleToggleFavorite}
+        isUpdatingFavorite={isUpdatingFavorite}
       />
       {deleteError && <p role="alert">{deleteError}</p>}
+      {favoriteError && <p role="alert">{favoriteError}</p>}
     </section>
   )
 }

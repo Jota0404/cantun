@@ -5,10 +5,19 @@ type SongDetailProps = {
   song: Song
   onEdit?: () => void
   onDelete?: () => void
+  onToggleFavorite?: () => void
   isDeleting?: boolean
+  isUpdatingFavorite?: boolean
 }
 
-export function SongDetail({ song, onEdit, onDelete, isDeleting = false }: SongDetailProps) {
+export function SongDetail({
+  song,
+  onEdit,
+  onDelete,
+  onToggleFavorite,
+  isDeleting = false,
+  isUpdatingFavorite = false,
+}: SongDetailProps) {
   return (
     <article className="song-detail">
       <header className="song-detail__header">
@@ -40,6 +49,20 @@ export function SongDetail({ song, onEdit, onDelete, isDeleting = false }: SongD
       )}
 
       <div className="song-detail__actions">
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            disabled={isUpdatingFavorite}
+            aria-pressed={song.isFavorite}
+          >
+            {isUpdatingFavorite
+              ? 'Salvando...'
+              : song.isFavorite
+                ? 'Remover dos favoritos'
+                : 'Adicionar aos favoritos'}
+          </button>
+        )}
         {onEdit && (
           <button type="button" className="song-detail__edit" onClick={onEdit}>
             Editar

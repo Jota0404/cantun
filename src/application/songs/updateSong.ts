@@ -10,7 +10,8 @@ import {
 } from '../../db/repositories/songRepository'
 
 export type UpdateSongInput = SongValidationInput &
-  Pick<Song, 'id' | 'artist' | 'notes'>
+  Pick<Song, 'id' | 'artist' | 'notes'> &
+  Partial<Pick<Song, 'isFavorite'>>
 
 export type UpdateSongResult =
   | { success: true; song: Song }
@@ -52,6 +53,7 @@ export async function updateSong(
     lyrics: input.lyrics,
     bpm: input.bpm,
     notes: input.notes,
+    isFavorite: input.isFavorite ?? existingSong.isFavorite,
     updatedAt: new Date().toISOString(),
   }
 

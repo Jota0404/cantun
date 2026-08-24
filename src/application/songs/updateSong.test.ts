@@ -123,6 +123,20 @@ describe('updateSong', () => {
     )
   })
 
+  it('updates the favorite status when provided', async () => {
+    const repository = repositoryMock(existingSong({ isFavorite: false }))
+
+    const result = await updateSong(validInput({ isFavorite: true }), repository)
+
+    expect(result).toMatchObject({
+      success: true,
+      song: { isFavorite: true },
+    })
+    expect(repository.update).toHaveBeenCalledWith(
+      expect.objectContaining({ isFavorite: true }),
+    )
+  })
+
   it('does not persist when validation fails', async () => {
     const repository = repositoryMock()
 
