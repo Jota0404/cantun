@@ -1,6 +1,7 @@
 import './App.css'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { NewSongPage } from './pages/Song/NewSongPage'
+import { ImportSongPage } from './pages/Song/ImportSongPage'
 import { SongDetailPage } from './pages/Song/SongDetailPage'
 import { EditSongPage } from './pages/Song/EditSongPage'
 import { SongLibraryPage } from './pages/Song/SongLibraryPage'
@@ -20,6 +21,7 @@ function App() {
           <nav aria-label="Navegação principal">
             <Link to="/songs">Biblioteca</Link>
             <Link to="/songs/new">Nova música</Link>
+            <Link to="/songs/import">Importar música</Link>
             <Link to="/repertoires">Repertórios</Link>
           </nav>
         </>
@@ -28,27 +30,13 @@ function App() {
       <Routes>
         <Route path="/songs" element={<SongLibraryPage />} />
         <Route path="/repertoires" element={<RepertoireListPage />} />
-        <Route
-          path="/repertoires/:repertoireId"
-          element={<RepertoireDetailPage />}
-        />
-        <Route
-          path="/stage/setlist/:setlistId"
-          element={<StagePage />}
-        />
-        <Route
-          path="/stage/song/:songId"
-          element={<StagePage />}
-        />
+        <Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
+        <Route path="/stage/setlist/:setlistId" element={<StagePage />} />
+        <Route path="/stage/song/:songId" element={<StagePage />} />
         <Route path="/songs/new" element={<NewSongPage />} />
-        <Route
-          path="/songs/:songId/edit"
-          element={<EditSongPage />}
-        />
-        <Route
-          path="/songs/:songId"
-          element={<SongDetailPage />}
-        />
+        <Route path="/songs/import" element={<ImportSongPage />} />
+        <Route path="/songs/:songId/edit" element={<EditSongPage />} />
+        <Route path="/songs/:songId" element={<SongDetailPage />} />
         <Route path="*" element={<Navigate to="/songs" replace />} />
       </Routes>
     </div>
