@@ -8,6 +8,7 @@ type SongDetailProps = {
   onDelete?: () => void
   onToggleFavorite?: () => void
   onTranspose?: (semitones: number) => void
+  onStage?: () => void
   isDeleting?: boolean
   isUpdatingFavorite?: boolean
   isTransposing?: boolean
@@ -18,9 +19,10 @@ export function SongDetail({
   onEdit,
   onDelete,
   onToggleFavorite,
+  onTranspose,
+  onStage,
   isDeleting = false,
   isUpdatingFavorite = false,
-  onTranspose,
   isTransposing = false,
 }: SongDetailProps) {
   const semitones = getSemitoneDistance(song.originalKey, song.currentKey)
@@ -68,6 +70,11 @@ export function SongDetail({
       )}
 
       <div className="song-detail__actions">
+        {onStage && (
+          <button type="button" onClick={onStage}>
+            Modo Palco
+          </button>
+        )}
         {onToggleFavorite && (
           <button
             type="button"
