@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { addSongToSetlist } from '../../application/repertoires/addSongToSetlist'
 import { getSetlistById } from '../../application/repertoires/getSetlistById'
 import { listSetlistSongs } from '../../application/repertoires/listSetlistSongs'
 import { removeSongFromSetlist } from '../../application/repertoires/removeSongFromSetlist'
+import { renameSetlist } from '../../application/repertoires/renameSetlist'
+import { reorderSetlist } from '../../application/repertoires/reorderSetlist'
 import { listSongs } from '../../application/songs/listSongs'
 import type { Setlist } from '../../domain/repertoires/setlist'
 import type { SetlistSong } from '../../domain/repertoires/setlistSong'
@@ -32,6 +35,9 @@ export function RepertoireDetailPage({
   const [loading, setLoading] = useState(true)
   const [actionError, setActionError] = useState<string | undefined>()
   const [busySongId, setBusySongId] = useState<string | undefined>()
+  const [editingName, setEditingName] = useState(false)
+  const [name, setName] = useState('')
+  const [renaming, setRenaming] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -54,6 +60,7 @@ export function RepertoireDetailPage({
         setSetlist(loadedSetlist)
         setEntries(loadedEntries)
         setSongs(loadedSongs)
+        setName(loadedSetlist?.name ?? '')
         setLoading(false)
       }
     }
@@ -125,6 +132,50 @@ export function RepertoireDetailPage({
     }
   }
 
+  async function handleRename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!repertoireId) return
+
+    setActionError(undefined)
+    setRenaming(true)
+
+    try {
+      const result = setlistRepository
+        ? await renameSetlist(repertoireId, name, setlistRepository)
+        : await renameSetlist(repertoireId, name)
+
+      if (!result.success) {
+        setActionError(result.errors[0]?.message ?? result.message ?? 'Não foi possível renomear o repertório.')
+        return
+      }
+
+      setSetlist(result.setlist)
+      setName(result.setlist.name)
+      setEditingName(false)
+    } catch {
+      setActionError('Não foi possível renomear o repertório. Tente novamente.')
+    } finally {
+      setRenaming(false)
+    }
+  }
+
+  async function handleReorder(fromPosition: number, toPosition: number) {
+    if (!repertoireId) return
+    setActionError(undefined)
+
+    try {
+      const dependencies = { setlists: setlistRepository, setlistSongs: setlistSongRepository }
+      const result = await reorderSetlist(repertoireId, fromPosition, toPosition, dependencies)
+      if (!result.success) {
+        setActionError(result.message)
+        return
+      }
+      setEntries(result.entries)
+    } catch {
+      setActionError('Não foi possível reordenar as músicas. Tente novamente.')
+    }
+  }
+
   if (loading) {
     return <p>Carregando repertório...</p>
   }
@@ -147,7 +198,36 @@ export function RepertoireDetailPage({
           <button type="button" onClick={() => navigate('/repertoires')}>
             ← Repertórios
           </button>
-          <h2>{setlist.name}</h2>
+          {editingName ? (
+            <form className="repertoire-rename" onSubmit={handleRename}>
+              <label htmlFor="repertoire-edit-name">Nome do repertório</label>
+              <div className="repertoire-create__row">
+                <input
+                  id="repertoire-edit-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={120}
+                  autoFocus
+                />
+                <button type="submit" disabled={renaming}>
+                  {renaming ? 'Salvando...' : 'Salvar'}
+                </button>
+                <button type="button" disabled={renaming} onClick={() => {
+                  setName(setlist.name)
+                  setEditingName(false)
+                }}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="repertoire-title-row">
+              <h2>{setlist.name}</h2>
+              <button type="button" onClick={() => setEditingName(true)}>
+                Renomear
+              </button>
+            </div>
+          )}
           <p>{orderedSongs.length} música{orderedSongs.length === 1 ? '' : 's'}</p>
         </div>
         <button
@@ -180,6 +260,20 @@ export function RepertoireDetailPage({
                   </div>
                 </div>
                 <div className="repertoire-card__actions">
+                  <button
+                    type="button"
+                    disabled={index === 0 || busySongId === song.id}
+                    onClick={() => void handleReorder(index, index - 1)}
+                  >
+                    ↑ Subir
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === orderedSongs.length - 1 || busySongId === song.id}
+                    onClick={() => void handleReorder(index, index + 1)}
+                  >
+                    ↓ Descer
+                  </button>
                   <button type="button" onClick={() => navigate(`/stage/song/${song.id}`)}>
                     Modo Palco
                   </button>
