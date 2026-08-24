@@ -4,9 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
 import { getStageSongs } from '../../application/stage/getStageSongs'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
-import type { Song } from '../../domain/songs/song'
-import type { SongRepository } from '../../db/repositories/songRepository'
 import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
+import type { SongRepository } from '../../db/repositories/songRepository'
+import type { Song } from '../../domain/songs/song'
 import './StagePage.css'
 
 type StagePageProps = {
@@ -23,6 +23,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [fontSize, setFontSize] = useState(22)
   const [error, setError] = useState<string>()
+  const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
 
     async function load() {
       setError(undefined)
+      setLoading(true)
       if (isSetlistMode && setlistId) {
         const result = await getStageSongs(setlistId, {
           songs: repository,
@@ -40,6 +42,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
           setSongs(loadedSongs)
           setCurrentSong(loadedSongs[0])
           setCurrentIndex(0)
+          setLoading(false)
         }
         return
       }
@@ -50,15 +53,22 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
           setSongs(song ? [song] : [])
           setCurrentSong(song)
           setCurrentIndex(0)
+          setLoading(false)
         }
         return
       }
 
-      if (!cancelled) setError('Música não informada.')
+      if (!cancelled) {
+        setError('Música não informada.')
+        setLoading(false)
+      }
     }
 
     void load().catch(() => {
-      if (!cancelled) setError('Não foi possível carregar o Modo Palco.')
+      if (!cancelled) {
+        setError('Não foi possível carregar o Modo Palco.')
+        setLoading(false)
+      }
     })
 
     return () => {
@@ -103,19 +113,19 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     }
   }
 
-  if (error) {
+  if (loading) {
     return (
       <main className="stage-page stage-page--dark">
-        <p role="alert">{error}</p>
-        <button type="button" onClick={() => navigate(-1)}>Voltar</button>
+        <p>Carregando Modo Palco...</p>
       </main>
     )
   }
 
-  if (!currentSong) {
+  if (error || !currentSong) {
     return (
       <main className="stage-page stage-page--dark">
-        <p>Carregando Modo Palco...</p>
+        <p role="alert">{error ?? 'Nenhuma música disponível para o Modo Palco.'}</p>
+        <button type="button" onClick={() => navigate(-1)}>Voltar</button>
       </main>
     )
   }
