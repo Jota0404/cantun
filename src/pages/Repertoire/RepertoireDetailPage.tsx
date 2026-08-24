@@ -150,6 +150,13 @@ export function RepertoireDetailPage({
           <h2>{setlist.name}</h2>
           <p>{orderedSongs.length} música{orderedSongs.length === 1 ? '' : 's'}</p>
         </div>
+        <button
+          type="button"
+          disabled={orderedSongs.length === 0}
+          onClick={() => navigate(`/stage/setlist/${setlist.id}`)}
+        >
+          Iniciar Modo Palco
+        </button>
       </header>
 
       {actionError && <p className="repertoire-error" role="alert">{actionError}</p>}
@@ -173,6 +180,9 @@ export function RepertoireDetailPage({
                   </div>
                 </div>
                 <div className="repertoire-card__actions">
+                  <button type="button" onClick={() => navigate(`/stage/song/${song.id}`)}>
+                    Modo Palco
+                  </button>
                   <button type="button" onClick={() => navigate(`/songs/${song.id}`)}>
                     Abrir música
                   </button>
