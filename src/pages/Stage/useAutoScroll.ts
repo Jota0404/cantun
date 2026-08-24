@@ -40,12 +40,20 @@ export function useAutoScroll() {
     lastTimestampRef.current = timestamp
 
     const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-    if (window.scrollY >= maxScrollTop) {
+    const remaining = maxScrollTop - window.scrollY
+    if (remaining <= 0) {
       stop()
       return
     }
 
-    window.scrollBy({ top: (speedRef.current * elapsed) / 1000, behavior: 'auto' })
+    const distance = (speedRef.current * elapsed) / 1000
+    window.scrollBy({ top: Math.min(distance, remaining), behavior: 'auto' })
+
+    if (distance >= remaining) {
+      stop()
+      return
+    }
+
     frameRef.current = window.requestAnimationFrame(tick)
   }, [stop])
 
