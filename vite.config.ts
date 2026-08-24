@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -25,6 +26,17 @@ export default defineConfig({
       },
     }),
   ],
+
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
+    https: {
+      key: fs.readFileSync('./10.190.119.79+2-key.pem'),
+      cert: fs.readFileSync('./10.190.119.79+2.pem'),
+    },
+  },
+
   test: {
     environment: 'node',
   },
