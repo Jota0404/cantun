@@ -30,10 +30,19 @@ describe('parseSongText', () => {
         originalKey: 'D',
         currentKey: 'D',
         bpm: undefined,
-        lyrics: '[Refrão]\nD9\nSanto Espírito, és bem-vindo aqui\nG5(7M)\nVem inundar, encher esse lugar',
+        lyrics: '[Refrão]\n[D9]\nSanto Espírito, és bem-vindo aqui\n[G5(7M)]\nVem inundar, encher esse lugar',
         notes: undefined,
       },
     })
+  })
+
+  it('normalizes chord-sheet exported prefixes', () => {
+    const result = parseSongText('Santo Espírito\nLaura Souguellis\n\nTom: D\n\n">D9\nSanto Espírito, és bem-vindo aqui\n    G5(7M)')
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.lyrics).toBe('[D9]\nSanto Espírito, és bem-vindo aqui\n[G5(7M)]')
   })
 
   it('supports optional artist, bpm and notes', () => {
