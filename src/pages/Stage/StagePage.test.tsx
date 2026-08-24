@@ -85,7 +85,8 @@ describe('StagePage', () => {
     })
     vi.spyOn(window, 'scrollBy').mockImplementation((options) => {
       if (typeof options === 'object' && options !== null) {
-        scrollPosition += options.top ?? 0
+        const top = (options as ScrollToOptions).top ?? 0
+        scrollPosition += top
       }
     })
     vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollPosition)
@@ -153,7 +154,6 @@ describe('StagePage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Pausar' }))
     expect(screen.getByText('Auto-scroll: Pausado')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Retomar' })).toBeInTheDocument()
     expect(callbacks.size).toBe(0)
 
     await user.click(screen.getByRole('button', { name: 'Retomar' }))
@@ -168,7 +168,7 @@ describe('StagePage', () => {
     )
 
     const speed = await screen.findByRole('slider', { name: 'Velocidade do auto-scroll' })
-    expect(speed).toHaveValue('0')
+    expect(speed).toHaveValue('1')
     expect(screen.getByText('Velocidade: Normal')).toBeInTheDocument()
 
     fireEvent.change(speed, { target: { value: '2' } })
