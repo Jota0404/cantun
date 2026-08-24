@@ -30,6 +30,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
     speed: autoScrollSpeed,
     setSpeed: setAutoScrollSpeed,
     isScrolling: isAutoScrolling,
+    hasStarted: hasAutoScrollStarted,
     start: startAutoScroll,
     pause: pauseAutoScroll,
     restartAtCurrentPosition,
@@ -192,7 +193,9 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
             {isAutoScrolling ? (
               <button type="button" onClick={pauseAutoScroll}>Pausar</button>
             ) : (
-              <button type="button" onClick={startAutoScroll}>Iniciar</button>
+              <button type="button" onClick={startAutoScroll}>
+                {hasAutoScrollStarted ? 'Retomar' : 'Iniciar'}
+              </button>
             )}
           </div>
           <label>
@@ -205,6 +208,7 @@ export function StagePage({ repository, setlistSongRepository }: StagePageProps)
               value={autoScrollSpeedIndex}
               onChange={(event) => setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[Number(event.target.value)].value)}
               aria-label="Velocidade do auto-scroll"
+              aria-valuetext={getAutoScrollSpeedLabel(autoScrollSpeed)}
             />
           </label>
         </div>
