@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createSetlist } from '../../application/repertoires/createSetlist'
 import { deleteSetlist } from '../../application/repertoires/deleteSetlist'
+import { duplicateSetlist } from '../../application/repertoires/duplicateSetlist'
 import { listSetlists } from '../../application/repertoires/listSetlists'
 import type { Setlist } from '../../domain/repertoires/setlist'
 import type { SetlistRepository } from '../../db/repositories/setlistRepository'
@@ -18,6 +19,7 @@ export function RepertoireListPage({ repository }: RepertoireListPageProps) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | undefined>()
+  const [duplicatingId, setDuplicatingId] = useState<string | undefined>()
   const [error, setError] = useState<string | undefined>()
   const navigate = useNavigate()
 
@@ -59,6 +61,28 @@ export function RepertoireListPage({ repository }: RepertoireListPageProps) {
       setError('Não foi possível excluir o repertório. Tente novamente.')
     } finally {
       setDeletingId(undefined)
+    }
+  }
+
+  async function handleDuplicate(setlistId: string) {
+    setError(undefined)
+    setDuplicatingId(setlistId)
+
+    try {
+      const result = repository
+        ? await duplicateSetlist(setlistId, { setlists: repository })
+        : await duplicateSetlist(setlistId)
+
+      if (!result.success) {
+        setError(result.message)
+        return
+      }
+
+      setSetlists((current) => [result.setlist, ...current])
+    } catch {
+      setError('Não foi possível duplicar o repertório. Tente novamente.')
+    } finally {
+      setDuplicatingId(undefined)
     }
   }
 
@@ -133,6 +157,13 @@ export function RepertoireListPage({ repository }: RepertoireListPageProps) {
               <div className="repertoire-card__actions">
                 <button type="button" onClick={() => navigate(`/repertoires/${setlist.id}`)}>
                   Abrir repertório
+                </button>
+                <button
+                  type="button"
+                  disabled={duplicatingId === setlist.id}
+                  onClick={() => void handleDuplicate(setlist.id)}
+                >
+                  {duplicatingId === setlist.id ? 'Duplicando...' : 'Duplicar'}
                 </button>
                 <button
                   type="button"
