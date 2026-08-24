@@ -1,0 +1,60 @@
+.import-song-page {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+  text-align: left;
+}
+
+.import-song-page h2 {
+  margin: 0 0 4px;
+  color: var(--text-h);
+  font-family: var(--heading);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.import-song-page__subtitle {
+  margin: 0 0 24px;
+  color: var(--text);
+}
+
+.import-song-page__file-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.import-song-page__file-field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.import-song-page__file-field input {
+  font: inherit;
+}
+
+.import-song-page__error {
+  margin: 0 0 20px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: #c0392b;
+  background: #fcebea;
+}
+
+.import-song-page__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import-song-page__preview h3,
+.import-song-page__preview p {
+  margin: 0;
+}
+
+.import-song-page__preview .song-form {
+  margin-top: 12px;
+}
