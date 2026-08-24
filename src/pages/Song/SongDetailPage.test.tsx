@@ -77,7 +77,6 @@ describe('SongDetailPage', () => {
     expect(getSongByIdMock).toHaveBeenCalledWith('song-1')
   })
 
-
   it('transposes the song and updates the displayed key and lyrics', async () => {
     const user = userEvent.setup()
     const currentSong = song()
@@ -86,7 +85,7 @@ describe('SongDetailPage', () => {
     transposeSongMock.mockResolvedValue({ success: true, song: transposedSong })
     renderPage('/songs/song-1')
     await user.click(await screen.findByRole('button', { name: 'Próximo tom' }))
-    await waitFor(() => expect(transposeSongMock).toHaveBeenCalledWith({ id:'song-1', semitones:1 }))
+    await waitFor(() => expect(transposeSongMock).toHaveBeenCalledWith({ id: 'song-1', semitones: 1 }))
     expect(screen.getByText('Tom atual: F')).toBeInTheDocument()
     expect(screen.getByText('[F]Grandioso és [C]Tu')).toBeInTheDocument()
   })
@@ -210,7 +209,7 @@ describe('SongDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Adicionar aos favoritos' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'NÃ£o foi possÃ­vel atualizar os favoritos. Tente novamente.',
+      'Não foi possível atualizar os favoritos. Tente novamente.',
     )
     expect(screen.getByRole('button', { name: 'Adicionar aos favoritos' })).toBeInTheDocument()
   })
