@@ -54,7 +54,7 @@ describe('getStageSongs', () => {
       listBySetlistId: async () => [entries[1], { ...entries[0], songId: 'missing' }],
     }
     const songs: Pick<SongRepository, 'list'> = {
-      list: async () => [songA],
+      list: async () => [songB],
     }
 
     const result = await getStageSongs('setlist-1', {
@@ -63,6 +63,6 @@ describe('getStageSongs', () => {
     })
 
     expect(result).toHaveLength(1)
-    expect(result[0].song.id).toBe('song-a')
+    expect(result[0].song.id).toBe('song-b')
   })
 })
