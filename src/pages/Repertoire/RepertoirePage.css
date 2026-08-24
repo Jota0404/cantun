@@ -1,0 +1,128 @@
+.repertoire-page {
+  display: flex;
+  width: 100%;
+  max-width: 900px;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.repertoire-page__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.repertoire-page__header h2 {
+  margin: 8px 0;
+  color: var(--text-h);
+}
+
+.repertoire-page__header p,
+.repertoire-card p,
+.repertoire-empty p + p {
+  margin: 4px 0;
+}
+
+.repertoire-create,
+.repertoire-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.repertoire-create {
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.repertoire-create__row {
+  display: flex;
+  gap: 12px;
+}
+
+.repertoire-create input {
+  min-width: 0;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.repertoire-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.repertoire-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.repertoire-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.repertoire-card h3,
+.repertoire-card h4 {
+  margin: 0 0 4px;
+  color: var(--text-h);
+}
+
+.repertoire-card__position {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+}
+
+.repertoire-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.repertoire-empty {
+  padding: 28px 16px;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.repertoire-error {
+  margin: 0;
+  color: #b42318;
+}
+
+@media (max-width: 720px) {
+  .repertoire-create__row,
+  .repertoire-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .repertoire-card__actions {
+    justify-content: stretch;
+  }
+
+  .repertoire-card__actions button {
+    flex: 1;
+  }
+}

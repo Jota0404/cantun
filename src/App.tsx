@@ -4,6 +4,8 @@ import { NewSongPage } from './pages/Song/NewSongPage'
 import { SongDetailPage } from './pages/Song/SongDetailPage'
 import { EditSongPage } from './pages/Song/EditSongPage'
 import { SongLibraryPage } from './pages/Song/SongLibraryPage'
+import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
+import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 
 function App() {
   return (
@@ -12,9 +14,12 @@ function App() {
       <nav aria-label="Navegação principal">
         <Link to="/songs">Biblioteca</Link>
         <Link to="/songs/new">Nova música</Link>
+        <Link to="/repertoires">Repertórios</Link>
       </nav>
       <Routes>
         <Route path="/songs" element={<SongLibraryPage />} />
+        <Route path="/repertoires" element={<RepertoireListPage />} />
+        <Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/songs/new" element={<NewSongPage />} />
         <Route path="/songs/:songId/edit" element={<EditSongPage />} />
         <Route path="/songs/:songId" element={<SongDetailPage />} />
