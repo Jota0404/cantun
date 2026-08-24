@@ -50,7 +50,7 @@ export async function reorderSetlist(
   reordered.splice(toPosition, 0, moved)
 
   const updatedEntries = reordered.map((entry, position) => ({ ...entry, position }))
-  await Promise.all(updatedEntries.map((entry) => setlistSongRepository.update(entry)))
+  await Promise.all(updatedEntries.map((entry) => setlistSongs.update(entry)))
 
   const setlist = await setlists.getById(setlistId)
   if (setlist) {
