@@ -1,7 +1,7 @@
 .stage-page {
   min-height: 100vh;
   box-sizing: border-box;
-  padding: 12px 16px 96px;
+  padding: 12px 16px 120px;
 }
 
 .stage-page--dark {
@@ -112,7 +112,7 @@
   left: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
@@ -135,7 +135,34 @@
   width: min(30vw, 180px);
 }
 
-@media (max-width: 640px) {
+.stage-controls__auto-scroll {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stage-controls__auto-scroll-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.stage-controls__auto-scroll-row button {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.stage-controls__auto-scroll > label {
+  font-size: 0.8rem;
+}
+
+.stage-controls__auto-scroll input[type='range'] {
+  width: min(24vw, 160px);
+}
+
+@media (max-width: 800px) {
   .stage-page {
     padding-right: 10px;
     padding-left: 10px;
@@ -161,6 +188,29 @@
     padding-left: 10px;
   }
 
+  .stage-controls__auto-scroll {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .stage-controls > button:first-child,
+  .stage-controls > label,
+  .stage-controls > button:last-child {
+    grid-row: 2;
+  }
+
+  .stage-controls > button:first-child {
+    grid-column: 1;
+  }
+
+  .stage-controls > label {
+    grid-column: 2;
+  }
+
+  .stage-controls > button:last-child {
+    grid-column: 3;
+  }
+
   .stage-controls label {
     flex-direction: column;
     gap: 2px;
@@ -169,5 +219,18 @@
 
   .stage-controls input[type='range'] {
     width: 110px;
+  }
+
+  .stage-controls__auto-scroll-row {
+    justify-content: center;
+  }
+
+  .stage-controls__auto-scroll > label {
+    justify-content: center;
+    flex-direction: row;
+  }
+
+  .stage-controls__auto-scroll input[type='range'] {
+    width: min(42vw, 180px);
   }
 }
