@@ -45,6 +45,28 @@ function isMusicalKey(value: string): value is MusicalKey {
   return MUSICAL_KEYS.includes(value as MusicalKey)
 }
 
+function normalizeChordSheetLine(line: string): string {
+  const cleaned = line.replace(/^\s*">\s?/, '').trimEnd()
+
+  if (!cleaned || cleaned.startsWith('[')) {
+    return cleaned
+  }
+
+  // Existing chord sheets commonly place a chord on its own line. Convert it
+  // to Salmodia's native [chord] notation so display and transposition work.
+  const chordPattern = /^[A-G](?:#|b)?(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?(?:\([^)]+\))?$/
+
+  if (chordPattern.test(cleaned)) {
+    return `[${cleaned}]`
+  }
+
+  return cleaned
+}
+
+function normalizeLyrics(lines: string[]): string {
+  return lines.map(normalizeChordSheetLine).join('\n').trim()
+}
+
 export function parseSongText(text: string): SongTextParseResult {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const headers: Partial<Record<HeaderField, string>> = {}
@@ -88,7 +110,7 @@ export function parseSongText(text: string): SongTextParseResult {
     index += 1
   }
 
-  const lyrics = lines.slice(index).join('\n').trim()
+  const lyrics = normalizeLyrics(lines.slice(index))
   const title = headers.title?.trim() ?? ''
   const key = headers.key?.trim() ?? ''
   const artist = headers.artist?.trim() || undefined
