@@ -6,6 +6,7 @@ import { EditSongPage } from './pages/Song/EditSongPage'
 import { SongLibraryPage } from './pages/Song/SongLibraryPage'
 import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
 import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
+import { StagePage } from './pages/Stage/StagePage'
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
         <Route path="/songs" element={<SongLibraryPage />} />
         <Route path="/repertoires" element={<RepertoireListPage />} />
         <Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
+        <Route path="/stage/setlist/:setlistId" element={<StagePage />} />
+        <Route path="/stage/song/:songId" element={<StagePage />} />
         <Route path="/songs/new" element={<NewSongPage />} />
         <Route path="/songs/:songId/edit" element={<EditSongPage />} />
         <Route path="/songs/:songId" element={<SongDetailPage />} />
