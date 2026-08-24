@@ -72,11 +72,15 @@ describe('StagePage', () => {
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
       callbacks.delete(id)
     })
-    vi.spyOn(window, 'scrollTo').mockImplementation(({ top = 0 } = {}) => {
-      scrollPosition = top
+    vi.spyOn(window, 'scrollTo').mockImplementation((options) => {
+      if (typeof options === 'object' && options !== null) {
+        scrollPosition = options.top ?? 0
+      }
     })
-    vi.spyOn(window, 'scrollBy').mockImplementation(({ top = 0 } = {}) => {
-      scrollPosition += top
+    vi.spyOn(window, 'scrollBy').mockImplementation((options) => {
+      if (typeof options === 'object' && options !== null) {
+        scrollPosition += options.top ?? 0
+      }
     })
     vi.spyOn(window, 'scrollY', 'get').mockImplementation(() => scrollPosition)
 
@@ -157,10 +161,10 @@ describe('StagePage', () => {
     )
 
     const speed = await screen.findByRole('slider', { name: 'Velocidade do auto-scroll' })
-    expect(speed).toHaveValue('40')
+    expect(speed).toHaveValue('0')
     expect(screen.getByText('Velocidade: Normal')).toBeInTheDocument()
 
-    fireEvent.change(speed, { target: { value: '70' } })
+    fireEvent.change(speed, { target: { value: '2' } })
     expect(screen.getByText('Velocidade: Rápida')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Iniciar' }))
