@@ -22,7 +22,6 @@ function getInitialTheme(): Theme {
 function App() {
   const location = useLocation()
   const isStageMode = location.pathname.startsWith('/stage/')
-  const isHome = location.pathname === '/'
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -48,14 +47,12 @@ function App() {
               {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
             </button>
           </header>
-          {!isHome && (
-            <nav aria-label="Navegação principal">
-              <Link to="/songs">Biblioteca</Link>
-              <Link to="/songs/new">Nova música</Link>
-              <Link to="/songs/import">Importar música</Link>
-              <Link to="/repertoires">Repertórios</Link>
-            </nav>
-          )}
+          <nav aria-label="Navegação principal">
+            <Link to="/songs">Biblioteca</Link>
+            <Link to="/songs/new">Nova música</Link>
+            <Link to="/songs/import">Importar música</Link>
+            <Link to="/repertoires">Repertórios</Link>
+          </nav>
         </>
       )}
 
