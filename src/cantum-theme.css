@@ -138,9 +138,84 @@
   border-color: var(--color-border);
 }
 
+/* Dark mode must win over legacy page-level hard-coded light values. */
+[data-theme='dark'] .repertoire-card,
+[data-theme='dark'] .repertoire-create,
+[data-theme='dark'] .repertoire-empty,
+[data-theme='dark'] .song-detail,
+[data-theme='dark'] .song-list__item,
+[data-theme='dark'] .song-list__empty,
+[data-theme='dark'] .song-form {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text);
+}
+
+[data-theme='dark'] .repertoire-card h3,
+[data-theme='dark'] .repertoire-card h4,
+[data-theme='dark'] .repertoire-page__header h2,
+[data-theme='dark'] .song-detail h2,
+[data-theme='dark'] .song-detail h3,
+[data-theme='dark'] .song-list__content h3,
+[data-theme='dark'] .song-form__field label {
+  color: var(--color-text) !important;
+}
+
+[data-theme='dark'] .repertoire-card p,
+[data-theme='dark'] .song-list__content p,
+[data-theme='dark'] .song-detail__artist,
+[data-theme='dark'] .import-song-page__subtitle {
+  color: var(--color-text-muted) !important;
+}
+
+[data-theme='dark'] .repertoire-card__position {
+  background: var(--color-surface-elevated) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-muted) !important;
+}
+
+[data-theme='dark'] .repertoire-create input,
+[data-theme='dark'] .repertoire-rename input,
+[data-theme='dark'] .song-library-page__search-input,
+[data-theme='dark'] .song-form__field input,
+[data-theme='dark'] .song-form__field select,
+[data-theme='dark'] .song-form__field textarea {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
 [data-theme='dark'] .song-detail__transpose,
 [data-theme='dark'] .song-detail__metadata p {
   background: var(--color-surface-elevated);
+}
+
+[data-theme='dark'] .repertoire-card__actions button,
+[data-theme='dark'] .repertoire-create button,
+[data-theme='dark'] .repertoire-rename button,
+[data-theme='dark'] .song-detail__actions button,
+[data-theme='dark'] .song-list__item button {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+[data-theme='dark'] .repertoire-card__actions button:hover:not(:disabled),
+[data-theme='dark'] .repertoire-create button:hover:not(:disabled),
+[data-theme='dark'] .repertoire-rename button:hover:not(:disabled),
+[data-theme='dark'] .song-detail__actions button:hover:not(:disabled),
+[data-theme='dark'] .song-list__item button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-accent);
+}
+
+[data-theme='dark'] .repertoire-card__actions button:first-child,
+[data-theme='dark'] .repertoire-create button[type='submit'],
+[data-theme='dark'] .song-detail__actions button:first-child,
+[data-theme='dark'] .song-form button[type='submit'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
 }
 
 @media (max-width: 640px) {
