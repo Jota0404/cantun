@@ -1,4 +1,4 @@
-import './App.css'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { NewSongPage } from './pages/Song/NewSongPage'
 import { ImportSongPage } from './pages/Song/ImportSongPage'
@@ -9,15 +9,42 @@ import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
 import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 import { StagePage } from './pages/Stage/StagePage'
 
+type Theme = 'light' | 'dark'
+
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  const saved = window.localStorage.getItem('cantum-theme')
+  return saved === 'dark' ? 'dark' : 'light'
+}
+
 function App() {
   const location = useLocation()
   const isStageMode = location.pathname.startsWith('/stage/')
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('cantum-theme', theme)
+  }, [theme])
 
   return (
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
       {!isStageMode && (
         <>
-          <h1>CANTUM</h1>
+          <header className="app-header">
+            <div>
+              <p className="app-header__eyebrow">MUSIC WORKSPACE</p>
+              <h1>CANTUM</h1>
+            </div>
+            <button
+              type="button"
+              className="app-header__theme"
+              onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
+              aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}
+            >
+              {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+            </button>
+          </header>
           <nav aria-label="Navegação principal">
             <Link to="/songs">Biblioteca</Link>
             <Link to="/songs/new">Nova música</Link>
