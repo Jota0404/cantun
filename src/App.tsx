@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { HomePage } from './pages/Home/HomePage'
 import { NewSongPage } from './pages/Song/NewSongPage'
 import { ImportSongPage } from './pages/Song/ImportSongPage'
 import { SongDetailPage } from './pages/Song/SongDetailPage'
@@ -21,6 +22,7 @@ function getInitialTheme(): Theme {
 function App() {
   const location = useLocation()
   const isStageMode = location.pathname.startsWith('/stage/')
+  const isHome = location.pathname === '/'
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -35,7 +37,7 @@ function App() {
           <header className="app-header">
             <div>
               <p className="app-header__eyebrow">MUSIC WORKSPACE</p>
-              <h1>CANTUM</h1>
+              <h1><Link to="/">CANTUM</Link></h1>
             </div>
             <button
               type="button"
@@ -46,16 +48,19 @@ function App() {
               {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
             </button>
           </header>
-          <nav aria-label="Navegação principal">
-            <Link to="/songs">Biblioteca</Link>
-            <Link to="/songs/new">Nova música</Link>
-            <Link to="/songs/import">Importar música</Link>
-            <Link to="/repertoires">Repertórios</Link>
-          </nav>
+          {!isHome && (
+            <nav aria-label="Navegação principal">
+              <Link to="/songs">Biblioteca</Link>
+              <Link to="/songs/new">Nova música</Link>
+              <Link to="/songs/import">Importar música</Link>
+              <Link to="/repertoires">Repertórios</Link>
+            </nav>
+          )}
         </>
       )}
 
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/songs" element={<SongLibraryPage />} />
         <Route path="/repertoires" element={<RepertoireListPage />} />
         <Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
@@ -65,7 +70,7 @@ function App() {
         <Route path="/songs/import" element={<ImportSongPage />} />
         <Route path="/songs/:songId/edit" element={<EditSongPage />} />
         <Route path="/songs/:songId" element={<SongDetailPage />} />
-        <Route path="*" element={<Navigate to="/songs" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   )
