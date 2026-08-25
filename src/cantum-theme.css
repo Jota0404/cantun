@@ -70,9 +70,41 @@
 }
 
 .song-detail__section pre {
+  margin-top: 12px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: var(--color-background);
-  border-color: var(--color-border);
   color: var(--color-text);
+}
+
+.song-detail__transpose {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.song-detail__transpose button {
+  border-color: transparent;
+  background: transparent;
+}
+
+.song-detail__transpose button:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+.song-detail__transpose span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 0 10px;
+  color: var(--color-text);
+  text-align: center;
 }
 
 .song-detail__actions button:first-child,
@@ -185,9 +217,18 @@
   color: var(--color-text) !important;
 }
 
-[data-theme='dark'] .song-detail__transpose,
-[data-theme='dark'] .song-detail__metadata p {
+[data-theme='dark'] .song-detail__transpose {
   background: var(--color-surface-elevated);
+}
+
+[data-theme='dark'] .song-detail__transpose button:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+[data-theme='dark'] .song-detail__section pre {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 [data-theme='dark'] .repertoire-card__actions button,
@@ -221,5 +262,13 @@
 @media (max-width: 640px) {
   .song-library-page > button:first-child {
     width: 100%;
+  }
+
+  .song-detail__transpose {
+    width: 100%;
+  }
+
+  .song-detail__transpose span {
+    flex: 1;
   }
 }
