@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Salmodia',
-        short_name: 'Salmodia',
+        name: 'CANTUM',
+        short_name: 'CANTUM',
         description:
           'Cifras, repertórios e modo palco offline para músicos de igreja.',
         start_url: '/',
