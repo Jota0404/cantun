@@ -17,7 +17,7 @@ function App() {
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
       {!isStageMode && (
         <>
-          <h1>Salmodia</h1>
+          <h1>CANTUM</h1>
           <nav aria-label="Navegação principal">
             <Link to="/songs">Biblioteca</Link>
             <Link to="/songs/new">Nova música</Link>
