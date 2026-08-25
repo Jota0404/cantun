@@ -8,6 +8,7 @@ import { SongLibraryPage } from './pages/Song/SongLibraryPage'
 import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
 import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 import { StagePage } from './pages/Stage/StagePage'
+import './App.css'
 
 type Theme = 'light' | 'dark'
 
