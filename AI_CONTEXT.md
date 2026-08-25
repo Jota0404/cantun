@@ -1,10 +1,10 @@
-# Salmodia — AI Context
+# CANTUM — AI Context
 
-> Contexto operacional para agentes de IA que trabalham no projeto Salmodia.
+> Contexto operacional para agentes de IA que trabalham no projeto CANTUM.
 
 ## 1. Identidade do projeto
 
-**Nome:** Salmodia (nome provisório)
+**Nome:** CANTUM (nome provisório)
 
 **Objetivo:** aplicativo offline para músicos de igreja armazenarem suas versões personalizadas de cifras, organizarem repertórios e executarem as músicas em um modo de palco otimizado para celular e tablet.
 

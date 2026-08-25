@@ -53,7 +53,7 @@ function normalizeChordSheetLine(line: string): string {
   }
 
   // Existing chord sheets commonly place a chord on its own line. Convert it
-  // to Salmodia's native [chord] notation so display and transposition work.
+  // to CANTUM's native [chord] notation so display and transposition work.
   const chordPattern = /^[A-G](?:#|b)?(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?(?:\([^)]+\))?$/
 
   if (chordPattern.test(cleaned)) {

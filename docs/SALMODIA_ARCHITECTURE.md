@@ -1,4 +1,4 @@
-# Salmodia — Architecture Decision Record
+# CANTUM — Architecture Decision Record
 
 **Documento:** Pedra Angular da Arquitetura  
 **Versão:** 0.1  
@@ -9,7 +9,7 @@
 
 # 1. Propósito
 
-Este documento registra a arquitetura técnica do Salmodia e as decisões que devem orientar sua implementação.
+Este documento registra a arquitetura técnica do CANTUM e as decisões que devem orientar sua implementação.
 
 Ele existe para preservar coerência técnica ao longo do desenvolvimento, especialmente durante o uso de ferramentas de IA.
 
@@ -64,7 +64,7 @@ Redux não será utilizado no MVP.
 # 4. Visão Arquitetural
 
 ```text
-                    SALMODIA
+                     CANTUM
                        │
                        ▼
              ┌───────────────────┐

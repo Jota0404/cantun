@@ -42,7 +42,7 @@ export function ImportSongPage() {
     <section className="import-song-page">
       <h2>Importar música</h2>
       <p className="import-song-page__subtitle">
-        Selecione um arquivo .txt no formato do Salmodia. Revise os dados antes de salvar.
+        Selecione um arquivo .txt no formato do CANTUM. Revise os dados antes de salvar.
       </p>
 
       <div className="import-song-page__file-field">
