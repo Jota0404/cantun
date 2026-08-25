@@ -31,10 +31,15 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: true,
-    https: {
-      key: fs.readFileSync('./10.190.119.79+2-key.pem'),
-      cert: fs.readFileSync('./10.190.119.79+2.pem'),
-    },
+    ...(fs.existsSync('./10.190.119.79+2-key.pem') &&
+    fs.existsSync('./10.190.119.79+2.pem')
+      ? {
+          https: {
+            key: fs.readFileSync('./10.190.119.79+2-key.pem'),
+            cert: fs.readFileSync('./10.190.119.79+2.pem'),
+          },
+        }
+      : {}),
   },
 
   test: {
