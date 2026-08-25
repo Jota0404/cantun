@@ -1,0 +1,19 @@
+/* CANTUM visual system: intentional presentation-only overrides. */
+.song-detail,.song-list__item,.song-list__empty,.repertoire-create,.repertoire-card,.repertoire-empty,.song-form{background:var(--color-surface);border-color:var(--color-border);box-shadow:var(--shadow-soft)}
+.song-detail h2,.song-detail h3,.song-list__content h3,.repertoire-page__header h2,.repertoire-card h3,.repertoire-card h4,.song-form__field label,.import-song-page h2{color:var(--color-text)}
+.song-detail__artist,.song-list__content p,.import-song-page__subtitle,.repertoire-card p{color:var(--color-text-muted)}
+.song-detail__metadata p{border-color:var(--color-border);background:var(--color-background);color:var(--color-text-muted)}
+.song-detail__section pre{background:var(--color-background);border-color:var(--color-border);color:var(--color-text)}
+.song-detail__actions button:first-child,.song-form button[type='submit']{border-color:var(--color-primary);background:var(--color-primary);color:#fff}
+.song-detail__actions button:first-child:hover:not(:disabled),.song-form button[type='submit']:hover:not(:disabled){border-color:var(--color-primary-strong);background:var(--color-primary-strong);color:#fff}
+.song-detail__delete{border-color:color-mix(in srgb,var(--color-danger) 30%,var(--color-border))!important;color:var(--color-danger)!important;background:var(--color-surface)!important}
+.song-form__field input,.song-form__field select,.song-form__field textarea,.repertoire-create input,.repertoire-rename input,.song-library-page__search-input{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text)}
+.song-form__success{color:var(--color-success);background:var(--color-success-surface);border-color:var(--color-border)}
+.song-form__error,.repertoire-error{color:var(--color-danger)}
+.import-song-page__error{color:var(--color-danger);background:var(--color-danger-surface)}
+.song-list__favorite{color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 9%,transparent)}
+.repertoire-card__position{border-color:var(--color-border);color:var(--color-text-muted);background:var(--color-background)}
+.repertoire-empty,.song-list__empty{color:var(--color-text-muted);border-color:var(--color-border)}
+.repertoire-create{border-color:var(--color-border)}
+
+[data-theme='dark'] .song-detail__transpose,[data-theme='dark'] .song-detail__metadata p{background:var(--color-surface-elevated)}
