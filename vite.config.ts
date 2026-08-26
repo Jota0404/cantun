@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: process.env.GITHUB_ACTIONS ? '/salmodia/' : '/',
+
   plugins: [
     react(),
     VitePWA({
@@ -15,7 +17,7 @@ export default defineConfig({
         short_name: 'CANTUM',
         description:
           'Cifras, repertórios e modo palco offline para músicos de igreja.',
-        start_url: '/',
+        start_url: './',
         display: 'standalone',
         background_color: '#121212',
         theme_color: '#121212',
