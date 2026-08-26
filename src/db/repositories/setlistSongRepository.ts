@@ -21,6 +21,10 @@ export class SetlistSongRepository {
     return this.db.setlistSongs.where('setlistId').equals(setlistId).sortBy('position')
   }
 
+  async listBySongId(songId: string): Promise<SetlistSong[]> {
+    return this.db.setlistSongs.where('songId').equals(songId).toArray()
+  }
+
   async findBySetlistAndSong(
     setlistId: string,
     songId: string,

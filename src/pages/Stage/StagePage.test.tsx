@@ -57,7 +57,7 @@ function renderStage(
           }
         />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   )
 }
 
@@ -128,281 +128,134 @@ describe('StagePage', () => {
     vi.restoreAllMocks()
   })
 
+  it('keeps Stage Mode usable when fullscreen is rejected', async () => {
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      configurable: true,
+      value: vi.fn().mockRejectedValue(new Error('Not supported')),
+    })
+
+    renderStage(
+      [song('song-1', 'Primeira')],
+      [
+        {
+          id: 'entry-1',
+          setlistId: 'setlist-1',
+          songId: 'song-1',
+          position: 1,
+        },
+      ],
+    )
+
+    expect(await screen.findByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tela cheia' }))
+
+    expect(screen.getByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows the first repertoire song and navigates to the next song', async () => {
     const user = userEvent.setup()
 
     renderStage(
       [song('song-1', 'Primeira'), song('song-2', 'Segunda')],
       [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-        {
-          id: 'entry-2',
-          setlistId: 'setlist-1',
-          songId: 'song-2',
-          position: 2,
-        },
+        { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+        { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
       ],
     )
 
-    expect(
-      await screen.findByText('Primeira', {
-        selector: 'strong',
-      }),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
 
-    const next = screen.getByRole('button', {
-      name: 'Próxima →',
-    })
+    await user.click(screen.getByRole('button', { name: 'Próxima →' }))
 
-    await user.click(next)
-
-    expect(
-      screen.getByText('Segunda', {
-        selector: 'strong',
-      }),
-    ).toBeInTheDocument()
-
-    expect(
-      screen.getByRole('button', {
-        name: '← Anterior',
-      }),
-    ).toBeEnabled()
-
-    expect(
-      screen.getByRole('button', {
-        name: 'Próxima →',
-      }),
-    ).toBeDisabled()
+    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '← Anterior' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Próxima →' })).toBeDisabled()
   })
 
   it('changes the displayed font size with the range control', async () => {
-    renderStage(
-      [song('song-1', 'Primeira')],
-      [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-      ],
-    )
+    renderStage([song('song-1', 'Primeira')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+    ])
 
-    const range = await screen.findByRole('slider', {
-      name: 'Tamanho da fonte',
-    })
-
+    const range = await screen.findByRole('slider', { name: 'Tamanho da fonte' })
     expect(range).toHaveValue('22')
-
-    fireEvent.change(range, {
-      target: { value: '24' },
-    })
-
+    fireEvent.change(range, { target: { value: '24' } })
     expect(range).toHaveValue('24')
   })
 
   it('starts, pauses, and resumes auto-scroll without creating duplicate frames', async () => {
     const user = userEvent.setup()
+    renderStage([song('song-1', 'Primeira')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+    ])
 
-    renderStage(
-      [song('song-1', 'Primeira')],
-      [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-      ],
-    )
-
-    expect(
-      await screen.findByText('Auto-scroll: Pausado'),
-    ).toBeInTheDocument()
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Iniciar',
-      }),
-    )
-
-    expect(
-      screen.getByText('Auto-scroll: Ativo'),
-    ).toBeInTheDocument()
-
+    expect(await screen.findByText('Auto-scroll: Pausado')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
     expect(callbacks.size).toBe(1)
 
     const firstFrame = [...callbacks.keys()][0]
-
-    act(() => {
-      runFrame(firstFrame, 1000)
-    })
-
+    act(() => runFrame(firstFrame, 1000))
     expect(callbacks.size).toBe(1)
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Pausar',
-      }),
-    )
-
-    expect(
-      screen.getByText('Auto-scroll: Pausado'),
-    ).toBeInTheDocument()
-
+    await user.click(screen.getByRole('button', { name: 'Pausar' }))
+    expect(screen.getByText('Auto-scroll: Pausado')).toBeInTheDocument()
     expect(callbacks.size).toBe(0)
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Retomar',
-      }),
-    )
-
+    await user.click(screen.getByRole('button', { name: 'Retomar' }))
     expect(callbacks.size).toBe(1)
   })
 
   it('scrolls according to the selected speed and stops at the end', async () => {
     const user = userEvent.setup()
+    renderStage([song('song-1', 'Primeira')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+    ])
 
-    renderStage(
-      [song('song-1', 'Primeira')],
-      [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-      ],
-    )
-
-    const speed = await screen.findByRole('slider', {
-      name: 'Velocidade do auto-scroll',
-    })
-
+    const speed = await screen.findByRole('slider', { name: 'Velocidade do auto-scroll' })
     expect(speed).toHaveValue('1')
+    expect(screen.getByText('Velocidade: Normal')).toBeInTheDocument()
+    fireEvent.change(speed, { target: { value: '2' } })
+    expect(screen.getByText('Velocidade: Rápida')).toBeInTheDocument()
 
-    expect(
-      screen.getByText('Velocidade: Normal'),
-    ).toBeInTheDocument()
-
-    fireEvent.change(speed, {
-      target: { value: '2' },
-    })
-
-    expect(
-      screen.getByText('Velocidade: Rápida'),
-    ).toBeInTheDocument()
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Iniciar',
-      }),
-    )
-
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
     const firstFrame = [...callbacks.keys()][0]
-
-    act(() => {
-      runFrame(firstFrame, 1000)
-    })
-
+    act(() => runFrame(firstFrame, 1000))
     const secondFrame = [...callbacks.keys()][0]
-
-    act(() => {
-      runFrame(secondFrame, 1100)
-    })
-
+    act(() => runFrame(secondFrame, 1100))
     expect(scrollPosition).toBeCloseTo(24)
-
-    expect(
-      screen.getByText('Auto-scroll: Ativo'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
 
     scrollPosition = 1000
-
     const activeFrame = [...callbacks.keys()][0]
-
-    act(() => {
-      runFrame(activeFrame, 1200)
-    })
-
-    expect(
-      screen.getByText('Auto-scroll: Pausado'),
-    ).toBeInTheDocument()
-
+    act(() => runFrame(activeFrame, 1200))
+    expect(screen.getByText('Auto-scroll: Pausado')).toBeInTheDocument()
     expect(callbacks.size).toBe(0)
   })
 
   it('keeps auto-scroll active and returns to the top when changing songs', async () => {
     const user = userEvent.setup()
+    renderStage([song('song-1', 'Primeira'), song('song-2', 'Segunda')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+      { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
+    ])
 
-    renderStage(
-      [song('song-1', 'Primeira'), song('song-2', 'Segunda')],
-      [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-        {
-          id: 'entry-2',
-          setlistId: 'setlist-1',
-          songId: 'song-2',
-          position: 2,
-        },
-      ],
-    )
-
-    await screen.findByText('Primeira', {
-      selector: 'strong',
-    })
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Iniciar',
-      }),
-    )
-
-    const fontRange = screen.getByRole('slider', {
-      name: 'Tamanho da fonte',
-    })
-
-    fireEvent.change(fontRange, {
-      target: { value: '30' },
-    })
-
-    expect(
-      screen.getByText('Auto-scroll: Ativo'),
-    ).toBeInTheDocument()
-
+    await screen.findByText('Primeira', { selector: 'strong' })
+    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
+    const fontRange = screen.getByRole('slider', { name: 'Tamanho da fonte' })
+    fireEvent.change(fontRange, { target: { value: '30' } })
+    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
     expect(callbacks.size).toBe(1)
 
     scrollPosition = 300
-
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Próxima →',
-      }),
-    )
-
-    expect(
-      screen.getByText('Segunda', {
-        selector: 'strong',
-      }),
-    ).toBeInTheDocument()
-
+    await user.click(screen.getByRole('button', { name: 'Próxima →' }))
+    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
     expect(scrollPosition).toBe(0)
-
-    expect(
-      screen.getByText('Auto-scroll: Ativo'),
-    ).toBeInTheDocument()
-
+    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
     expect(callbacks.size).toBe(1)
   })
 })

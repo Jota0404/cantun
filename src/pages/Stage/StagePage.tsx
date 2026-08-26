@@ -15,6 +15,7 @@ import {
   getAutoScrollSpeedLabel,
   useAutoScroll,
 } from './useAutoScroll'
+import { useWakeLock } from './useWakeLock'
 import './StagePage.css'
 
 type StagePageProps = {
@@ -41,6 +42,8 @@ export function StagePage({
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  useWakeLock()
 
   const {
     speed: autoScrollSpeed,
@@ -162,16 +165,20 @@ export function StagePage({
   }
 
   async function toggleFullscreen() {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      } else {
+    if (!document.fullscreenElement) {
+      try {
         await document.documentElement.requestFullscreen()
+      } catch {
+        // Fullscreen is an optional browser/device capability.
       }
+
+      return
+    }
+
+    try {
+      await document.exitFullscreen()
     } catch {
-      setError(
-        'Tela cheia não está disponível neste dispositivo.',
-      )
+      // Fullscreen is an optional browser/device capability.
     }
   }
 
