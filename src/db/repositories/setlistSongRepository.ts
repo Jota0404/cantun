@@ -1,6 +1,8 @@
 import type { SetlistSong } from '../../domain/repertoires/setlistSong'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
+import { supabase } from '../../lib/supabase'
+import { queueLocalDelete, queueLocalUpsert } from '../../sync/syncService'
 
 export class SetlistSongRepository {
   private readonly db: SalmodiaDatabase
@@ -11,6 +13,7 @@ export class SetlistSongRepository {
 
   async create(entry: SetlistSong): Promise<void> {
     await this.db.setlistSongs.add(entry)
+    await this.enqueueUpsert(entry)
   }
 
   async getById(id: string): Promise<SetlistSong | undefined> {
@@ -25,22 +28,26 @@ export class SetlistSongRepository {
     return this.db.setlistSongs.where('songId').equals(songId).toArray()
   }
 
-  async findBySetlistAndSong(
-    setlistId: string,
-    songId: string,
-  ): Promise<SetlistSong | undefined> {
-    return this.db.setlistSongs
-      .where('[setlistId+songId]')
-      .equals([setlistId, songId])
-      .first()
+  async findBySetlistAndSong(setlistId: string, songId: string): Promise<SetlistSong | undefined> {
+    return this.db.setlistSongs.where('[setlistId+songId]').equals([setlistId, songId]).first()
   }
 
   async update(entry: SetlistSong): Promise<void> {
     await this.db.setlistSongs.put(entry)
+    await this.enqueueUpsert(entry)
   }
 
   async remove(id: string): Promise<void> {
     await this.db.setlistSongs.delete(id)
+    if (!supabase) return
+    const { data } = await supabase.auth.getUser()
+    await queueLocalDelete(data.user?.id ?? null, 'setlistSongs', id)
+  }
+
+  private async enqueueUpsert(entry: SetlistSong) {
+    if (!supabase) return
+    const { data } = await supabase.auth.getUser()
+    await queueLocalUpsert(data.user?.id ?? null, 'setlistSongs', entry)
   }
 }
 
