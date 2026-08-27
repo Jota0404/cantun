@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from './auth/AuthContext'
 import { HomePage } from './pages/Home/HomePage'
 import { NewSongPage } from './pages/Song/NewSongPage'
 import { ImportSongPage } from './pages/Song/ImportSongPage'
@@ -9,6 +10,7 @@ import { SongLibraryPage } from './pages/Song/SongLibraryPage'
 import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
 import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 import { StagePage } from './pages/Stage/StagePage'
+import { AuthPage } from './pages/Auth/AuthPage'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -21,6 +23,8 @@ function getInitialTheme(): Theme {
 
 function App() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, signOut } = useAuth()
   const isStageMode = location.pathname.startsWith('/stage/')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
@@ -38,14 +42,21 @@ function App() {
               <p className="app-header__eyebrow">MUSIC WORKSPACE</p>
               <h1><Link to="/">CANTUM</Link></h1>
             </div>
-            <button
-              type="button"
-              className="app-header__theme"
-              onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
-              aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}
-            >
-              {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
-            </button>
+            <div>
+              {user ? (
+                <button type="button" onClick={() => void signOut()}>Sair</button>
+              ) : (
+                <button type="button" onClick={() => navigate('/auth')}>Entrar</button>
+              )}
+              <button
+                type="button"
+                className="app-header__theme"
+                onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}
+                aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}
+              >
+                {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
+              </button>
+            </div>
           </header>
           <nav aria-label="Navegação principal">
             <Link to="/songs">Biblioteca</Link>
@@ -58,6 +69,7 @@ function App() {
 
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/songs" element={<SongLibraryPage />} />
         <Route path="/repertoires" element={<RepertoireListPage />} />
         <Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
