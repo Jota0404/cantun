@@ -11,6 +11,7 @@ create table public.songs (
   is_favorite boolean not null default false,
   created_at timestamptz not null,
   updated_at timestamptz not null,
+  deleted_at timestamptz,
   primary key (user_id, id)
 );
 
@@ -20,6 +21,7 @@ create table public.setlists (
   name text not null,
   created_at timestamptz not null,
   updated_at timestamptz not null,
+  deleted_at timestamptz,
   primary key (user_id, id)
 );
 
@@ -29,6 +31,8 @@ create table public.setlist_songs (
   setlist_id uuid not null,
   song_id uuid not null,
   position integer not null,
+  updated_at timestamptz not null,
+  deleted_at timestamptz,
   primary key (user_id, id),
   foreign key (user_id, setlist_id) references public.setlists(user_id, id) on delete cascade,
   foreign key (user_id, song_id) references public.songs(user_id, id) on delete cascade,
