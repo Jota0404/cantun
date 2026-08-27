@@ -25,19 +25,12 @@ interface RemoteRow {
   [key: string]: unknown
 }
 
-const tables: Record<EntityName, string> = {
-  songs: 'songs',
-  setlists: 'setlists',
-  setlistSongs: 'setlist_songs',
-}
+const tables: Record<EntityName, string> = { songs: 'songs', setlists: 'setlists', setlistSongs: 'setlist_songs' }
 
 export class SyncEngine {
   private syncing = false
 
-  constructor(
-    private readonly db: SalmodiaDatabase,
-    private readonly client: SupabaseClient,
-  ) {}
+  constructor(private readonly db: SalmodiaDatabase, private readonly client: SupabaseClient) {}
 
   async queueUpsert(userId: string, entity: EntityName, payload: Entity) {
     await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, entity, payload.id]).delete()
@@ -60,11 +53,7 @@ export class SyncEngine {
     const remoteIsEmpty = results.every(({ count, error }) => !error && (count ?? 0) === 0)
     if (!remoteIsEmpty) return this.sync(userId)
 
-    const [songs, setlists, setlistSongs] = await Promise.all([
-      this.db.songs.toArray(),
-      this.db.setlists.toArray(),
-      this.db.setlistSongs.toArray(),
-    ])
+    const [songs, setlists, setlistSongs] = await Promise.all([this.db.songs.toArray(), this.db.setlists.toArray(), this.db.setlistSongs.toArray()])
     for (const song of songs) await this.queueUpsert(userId, 'songs', song)
     for (const setlist of setlists) await this.queueUpsert(userId, 'setlists', setlist)
     for (const entry of setlistSongs) await this.queueUpsert(userId, 'setlistSongs', entry)
@@ -101,7 +90,7 @@ export class SyncEngine {
       if (error) throw error
       return
     }
-    const { error } = await this.client.from(table).upsert({ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }, { onConflict: 'user_id,id' })
+    const { error } = await this.client.from(table).upsert({ ...toRemoteRow(item.payload!, item.updatedAt), user_id: userId, deleted_at: null }, { onConflict: 'user_id,id' })
     if (error) throw error
   }
 
@@ -109,11 +98,14 @@ export class SyncEngine {
     for (const entity of Object.keys(tables) as EntityName[]) {
       const { data, error } = await this.client.from(tables[entity]).select('*').eq('user_id', userId)
       if (error) continue
-      for (const row of (data ?? []) as RemoteRow[]) await this.applyRemote(entity, row)
+      for (const row of (data ?? []) as RemoteRow[]) await this.applyRemote(userId, entity, row)
     }
   }
 
-  private async applyRemote(entity: EntityName, remote: RemoteRow) {
+  private async applyRemote(userId: string, entity: EntityName, remote: RemoteRow) {
+    const pending = await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, entity, remote.id]).first()
+    if (pending) return
+
     const local = await getLocal(this.db, entity, remote.id)
     const remoteUpdatedAt = remote.deleted_at ?? remote.updated_at
     if (!remoteUpdatedAt || (local && getUpdatedAt(local) > remoteUpdatedAt)) return
@@ -142,7 +134,7 @@ async function removeLocal(db: SalmodiaDatabase, entity: EntityName, id: string)
   else await db.setlistSongs.delete(id)
 }
 
-function toRemoteRow(entity: Entity) {
+function toRemoteRow(entity: Entity, updatedAt: string) {
   if ('originalKey' in entity) {
     const song = entity as Song
     return { id: song.id, title: song.title, artist: song.artist ?? null, original_key: song.originalKey, current_key: song.currentKey, bpm: song.bpm ?? null, lyrics: song.lyrics, notes: song.notes ?? null, is_favorite: song.isFavorite, created_at: song.createdAt, updated_at: song.updatedAt }
@@ -152,23 +144,11 @@ function toRemoteRow(entity: Entity) {
     return { id: setlist.id, name: setlist.name, created_at: setlist.createdAt, updated_at: setlist.updatedAt }
   }
   const entry = entity as SetlistSong
-  return { id: entry.id, setlist_id: entry.setlistId, song_id: entry.songId, position: entry.position }
+  return { id: entry.id, setlist_id: entry.setlistId, song_id: entry.songId, position: entry.position, updated_at: updatedAt }
 }
 
 function fromRemoteRow(entity: EntityName, row: RemoteRow): Entity {
-  if (entity === 'songs') return {
-    id: row.id,
-    title: row.title as string,
-    artist: (row.artist as string | null) ?? undefined,
-    originalKey: row.original_key as Song['originalKey'],
-    currentKey: row.current_key as Song['currentKey'],
-    bpm: (row.bpm as number | null) ?? undefined,
-    lyrics: row.lyrics as string,
-    notes: (row.notes as string | null) ?? undefined,
-    isFavorite: row.is_favorite as boolean,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  }
+  if (entity === 'songs') return { id: row.id, title: row.title as string, artist: (row.artist as string | null) ?? undefined, originalKey: row.original_key as Song['originalKey'], currentKey: row.current_key as Song['currentKey'], bpm: (row.bpm as number | null) ?? undefined, lyrics: row.lyrics as string, notes: (row.notes as string | null) ?? undefined, isFavorite: row.is_favorite as boolean, createdAt: row.created_at as string, updatedAt: row.updated_at as string }
   if (entity === 'setlists') return { id: row.id, name: row.name as string, createdAt: row.created_at as string, updatedAt: row.updated_at as string }
   return { id: row.id, setlistId: row.setlist_id as string, songId: row.song_id as string, position: row.position as number }
 }
