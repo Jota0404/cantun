@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
+import './AuthPage.css'
 
 export function AuthPage() {
   const { user, loading, configured, signIn, signUp } = useAuth()
@@ -17,33 +18,15 @@ export function AuthPage() {
   if (user) return <Navigate to={destination} replace />
 
   if (!configured) {
-    return (
-      <main className="auth-page">
-        <section className="auth-card" aria-labelledby="auth-title">
-          <p className="auth-card__eyebrow">MUSIC WORKSPACE</p>
-          <h1 id="auth-title">CANTUM</h1>
-          <p className="auth-card__subtitle">Autenticação</p>
-          <p>O Supabase ainda não está configurado neste ambiente.</p>
-        </section>
-      </main>
-    )
+    return <main className="auth-page"><section className="auth-card"><p className="auth-card__eyebrow">MUSIC WORKSPACE</p><h1>CANTUM</h1><p className="auth-card__subtitle">Autenticação</p><p>O Supabase ainda não está configurado neste ambiente.</p></section></main>
   }
 
   const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    setMessage('')
-    setError('')
+    event.preventDefault(); setMessage(''); setError('')
     try {
-      if (mode === 'login') {
-        await signIn(email, password)
-        navigate(destination, { replace: true })
-      } else {
-        await signUp(email, password)
-        setMessage('Conta criada. Verifique seu e-mail para confirmar o acesso.')
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a operação.')
-    }
+      if (mode === 'login') { await signIn(email, password); navigate(destination, { replace: true }) }
+      else { await signUp(email, password); setMessage('Conta criada. Verifique seu e-mail para confirmar o acesso.') }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a operação.') }
   }
 
   return (
@@ -51,18 +34,10 @@ export function AuthPage() {
       <section className="auth-card" aria-labelledby="auth-title">
         <p className="auth-card__eyebrow">MUSIC WORKSPACE</p>
         <h1 id="auth-title">CANTUM</h1>
-        <p className="auth-card__subtitle">
-          {mode === 'login' ? 'Entre para acessar suas músicas.' : 'Crie sua conta para começar.'}
-        </p>
+        <p className="auth-card__subtitle">{mode === 'login' ? 'Entre para acessar suas músicas.' : 'Crie sua conta para começar.'}</p>
         <form className="auth-form" onSubmit={submit}>
-          <label>
-            E-mail
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
-          </label>
-          <label>
-            Senha
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={6} />
-          </label>
+          <label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
+          <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={6} /></label>
           <button className="auth-form__submit" type="submit">{mode === 'login' ? 'Entrar' : 'Criar conta'}</button>
         </form>
         {message && <p className="auth-message" role="status">{message}</p>}
