@@ -63,6 +63,11 @@ describe('SongDetailPage', () => {
     )
   }
 
+  async function openDeleteModal(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  }
+
   it('renders the song detail when the song exists', async () => {
     getSongByIdMock.mockResolvedValue(song())
 
@@ -113,22 +118,24 @@ describe('SongDetailPage', () => {
   it('does not delete the song when deletion is cancelled', async () => {
     const user = userEvent.setup()
     getSongByIdMock.mockResolvedValue(song())
-    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(false)
 
     renderPage('/songs/song-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+    await openDeleteModal(user)
+    expect(screen.getByRole('dialog')).toHaveTextContent('Excluir música?')
+    expect(screen.getByRole('dialog')).toHaveTextContent('A música “Grandioso És Tu” será excluída.')
 
-    expect(confirmMock).toHaveBeenCalledWith('Deseja excluir esta música?')
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+
     expect(deleteSongMock).not.toHaveBeenCalled()
     expect(screen.getByRole('heading', { name: 'Grandioso És Tu' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('deletes the song and returns to the library after confirmation', async () => {
     const user = userEvent.setup()
     getSongByIdMock.mockResolvedValue(song())
     deleteSongMock.mockResolvedValue({ success: true })
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     render(
       <MemoryRouter initialEntries={['/songs/song-1']}>
@@ -139,7 +146,8 @@ describe('SongDetailPage', () => {
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+    await openDeleteModal(user)
+    await user.click(screen.getByRole('button', { name: 'Excluir música' }))
 
     await waitFor(() => {
       expect(deleteSongMock).toHaveBeenCalledWith('song-1')
@@ -154,15 +162,29 @@ describe('SongDetailPage', () => {
       success: false,
       error: { field: 'id', message: 'Música não encontrada.' },
     })
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderPage('/songs/song-1')
 
-    await user.click(await screen.findByRole('button', { name: 'Excluir' }))
+    await openDeleteModal(user)
+    await user.click(screen.getByRole('button', { name: 'Excluir música' }))
 
     expect(
       await screen.findByRole('alert'),
     ).toHaveTextContent('Música não encontrada.')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('closes the deletion modal with Escape without deleting', async () => {
+    const user = userEvent.setup()
+    getSongByIdMock.mockResolvedValue(song())
+
+    renderPage('/songs/song-1')
+
+    await openDeleteModal(user)
+    await user.keyboard('{Escape}')
+
+    expect(deleteSongMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('marks a song as favorite and updates the detail', async () => {
