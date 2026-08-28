@@ -169,11 +169,11 @@ describe('StagePage', () => {
 
     expect(await screen.findByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Próxima →' }))
+    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
 
     expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '← Anterior' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Próxima →' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Música anterior' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Próxima música' })).toBeDisabled()
   })
 
   it('changes the displayed font size with the range control', async () => {
@@ -252,7 +252,7 @@ describe('StagePage', () => {
     expect(callbacks.size).toBe(1)
 
     scrollPosition = 300
-    await user.click(screen.getByRole('button', { name: 'Próxima →' }))
+    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
     expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
     expect(scrollPosition).toBe(0)
     expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
