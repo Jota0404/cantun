@@ -31,13 +31,15 @@ export class SongRepository {
 
   async remove(id: string): Promise<void> {
     await this.db.songs.delete(id)
-    await queueLocalDelete(supabase?.auth.getUser ? (await supabase.auth.getUser()).data.user?.id ?? null : null, 'songs', id)
+    if (!supabase) return
+    const { data } = await supabase.auth.getSession()
+    await queueLocalDelete(data.session?.user.id ?? null, 'songs', id)
   }
 
   private async enqueueUpsert(song: Song) {
     if (!supabase) return
-    const { data } = await supabase.auth.getUser()
-    await queueLocalUpsert(data.user?.id ?? null, 'songs', song)
+    const { data } = await supabase.auth.getSession()
+    await queueLocalUpsert(data.session?.user.id ?? null, 'songs', song)
   }
 }
 
