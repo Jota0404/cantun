@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from './auth/AuthContext'
+import { useAuth } from './auth/authContext'
 import { HomePage } from './pages/Home/HomePage'
 import { NewSongPage } from './pages/Song/NewSongPage'
 import { ImportSongPage } from './pages/Song/ImportSongPage'
