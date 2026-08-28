@@ -32,14 +32,14 @@ export class SetlistRepository {
   async remove(id: string): Promise<void> {
     await this.db.setlists.delete(id)
     if (!supabase) return
-    const { data } = await supabase.auth.getUser()
-    await queueLocalDelete(data.user?.id ?? null, 'setlists', id)
+    const { data } = await supabase.auth.getSession()
+    await queueLocalDelete(data.session?.user.id ?? null, 'setlists', id)
   }
 
   private async enqueueUpsert(setlist: Setlist) {
     if (!supabase) return
-    const { data } = await supabase.auth.getUser()
-    await queueLocalUpsert(data.user?.id ?? null, 'setlists', setlist)
+    const { data } = await supabase.auth.getSession()
+    await queueLocalUpsert(data.session?.user.id ?? null, 'setlists', setlist)
   }
 }
 
