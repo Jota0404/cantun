@@ -29,8 +29,13 @@ const tables: Record<EntityName, string> = { songs: 'songs', setlists: 'setlists
 
 export class SyncEngine {
   private syncing = false
+  private readonly db: SalmodiaDatabase
+  private readonly client: SupabaseClient
 
-  constructor(private readonly db: SalmodiaDatabase, private readonly client: SupabaseClient) {}
+  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+    this.db = db
+    this.client = client
+  }
 
   async queueUpsert(userId: string, entity: EntityName, payload: Entity) {
     await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, entity, payload.id]).delete()
