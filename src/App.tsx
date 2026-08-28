@@ -24,8 +24,9 @@ function getInitialTheme(): Theme {
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user, loading, signOut } = useAuth()
   const isStageMode = location.pathname.startsWith('/stage/')
+  const isAuthRoute = location.pathname === '/auth'
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -33,9 +34,23 @@ function App() {
     window.localStorage.setItem('cantum-theme', theme)
   }, [theme])
 
+  if (loading) {
+    return (
+      <div className="shell">
+        <main aria-live="polite">
+          <p>Carregando sessão…</p>
+        </main>
+      </div>
+    )
+  }
+
+  if (!user && !isAuthRoute) {
+    return <Navigate to="/auth" state={{ from: location.pathname + location.search }} replace />
+  }
+
   return (
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
-      {!isStageMode && (
+      {!isStageMode && !isAuthRoute && (
         <>
           <header className="app-header">
             <div>
