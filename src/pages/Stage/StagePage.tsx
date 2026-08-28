@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
 import { getStageSongs } from '../../application/stage/getStageSongs'
@@ -23,6 +23,59 @@ type StagePageProps = {
   setlistSongRepository?: SetlistSongRepository
 }
 
+type ParsedStageLine = {
+  type: 'text' | 'chord'
+  value: string
+}
+
+function parseStageLine(line: string): ParsedStageLine[] {
+  if (!line) return [{ type: 'text', value: '' }]
+
+  const parts: ParsedStageLine[] = []
+  let cursor = 0
+  const chordPattern = /\[([^\]]+)\]/g
+  let match = chordPattern.exec(line)
+
+  while (match) {
+    if (match.index > cursor) {
+      parts.push({ type: 'text', value: line.slice(cursor, match.index) })
+    }
+
+    parts.push({ type: 'chord', value: match[1] })
+    cursor = match.index + match[0].length
+    match = chordPattern.exec(line)
+  }
+
+  if (cursor < line.length) {
+    parts.push({ type: 'text', value: line.slice(cursor) })
+  }
+
+  return parts.length > 0 ? parts : [{ type: 'text', value: line }]
+}
+
+function StageLyrics({ lyrics }: { lyrics: string }) {
+  return (
+    <div className="stage-lyrics">
+      {lyrics.split('\n').map((line, index) => (
+        <div className="stage-lyrics__line" key={`${index}-${line}`}>
+          {parseStageLine(line).map((part, partIndex) =>
+            part.type === 'chord' ? (
+              <span
+                className="stage-chord"
+                key={`${index}-${partIndex}-${part.value}`}
+              >
+                {part.value}
+              </span>
+            ) : (
+              <span key={`${index}-${partIndex}-${part.value}`}>{part.value}</span>
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function StagePage({
   repository,
   setlistSongRepository,
@@ -42,6 +95,9 @@ export function StagePage({
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const touchStartRef = useState<{ x: number; y: number } | null>(null)[0]
+  const [, setTouchStart] = useState<{ x: number; y: number } | null>(null)
 
   useWakeLock()
 
@@ -164,6 +220,39 @@ export function StagePage({
     setCurrentSong(songs[index])
   }
 
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    setTouchStart({ x: event.clientX, y: event.clientY })
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
+    const start = touchStartRef
+    if (!start) return
+
+    setTouchStart(null)
+
+    const deltaX = event.clientX - start.x
+    const deltaY = event.clientY - start.y
+    const horizontalSwipe = Math.abs(deltaX) >= 64 && Math.abs(deltaX) > Math.abs(deltaY)
+
+    if (horizontalSwipe) {
+      selectSong(deltaX < 0 ? currentIndex + 1 : currentIndex - 1)
+      return
+    }
+
+    const width = window.innerWidth
+    if (Math.abs(deltaX) < 18 && Math.abs(deltaY) < 18) {
+      if (event.clientX >= width * 0.78) {
+        selectSong(currentIndex + 1)
+      } else if (event.clientX <= width * 0.22) {
+        selectSong(currentIndex - 1)
+      }
+    }
+  }
+
+  function handlePointerCancel() {
+    setTouchStart(null)
+  }
+
   async function toggleFullscreen() {
     if (!document.fullscreenElement) {
       try {
@@ -215,6 +304,9 @@ export function StagePage({
   return (
     <main
       className="stage-page stage-page--dark"
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       style={
         {
           '--stage-font-size': `${fontSize}px`,
@@ -272,9 +364,7 @@ export function StagePage({
         className="stage-content"
         aria-label={`Letra de ${currentSong.title}`}
       >
-        <pre style={{ fontSize: 'var(--stage-font-size)' }}>
-          {displayedLyrics}
-        </pre>
+        <StageLyrics lyrics={displayedLyrics} />
 
         {currentSong.notes && (
           <aside className="stage-notes">
@@ -289,8 +379,9 @@ export function StagePage({
           type="button"
           disabled={!hasPrevious}
           onClick={() => selectSong(currentIndex - 1)}
+          aria-label="Música anterior"
         >
-          ← Anterior
+          ←
         </button>
 
         <div
@@ -365,8 +456,9 @@ export function StagePage({
           type="button"
           disabled={!hasNext}
           onClick={() => selectSong(currentIndex + 1)}
+          aria-label="Próxima música"
         >
-          Próxima →
+          →
         </button>
       </footer>
     </main>
