@@ -13,12 +13,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const client = supabase
     let mounted = true
     const synchronize = (userId: string) => {
       void syncEngine?.bootstrap(userId)
     }
 
-    void supabase.auth.getSession().then(({ data }) => {
+    void client.auth.getSession().then(({ data }) => {
       if (mounted) {
         setSession(data.session)
         setLoading(false)
@@ -26,18 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
       setSession(nextSession)
       if (nextSession) synchronize(nextSession.user.id)
     })
 
     const onOnline = () => {
-      if (supabase.auth.getSession) {
-        void supabase.auth.getUser().then(({ data: authData }) => {
-          if (authData.user) void syncEngine?.sync(authData.user.id)
-        })
-      }
+      void client.auth.getUser().then(({ data: authData }) => {
+        if (authData.user) void syncEngine?.sync(authData.user.id)
+      })
     }
 
     window.addEventListener('online', onOnline)
