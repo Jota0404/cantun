@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
@@ -95,9 +95,7 @@ export function StagePage({
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-
-  const touchStartRef = useState<{ x: number; y: number } | null>(null)[0]
-  const [, setTouchStart] = useState<{ x: number; y: number } | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   useWakeLock()
 
@@ -185,16 +183,10 @@ export function StagePage({
       setIsFullscreen(Boolean(document.fullscreenElement))
     }
 
-    document.addEventListener(
-      'fullscreenchange',
-      handleFullscreenChange,
-    )
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
 
     return () => {
-      document.removeEventListener(
-        'fullscreenchange',
-        handleFullscreenChange,
-      )
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
     }
   }, [])
 
@@ -221,26 +213,27 @@ export function StagePage({
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
-    setTouchStart({ x: event.clientX, y: event.clientY })
+    touchStartRef.current = { x: event.clientX, y: event.clientY }
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
-    const start = touchStartRef
+    const start = touchStartRef.current
+    touchStartRef.current = null
     if (!start) return
-
-    setTouchStart(null)
 
     const deltaX = event.clientX - start.x
     const deltaY = event.clientY - start.y
-    const horizontalSwipe = Math.abs(deltaX) >= 64 && Math.abs(deltaX) > Math.abs(deltaY)
+    const horizontalSwipe =
+      Math.abs(deltaX) >= 64 && Math.abs(deltaX) > Math.abs(deltaY)
 
     if (horizontalSwipe) {
       selectSong(deltaX < 0 ? currentIndex + 1 : currentIndex - 1)
       return
     }
 
-    const width = window.innerWidth
     if (Math.abs(deltaX) < 18 && Math.abs(deltaY) < 18) {
+      const width = window.innerWidth
+
       if (event.clientX >= width * 0.78) {
         selectSong(currentIndex + 1)
       } else if (event.clientX <= width * 0.22) {
@@ -250,7 +243,7 @@ export function StagePage({
   }
 
   function handlePointerCancel() {
-    setTouchStart(null)
+    touchStartRef.current = null
   }
 
   async function toggleFullscreen() {
@@ -283,8 +276,7 @@ export function StagePage({
     return (
       <main className="stage-page stage-page--dark">
         <p role="alert">
-          {error ??
-            'Nenhuma música disponível para o Modo Palco.'}
+          {error ?? 'Nenhuma música disponível para o Modo Palco.'}
         </p>
 
         <button type="button" onClick={() => navigate(-1)}>
@@ -307,11 +299,7 @@ export function StagePage({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
-      style={
-        {
-          '--stage-font-size': `${fontSize}px`,
-        } as CSSProperties
-      }
+      style={{ '--stage-font-size': `${fontSize}px` } as CSSProperties}
     >
       <header className="stage-toolbar">
         <button
@@ -329,35 +317,18 @@ export function StagePage({
 
         <div className="stage-toolbar__title">
           <strong>{currentSong.title}</strong>
-
-          {songs.length > 1 && (
-            <span>
-              {currentIndex + 1}/{songs.length}
-            </span>
-          )}
+          {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
         </div>
 
-        <button
-          type="button"
-          onClick={() => void toggleFullscreen()}
-        >
+        <button type="button" onClick={() => void toggleFullscreen()}>
           {isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
         </button>
       </header>
 
-      <section
-        className="stage-meta"
-        aria-label="Informações da música"
-      >
-        {currentSong.artist && (
-          <span>{currentSong.artist}</span>
-        )}
-
+      <section className="stage-meta" aria-label="Informações da música">
+        {currentSong.artist && <span>{currentSong.artist}</span>}
         <span>Tom: {currentSong.currentKey}</span>
-
-        {currentSong.bpm !== undefined && (
-          <span>BPM: {currentSong.bpm}</span>
-        )}
+        {currentSong.bpm !== undefined && <span>BPM: {currentSong.bpm}</span>}
       </section>
 
       <section
@@ -384,37 +355,23 @@ export function StagePage({
           ←
         </button>
 
-        <div
-          className="stage-controls__auto-scroll"
-          aria-label="Controles de auto-scroll"
-        >
+        <div className="stage-controls__auto-scroll" aria-label="Controles de auto-scroll">
           <div className="stage-controls__auto-scroll-row">
             <span aria-live="polite">
-              Auto-scroll:{' '}
-              {isAutoScrolling ? 'Ativo' : 'Pausado'}
+              Auto-scroll: {isAutoScrolling ? 'Ativo' : 'Pausado'}
             </span>
 
             {isAutoScrolling ? (
-              <button
-                type="button"
-                onClick={pauseAutoScroll}
-              >
-                Pausar
-              </button>
+              <button type="button" onClick={pauseAutoScroll}>Pausar</button>
             ) : (
-              <button
-                type="button"
-                onClick={startAutoScroll}
-              >
+              <button type="button" onClick={startAutoScroll}>
                 {hasAutoScrollStarted ? 'Retomar' : 'Iniciar'}
               </button>
             )}
           </div>
 
           <label>
-            Velocidade:{' '}
-            {getAutoScrollSpeedLabel(autoScrollSpeed)}
-
+            Velocidade: {getAutoScrollSpeedLabel(autoScrollSpeed)}
             <input
               type="range"
               min="0"
@@ -423,31 +380,23 @@ export function StagePage({
               value={autoScrollSpeedIndex}
               onChange={(event) => {
                 const index = Number(event.target.value)
-
-                setAutoScrollSpeed(
-                  AUTO_SCROLL_SPEEDS[index].value,
-                )
+                setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[index].value)
               }}
               aria-label="Velocidade do auto-scroll"
-              aria-valuetext={getAutoScrollSpeedLabel(
-                autoScrollSpeed,
-              )}
+              aria-valuetext={getAutoScrollSpeedLabel(autoScrollSpeed)}
             />
           </label>
         </div>
 
         <label>
           Fonte
-
           <input
             type="range"
             min="16"
             max="36"
             step="1"
             value={fontSize}
-            onChange={(event) =>
-              setFontSize(Number(event.target.value))
-            }
+            onChange={(event) => setFontSize(Number(event.target.value))}
             aria-label="Tamanho da fonte"
           />
         </label>
