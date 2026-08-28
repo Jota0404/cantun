@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 
@@ -18,23 +18,23 @@ export function AuthPage() {
   if (!configured) {
     return (
       <main>
-        <h2>Conta CANTUM</h2>
-        <p>Autenticação ainda não está configurada neste ambiente.</p>
+        <h1>Autenticação</h1>
+        <p>O Supabase ainda não está configurado neste ambiente.</p>
       </main>
     )
   }
 
-  async function submit(event: FormEvent) {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    setError('')
     setMessage('')
+    setError('')
     try {
       if (mode === 'login') {
         await signIn(email, password)
         navigate('/songs', { replace: true })
       } else {
         await signUp(email, password)
-        setMessage('Conta criada. Verifique seu e-mail se a confirmação estiver habilitada.')
+        setMessage('Conta criada. Verifique seu e-mail para confirmar o acesso.')
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a operação.')
@@ -42,24 +42,23 @@ export function AuthPage() {
   }
 
   return (
-    <main style={{ maxWidth: 480, margin: '3rem auto', padding: '1rem' }}>
-      <h2>{mode === 'login' ? 'Entrar no CANTUM' : 'Criar conta'}</h2>
-      <p>Suas músicas e repertórios poderão ser sincronizados entre dispositivos.</p>
+    <main>
+      <h1>{mode === 'login' ? 'Entrar' : 'Criar conta'}</h1>
       <form onSubmit={submit}>
         <label>
           E-mail
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </label>
         <label>
           Senha
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} />
         </label>
         <button type="submit">{mode === 'login' ? 'Entrar' : 'Criar conta'}</button>
       </form>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={() => setMode((current) => current === 'login' ? 'signup' : 'login')}>
-        {mode === 'login' ? 'Ainda não tenho conta' : 'Já tenho conta'}
+      <button type="button" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
+        {mode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
       </button>
     </main>
   )
