@@ -26,9 +26,11 @@ interface RemoteRow {
 }
 
 const tables: Record<EntityName, string> = { songs: 'songs', setlists: 'setlists', setlistSongs: 'setlist_songs' }
+const SYNC_RETRY_DELAY_MS = 10000
 
 export class SyncEngine {
   private syncing = false
+  private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
   private readonly client: SupabaseClient
 
@@ -66,14 +68,38 @@ export class SyncEngine {
   }
 
   async sync(userId: string) {
-    if (this.syncing || !navigator.onLine) return
+    if (this.syncing) return
+
     this.syncing = true
     try {
-      await this.pushPending(userId)
-      await this.pull(userId)
+      if (navigator.onLine) {
+        await this.pushPending(userId)
+        await this.pull(userId)
+      }
     } finally {
       this.syncing = false
     }
+
+    const remaining = await this.db.syncQueue.where('userId').equals(userId).count()
+    if (remaining > 0) {
+      this.scheduleRetry(userId)
+    } else {
+      this.clearRetry()
+    }
+  }
+
+  private scheduleRetry(userId: string) {
+    if (this.retryTimer !== undefined) return
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = undefined
+      void this.sync(userId)
+    }, SYNC_RETRY_DELAY_MS)
+  }
+
+  private clearRetry() {
+    if (this.retryTimer === undefined) return
+    window.clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
   }
 
   private async pushPending(userId: string) {
