@@ -45,6 +45,11 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
     if (!isDeleting) setIsDeleteModalOpen(false)
   }, [isDeleting])
 
+  if (songId && loadedSongId !== songId) return <section className="song-detail-page"><p>Carregando música...</p></section>
+  if (!song) return <section className="song-detail-page"><h2>Música não encontrada.</h2><p>A música solicitada não existe.</p></section>
+
+  const currentSong = song
+
   async function confirmDelete() {
     if (!songId) return
     setDeleteError(undefined)
@@ -61,13 +66,12 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
     }
   }
 
-  if (songId && loadedSongId !== songId) return <section className="song-detail-page"><p>Carregando música...</p></section>
-  if (!song) return <section className="song-detail-page"><h2>Música não encontrada.</h2><p>A música solicitada não existe.</p></section>
-
   async function handleTranspose(semitones: number) {
     setTransposeError(undefined); setIsTransposing(true)
     try {
-      const result = repository ? await transposeSong({ id: song.id, semitones }, repository) : await transposeSong({ id: song.id, semitones })
+      const result = repository
+        ? await transposeSong({ id: currentSong.id, semitones }, repository)
+        : await transposeSong({ id: currentSong.id, semitones })
       if (!result.success) { setTransposeError(result.error.message); return }
       setSong(result.song)
     } catch { setTransposeError('Não foi possível transpor a música. Tente novamente.') }
@@ -75,7 +79,6 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
   }
 
   async function handleToggleFavorite() {
-    const currentSong = song
     setFavoriteError(undefined); setIsUpdatingFavorite(true)
     try {
       const result = repository
@@ -90,15 +93,15 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
   return (
     <section className="song-detail-page">
       <SongDetail
-        song={song}
-        onEdit={() => navigate(`/songs/${song.id}/edit`)}
+        song={currentSong}
+        onEdit={() => navigate(`/songs/${currentSong.id}/edit`)}
         onDelete={() => setIsDeleteModalOpen(true)}
         isDeleting={isDeleting}
         onToggleFavorite={handleToggleFavorite}
         onTranspose={handleTranspose}
         isTransposing={isTransposing}
         isUpdatingFavorite={isUpdatingFavorite}
-        onStage={() => navigate(`/stage/song/${song.id}`)}
+        onStage={() => navigate(`/stage/song/${currentSong.id}`)}
       />
       {deleteError && <p role="alert">{deleteError}</p>}
       {favoriteError && <p role="alert">{favoriteError}</p>}
@@ -106,7 +109,7 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
       <ConfirmModal
         open={isDeleteModalOpen}
         title="Excluir música?"
-        message={`A música “${song.title}” será excluída. Essa ação não pode ser desfeita.`}
+        message={`A música “${currentSong.title}” será excluída. Essa ação não pode ser desfeita.`}
         confirmLabel={isDeleting ? 'Excluindo...' : 'Excluir música'}
         cancelLabel="Cancelar"
         onConfirm={() => void confirmDelete()}
