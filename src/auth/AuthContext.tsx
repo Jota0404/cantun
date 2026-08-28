@@ -59,10 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signUp: async (email, password) => {
       if (!supabase) throw new Error('Supabase não está configurado.')
+      const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: redirectTo },
       })
       if (error) throw error
     },
