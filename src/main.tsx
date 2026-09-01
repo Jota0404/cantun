@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import './cantum-theme.css'
 import App from './App.tsx'
-import { AuthProvider } from './auth/authContext'
+import { AuthProvider } from './auth/authContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
