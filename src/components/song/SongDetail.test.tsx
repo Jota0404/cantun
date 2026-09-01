@@ -26,31 +26,27 @@ function song(overrides: Partial<Song> = {}): Song {
 describe('SongDetail', () => {
   it('renders the song title and artist', () => {
     render(<SongDetail song={song()} />)
-
-    expect(
-      screen.getByRole('heading', { name: 'Grandioso És Tu' }),
-    ).toBeInTheDocument()
-
+    expect(screen.getByRole('heading', { name: 'Grandioso És Tu' })).toBeInTheDocument()
     expect(screen.getByText('Harpa Cristã')).toBeInTheDocument()
   })
 
   it('renders the current key and original key', () => {
     render(<SongDetail song={song()} />)
-
     expect(screen.getByText('Tom atual: E')).toBeInTheDocument()
     expect(screen.getByText('Tom original: D')).toBeInTheDocument()
   })
 
   it('renders the bpm when available', () => {
     render(<SongDetail song={song({ bpm: 90 })} />)
-
     expect(screen.getByText('BPM: 90')).toBeInTheDocument()
   })
 
-  it('renders the lyrics', () => {
+  it('renders transposed chords separately from lyrics', () => {
     render(<SongDetail song={song()} />)
-
-    expect(screen.getByText('[E]Grandioso és [B]Tu')).toBeInTheDocument()
+    expect(screen.getByText('E')).toHaveClass('song-detail__chord')
+    expect(screen.getByText('B')).toHaveClass('song-detail__chord')
+    expect(screen.getByText('Grandioso és')).toBeInTheDocument()
+    expect(screen.getByText('Tu')).toBeInTheDocument()
   })
 
   it('offers transpose controls when provided', async () => {
@@ -65,73 +61,50 @@ describe('SongDetail', () => {
 
   it('renders notes when available', () => {
     render(<SongDetail song={song()} />)
-
     expect(screen.getByText('Introdução suave')).toBeInTheDocument()
   })
 
   it('shows the favorite indicator for favorite songs', () => {
-    render(
-      <SongDetail
-        song={song({
-          isFavorite: true,
-        })}
-      />,
-    )
-
+    render(<SongDetail song={song({ isFavorite: true })} />)
     expect(screen.getByLabelText('Música favorita')).toBeInTheDocument()
   })
 
   it('offers an edit action when provided', async () => {
     const user = userEvent.setup()
     const onEdit = vi.fn()
-
     render(<SongDetail song={song()} onEdit={onEdit} />)
-
     await user.click(screen.getByRole('button', { name: 'Editar' }))
-
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
   it('offers a stage mode action when provided', async () => {
     const user = userEvent.setup()
     const onStage = vi.fn()
-
     render(<SongDetail song={song()} onStage={onStage} />)
-
     await user.click(screen.getByRole('button', { name: 'Modo Palco' }))
-
     expect(onStage).toHaveBeenCalledTimes(1)
   })
 
   it('offers an action to add a song to favorites', async () => {
     const user = userEvent.setup()
     const onToggleFavorite = vi.fn()
-
     render(<SongDetail song={song()} onToggleFavorite={onToggleFavorite} />)
-
     const button = screen.getByRole('button', { name: 'Adicionar aos favoritos' })
     expect(button).toHaveAttribute('aria-pressed', 'false')
     await user.click(button)
-
     expect(onToggleFavorite).toHaveBeenCalledTimes(1)
   })
 
   it('offers an action to remove a favorite song from favorites', () => {
     render(<SongDetail song={song({ isFavorite: true })} onToggleFavorite={vi.fn()} />)
-
-    expect(
-      screen.getByRole('button', { name: 'Remover dos favoritos' }),
-    ).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Remover dos favoritos' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('offers a delete action when provided', async () => {
     const user = userEvent.setup()
     const onDelete = vi.fn()
-
     render(<SongDetail song={song()} onDelete={onDelete} />)
-
     await user.click(screen.getByRole('button', { name: 'Excluir' }))
-
     expect(onDelete).toHaveBeenCalledTimes(1)
   })
 })
