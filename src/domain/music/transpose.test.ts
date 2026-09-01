@@ -18,19 +18,40 @@ describe('transpose', () => {
     expect(transposeKey('Bb', -1)).toBe('A')
   })
 
-  it('transposes supported chord qualities without changing their suffix', () => {
+  it('transposes every chord-quality token accepted by the parser', () => {
     const cases = [
       ['C', 'D'],
-      ['Am', 'Bm'],
+      ['Cm', 'Dm'],
+      ['Cmin', 'Dmin'],
+      ['Cmaj', 'Dmaj'],
+      ['Cdim', 'Ddim'],
+      ['Caug', 'Daug'],
+      ['Csus', 'Dsus'],
+      ['Cadd', 'Dadd'],
+      ['Cno', 'Dno'],
+      ['Comit', 'Domit'],
+      ['CM', 'DM'],
+      ['C°', 'D°'],
+      ['Cø', 'Dø'],
+    ] as const
+
+    for (const [source, expected] of cases) {
+      expect(transposeChord(source, 2, 'D')).toBe(expected)
+    }
+  })
+
+  it('transposes numeric extensions and one alteration accepted by the parser', () => {
+    const cases = [
       ['C7', 'D7'],
-      ['Cmaj7', 'Dmaj7'],
-      ['Csus4', 'Dsus4'],
-      ['Cadd9', 'Dadd9'],
       ['C9', 'D9'],
       ['C13', 'D13'],
+      ['Cmaj7', 'Dmaj7'],
+      ['Cmin7', 'Dmin7'],
       ['Cdim7', 'Ddim7'],
-      ['Caug', 'Daug'],
+      ['Csus4', 'Dsus4'],
+      ['Cadd9', 'Dadd9'],
       ['Cno3', 'Dno3'],
+      ['Comit5', 'Domit5'],
       ['CM7', 'DM7'],
       ['C°7', 'D°7'],
       ['Cø7', 'Dø7'],
@@ -41,6 +62,11 @@ describe('transpose', () => {
     for (const [source, expected] of cases) {
       expect(transposeChord(source, 2, 'D')).toBe(expected)
     }
+  })
+
+  it('rejects unsupported combinations instead of partially rewriting them', () => {
+    expect(transposeChord('C7sus4', 2, 'D')).toBe('C7sus4')
+    expect(transposeChord('Cmaj7#9b5', 2, 'D')).toBe('Cmaj7#9b5')
   })
 
   it('transposes negative intervals while preserving chord quality', () => {
@@ -78,21 +104,21 @@ describe('transpose', () => {
     )
   })
 
-  it('preserves every line and non-chord content in a complete song', () => {
+  it('preserves every line, lyric, annotation, and chord occurrence', () => {
     const lyrics = [
-      '[D]Grandioso [A]és [Bm]Tu',
+      '[D]Grandioso [A]és [Bm]Tu [Bm]Tu',
       'Senhor, minha [G/B]rocha',
       '',
-      '[Cadd9/G]Anotação: entrada suave',
-      'Jesus é [A7]fiel',
+      'Anotação: entrada suave',
+      '[Cadd9/G]Introdução [A7]e [A7]retorno',
     ].join('\n')
 
     expect(transposeSongLyrics(lyrics, 2, 'D')).toBe([
-      '[E]Grandioso [B]és [C#m]Tu',
+      '[E]Grandioso [B]és [C#m]Tu [C#m]Tu',
       'Senhor, minha [A/C#]rocha',
       '',
-      '[Dadd9/A]Anotação: entrada suave',
-      'Jesus é [B7]fiel',
+      'Anotação: entrada suave',
+      '[Dadd9/A]Introdução [B7]e [B7]retorno',
     ].join('\n'))
   })
 
