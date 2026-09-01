@@ -14,6 +14,59 @@ type SongDetailProps = {
   isTransposing?: boolean
 }
 
+type ParsedSongLinePart = {
+  type: 'text' | 'chord'
+  value: string
+}
+
+function parseSongLine(line: string): ParsedSongLinePart[] {
+  if (!line) return [{ type: 'text', value: '' }]
+
+  const parts: ParsedSongLinePart[] = []
+  let cursor = 0
+  const chordPattern = /\[([^\]]+)\]/g
+  let match = chordPattern.exec(line)
+
+  while (match) {
+    if (match.index > cursor) {
+      parts.push({ type: 'text', value: line.slice(cursor, match.index) })
+    }
+
+    parts.push({ type: 'chord', value: match[1] })
+    cursor = match.index + match[0].length
+    match = chordPattern.exec(line)
+  }
+
+  if (cursor < line.length) {
+    parts.push({ type: 'text', value: line.slice(cursor) })
+  }
+
+  return parts.length > 0 ? parts : [{ type: 'text', value: line }]
+}
+
+function SongLyrics({ lyrics }: { lyrics: string }) {
+  return (
+    <div className="song-detail__lyrics" aria-label="Cifra e letra">
+      {lyrics.split('\n').map((line, index) => (
+        <div className="song-detail__lyrics-line" key={`${index}-${line}`}>
+          {parseSongLine(line).map((part, partIndex) =>
+            part.type === 'chord' ? (
+              <span
+                className="song-detail__chord"
+                key={`${index}-${partIndex}-${part.value}`}
+              >
+                {part.value}
+              </span>
+            ) : (
+              <span key={`${index}-${partIndex}-${part.value}`}>{part.value}</span>
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function SongDetail({
   song,
   onEdit,
@@ -27,6 +80,7 @@ export function SongDetail({
 }: SongDetailProps) {
   const semitones = getSemitoneDistance(song.originalKey, song.currentKey)
   const displayedLyrics = transposeSongLyrics(song.lyrics, semitones, song.currentKey)
+
   return (
     <article className="song-detail">
       <header className="song-detail__header">
@@ -59,7 +113,7 @@ export function SongDetail({
 
       <section className="song-detail__section" aria-labelledby="song-lyrics">
         <h3 id="song-lyrics">Cifra/letra</h3>
-        <pre>{displayedLyrics}</pre>
+        <SongLyrics lyrics={displayedLyrics} />
       </section>
 
       {song.notes && (
