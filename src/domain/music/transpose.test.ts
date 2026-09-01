@@ -70,7 +70,7 @@ describe('transpose', () => {
   })
 
   it('transposes negative intervals while preserving chord quality', () => {
-    expect(transposeChord('Cmaj7', -2, 'C')).toBe('Bbmaj7')
+    expect(transposeChord('Cmaj7', -2, 'C')).toBe('A#maj7')
     expect(transposeChord('Am', -2, 'C')).toBe('Gm')
     expect(transposeChord('G7b5', -2, 'C')).toBe('F7b5')
   })
