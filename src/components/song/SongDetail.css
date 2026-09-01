@@ -22,7 +22,6 @@
 }
 
 .song-detail__artist,
-.song-detail__section pre,
 .song-detail__section p {
   margin: 8px 0 0;
 }
@@ -60,9 +59,21 @@
   margin-top: 24px;
 }
 
-.song-detail__section pre {
+.song-detail__lyrics {
+  margin-top: 12px;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
   font: inherit;
+  line-height: 1.55;
+}
+
+.song-detail__lyrics-line {
+  min-height: 1.55em;
+}
+
+.song-detail__chord {
+  color: #0f766e;
+  font-weight: 800;
 }
 
 .song-detail__actions {
