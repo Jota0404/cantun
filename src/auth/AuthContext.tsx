@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { syncEngine } from '../sync/syncService'
+import { bootstrapBandSync, syncBands } from '../sync/bandSyncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -9,14 +10,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
-    if (!supabase) {
-      return
-    }
-
+    if (!supabase) return
     const client = supabase
     let mounted = true
     const synchronize = (userId: string) => {
       void syncEngine?.bootstrap(userId)
+      void bootstrapBandSync()
     }
 
     void client.auth.getSession().then(({ data }) => {
@@ -35,7 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const onOnline = () => {
       void client.auth.getUser().then(({ data: authData }) => {
-        if (authData.user) void syncEngine?.sync(authData.user.id)
+        if (authData.user) {
+          void syncEngine?.sync(authData.user.id)
+          void syncBands()
+        }
       })
     }
 
@@ -60,11 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp: async (email, password) => {
       if (!supabase) throw new Error('Supabase não está configurado.')
       const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: redirectTo },
-      })
+      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } })
       if (error) throw error
     },
     signOut: async () => {
