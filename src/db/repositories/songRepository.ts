@@ -18,8 +18,9 @@ export class SongRepository {
   }
 
   async create(song: Song): Promise<void> {
-    await this.db.songs.add(normalizeSong(song))
-    await this.enqueueUpsert(normalizeSong(song))
+    const normalizedSong = normalizeSong(song)
+    await this.db.songs.add(normalizedSong)
+    await this.enqueueUpsert(normalizedSong)
   }
 
   async getById(id: string): Promise<Song | undefined> {
