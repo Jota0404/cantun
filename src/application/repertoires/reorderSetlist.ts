@@ -49,12 +49,13 @@ export async function reorderSetlist(
   }
   reordered.splice(toPosition, 0, moved)
 
-  const updatedEntries = reordered.map((entry, position) => ({ ...entry, position }))
+  const now = new Date().toISOString()
+  const updatedEntries = reordered.map((entry, position) => ({ ...entry, position, updatedAt: now }))
   await Promise.all(updatedEntries.map((entry) => setlistSongs.update(entry)))
 
   const setlist = await setlists.getById(setlistId)
   if (setlist) {
-    await setlists.update({ ...setlist, updatedAt: new Date().toISOString() })
+    await setlists.update({ ...setlist, updatedAt: now })
   }
 
   return { success: true, entries: updatedEntries }
