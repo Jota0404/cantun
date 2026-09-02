@@ -21,37 +21,15 @@ const KEY_TO_PITCH: Record<MusicalKey, number> = {
 }
 
 const SHARP_KEYS: readonly MusicalKey[] = [
-  'C',
-  'C#',
-  'D',
-  'D#',
-  'E',
-  'F',
-  'F#',
-  'G',
-  'G#',
-  'A',
-  'A#',
-  'B',
+  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
 ]
 
 const FLAT_KEYS: readonly MusicalKey[] = [
-  'C',
-  'Db',
-  'D',
-  'Eb',
-  'E',
-  'F',
-  'Gb',
-  'G',
-  'Ab',
-  'A',
-  'Bb',
-  'B',
+  'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
 ]
 
 const CHORD_TOKEN_PATTERN =
-  /^([A-G](?:#|b)?)(?:(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?)$/
+  /^([A-G](?:#|b)?)(?:(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?)(?:\([^)]+\))?$/
 
 function normalizePitch(pitch: number): number {
   return ((pitch % 12) + 12) % 12
@@ -65,22 +43,13 @@ export function getKeyPitch(key: MusicalKey): number {
   return KEY_TO_PITCH[key]
 }
 
-export function getSemitoneDistance(
-  from: MusicalKey,
-  to: MusicalKey,
-): number {
+export function getSemitoneDistance(from: MusicalKey, to: MusicalKey): number {
   return normalizePitch(KEY_TO_PITCH[to] - KEY_TO_PITCH[from])
 }
 
-export function transposeKey(
-  key: MusicalKey,
-  semitones: number,
-): MusicalKey {
+export function transposeKey(key: MusicalKey, semitones: number): MusicalKey {
   const keys = keySpelling(key)
-
-  return keys[
-    normalizePitch(KEY_TO_PITCH[key] + semitones)
-  ]
+  return keys[normalizePitch(KEY_TO_PITCH[key] + semitones)]
 }
 
 function transposeChordRoot(
@@ -89,14 +58,8 @@ function transposeChordRoot(
   spelling: readonly MusicalKey[],
 ): string {
   const rootPitch = KEY_TO_PITCH[root as MusicalKey]
-
-  if (rootPitch === undefined) {
-    return root
-  }
-
-  return spelling[
-    normalizePitch(rootPitch + semitones)
-  ]
+  if (rootPitch === undefined) return root
+  return spelling[normalizePitch(rootPitch + semitones)]
 }
 
 export function transposeChord(
@@ -104,33 +67,17 @@ export function transposeChord(
   semitones: number,
   referenceKey: MusicalKey = 'C',
 ): string {
-  if (!CHORD_TOKEN_PATTERN.test(chord)) {
-    return chord
-  }
+  if (!CHORD_TOKEN_PATTERN.test(chord)) return chord
 
   const rootMatch = /^([A-G](?:#|b)?)(.*)$/.exec(chord)
-
-  if (!rootMatch) {
-    return chord
-  }
+  if (!rootMatch) return chord
 
   const [, root, suffix] = rootMatch
   const spelling = keySpelling(referenceKey)
-
-  const transposedRoot = transposeChordRoot(
-    root,
-    semitones,
-    spelling,
-  )
-
+  const transposedRoot = transposeChordRoot(root, semitones, spelling)
   const transposedSuffix = suffix.replace(
     /\/([A-G](?:#|b)?)$/,
-    (_, bass: string) =>
-      `/${transposeChordRoot(
-        bass,
-        semitones,
-        spelling,
-      )}`,
+    (_, bass: string) => `/${transposeChordRoot(bass, semitones, spelling)}`,
   )
 
   return `${transposedRoot}${transposedSuffix}`
@@ -141,18 +88,9 @@ export function transposeSongLyrics(
   semitones: number,
   referenceKey: MusicalKey = 'C',
 ): string {
-  return lyrics.replace(
-    /\[([^\]]+)\]/g,
-    (match, chord: string) => {
-      if (!CHORD_TOKEN_PATTERN.test(chord)) {
-        return match
-      }
+  return lyrics.replace(/\[([^\]]+)\]/g, (match, chord: string) => {
+    if (!CHORD_TOKEN_PATTERN.test(chord)) return match
 
-      return `[${transposeChord(
-        chord,
-        semitones,
-        referenceKey,
-      )}]`
-    },
-  )
+    return `[${transposeChord(chord, semitones, referenceKey)}]`
+  })
 }
