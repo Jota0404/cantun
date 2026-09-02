@@ -16,15 +16,20 @@ function isTabLine(line: string): boolean {
   return /^[eBGDAE]\|/i.test(trimmed) || /^\|(?:-{2,}|={2,})/.test(trimmed)
 }
 
+function stripLegacyChordMarker(line: string): string {
+  const trimmed = line.trim()
+  if (trimmed.startsWith('">')) return trimmed.slice(2).trimStart()
+  if (trimmed.startsWith('>')) return trimmed.slice(1).trimStart()
+  return trimmed
+}
+
 function normalizeChordOnlyLine(line: string): string | undefined {
-  const indentation = line.match(/^\s*/)?.[0] ?? ''
-  const content = line.slice(indentation.length)
-  const withoutMarker = content.startsWith('>') ? content.slice(1).trimStart() : content
-  const tokens = withoutMarker.match(/\S+/g) ?? []
+  const chordContent = stripLegacyChordMarker(line)
+  const tokens = chordContent.match(/\S+/g) ?? []
 
   if (tokens.length === 0 || !tokens.every(isChordToken)) return undefined
 
-  return `${indentation}${withoutMarker.replace(/\S+/g, (token) => `[${token}]`)}`
+  return chordContent.replace(/\S+/g, (token) => `[${token}]`)
 }
 
 function normalizeSectionChordLine(line: string): string | undefined {
