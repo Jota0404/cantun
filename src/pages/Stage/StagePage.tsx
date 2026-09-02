@@ -28,6 +28,8 @@ type ParsedStageLine = {
   value: string
 }
 
+type StageReadMode = 'scroll' | 'pages'
+
 function parseStageLine(line: string): ParsedStageLine[] {
   if (!line) return [{ type: 'text', value: '' }]
 
@@ -95,7 +97,11 @@ export function StagePage({
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [readMode, setReadMode] = useState<StageReadMode>('scroll')
+  const [pageIndex, setPageIndex] = useState(0)
+  const [linesPerPage, setLinesPerPage] = useState(20)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const stageContentRef = useRef<HTMLElement | null>(null)
 
   useWakeLock()
 
@@ -175,6 +181,7 @@ export function StagePage({
     if (!currentSong) return
 
     window.scrollTo({ top: 0 })
+    setPageIndex(0)
     restartAtCurrentPosition()
   }, [currentSong, restartAtCurrentPosition])
 
@@ -189,6 +196,28 @@ export function StagePage({
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
     }
   }, [])
+
+  useEffect(() => {
+    if (readMode !== 'pages') return
+
+    function updateLinesPerPage() {
+      const measuredHeight = stageContentRef.current?.clientHeight ?? 0
+      const fallbackHeight = window.innerHeight -
+        (window.innerWidth <= 800 ? 250 : 190)
+      const availableHeight = measuredHeight > 0 ? measuredHeight : fallbackHeight
+      const lineHeight = fontSize * 1.5
+      const nextLinesPerPage = Math.max(1, Math.floor(availableHeight / lineHeight))
+
+      setLinesPerPage(nextLinesPerPage)
+    }
+
+    updateLinesPerPage()
+    window.addEventListener('resize', updateLinesPerPage)
+
+    return () => {
+      window.removeEventListener('resize', updateLinesPerPage)
+    }
+  }, [fontSize, readMode])
 
   const displayedLyrics = useMemo(() => {
     if (!currentSong) return ''
@@ -205,6 +234,23 @@ export function StagePage({
     )
   }, [currentSong])
 
+  const pages = useMemo(() => {
+    if (readMode !== 'pages') return []
+
+    const lines = displayedLyrics.split('\n')
+    const result: string[] = []
+
+    for (let index = 0; index < lines.length; index += linesPerPage) {
+      result.push(lines.slice(index, index + linesPerPage).join('\n'))
+    }
+
+    return result.length > 0 ? result : ['']
+  }, [displayedLyrics, linesPerPage, readMode])
+
+  useEffect(() => {
+    setPageIndex((current) => Math.min(current, Math.max(0, pages.length - 1)))
+  }, [pages.length])
+
   function selectSong(index: number) {
     if (index < 0 || index >= songs.length) return
 
@@ -212,7 +258,15 @@ export function StagePage({
     setCurrentSong(songs[index])
   }
 
+  function selectPage(index: number) {
+    if (index < 0 || index >= pages.length) return
+
+    setPageIndex(index)
+  }
+
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest('button, input, label')) return
+
     touchStartRef.current = { x: event.clientX, y: event.clientY }
   }
 
@@ -225,6 +279,25 @@ export function StagePage({
     const deltaY = event.clientY - start.y
     const horizontalSwipe =
       Math.abs(deltaX) >= 64 && Math.abs(deltaX) > Math.abs(deltaY)
+
+    if (readMode === 'pages') {
+      if (horizontalSwipe) {
+        selectPage(deltaX < 0 ? pageIndex + 1 : pageIndex - 1)
+        return
+      }
+
+      if (Math.abs(deltaX) < 18 && Math.abs(deltaY) < 18) {
+        const width = window.innerWidth
+
+        if (event.clientX >= width * 0.78) {
+          selectPage(pageIndex + 1)
+        } else if (event.clientX <= width * 0.22) {
+          selectPage(pageIndex - 1)
+        }
+      }
+
+      return
+    }
 
     if (horizontalSwipe) {
       selectSong(deltaX < 0 ? currentIndex + 1 : currentIndex - 1)
@@ -244,6 +317,16 @@ export function StagePage({
 
   function handlePointerCancel() {
     touchStartRef.current = null
+  }
+
+  function changeReadMode(mode: StageReadMode) {
+    setReadMode(mode)
+    setPageIndex(0)
+
+    if (mode === 'pages') {
+      pauseAutoScroll()
+      window.scrollTo({ top: 0 })
+    }
   }
 
   async function toggleFullscreen() {
@@ -295,7 +378,7 @@ export function StagePage({
 
   return (
     <main
-      className="stage-page stage-page--dark"
+      className={`stage-page stage-page--dark${readMode === 'pages' ? ' stage-page--pages' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerCancel}
@@ -318,6 +401,9 @@ export function StagePage({
         <div className="stage-toolbar__title">
           <strong>{currentSong.title}</strong>
           {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
+          {readMode === 'pages' && (
+            <span aria-live="polite">Página {pageIndex + 1}/{pages.length}</span>
+          )}
         </div>
 
         <button type="button" onClick={() => void toggleFullscreen()}>
@@ -332,20 +418,49 @@ export function StagePage({
       </section>
 
       <section
-        className="stage-content"
+        ref={stageContentRef}
+        className={`stage-content${readMode === 'pages' ? ' stage-content--pages' : ''}`}
         aria-label={`Letra de ${currentSong.title}`}
       >
-        <StageLyrics lyrics={displayedLyrics} />
+        {readMode === 'pages' ? (
+          <StageLyrics lyrics={pages[pageIndex] ?? ''} />
+        ) : (
+          <StageLyrics lyrics={displayedLyrics} />
+        )}
 
-        {currentSong.notes && (
+        {readMode === 'scroll' && currentSong.notes && (
           <aside className="stage-notes">
+            <strong>Observações</strong>
+            <p>{currentSong.notes}</p>
+          </aside>
+        )}
+
+        {readMode === 'pages' && currentSong.notes && pageIndex === pages.length - 1 && (
+          <aside className="stage-notes stage-notes--page">
             <strong>Observações</strong>
             <p>{currentSong.notes}</p>
           </aside>
         )}
       </section>
 
-      <footer className="stage-controls">
+      <footer className={`stage-controls${readMode === 'pages' ? ' stage-controls--pages' : ''}`}>
+        <div className="stage-controls__mode" aria-label="Modo de leitura">
+          <button
+            type="button"
+            aria-pressed={readMode === 'scroll'}
+            onClick={() => changeReadMode('scroll')}
+          >
+            Rolagem
+          </button>
+          <button
+            type="button"
+            aria-pressed={readMode === 'pages'}
+            onClick={() => changeReadMode('pages')}
+          >
+            Páginas
+          </button>
+        </div>
+
         <button
           type="button"
           disabled={!hasPrevious}
@@ -355,40 +470,46 @@ export function StagePage({
           ←
         </button>
 
-        <div className="stage-controls__auto-scroll" aria-label="Controles de auto-scroll">
-          <div className="stage-controls__auto-scroll-row">
-            <span aria-live="polite">
-              Auto-scroll: {isAutoScrolling ? 'Ativo' : 'Pausado'}
-            </span>
+        {readMode === 'scroll' ? (
+          <div className="stage-controls__auto-scroll" aria-label="Controles de auto-scroll">
+            <div className="stage-controls__auto-scroll-row">
+              <span aria-live="polite">
+                Auto-scroll: {isAutoScrolling ? 'Ativo' : 'Pausado'}
+              </span>
 
-            {isAutoScrolling ? (
-              <button type="button" onClick={pauseAutoScroll}>Pausar</button>
-            ) : (
-              <button type="button" onClick={startAutoScroll}>
-                {hasAutoScrollStarted ? 'Retomar' : 'Iniciar'}
-              </button>
-            )}
+              {isAutoScrolling ? (
+                <button type="button" onClick={pauseAutoScroll}>Pausar</button>
+              ) : (
+                <button type="button" onClick={startAutoScroll}>
+                  {hasAutoScrollStarted ? 'Retomar' : 'Iniciar'}
+                </button>
+              )}
+            </div>
+
+            <label>
+              Velocidade: {getAutoScrollSpeedLabel(autoScrollSpeed)}
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="1"
+                value={autoScrollSpeedIndex}
+                onChange={(event) => {
+                  const index = Number(event.target.value)
+                  setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[index].value)
+                }}
+                aria-label="Velocidade do auto-scroll"
+                aria-valuetext={getAutoScrollSpeedLabel(autoScrollSpeed)}
+              />
+            </label>
           </div>
+        ) : (
+          <div className="stage-controls__page-hint" aria-live="polite">
+            Toque nas laterais ou deslize para mudar de página
+          </div>
+        )}
 
-          <label>
-            Velocidade: {getAutoScrollSpeedLabel(autoScrollSpeed)}
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="1"
-              value={autoScrollSpeedIndex}
-              onChange={(event) => {
-                const index = Number(event.target.value)
-                setAutoScrollSpeed(AUTO_SCROLL_SPEEDS[index].value)
-              }}
-              aria-label="Velocidade do auto-scroll"
-              aria-valuetext={getAutoScrollSpeedLabel(autoScrollSpeed)}
-            />
-          </label>
-        </div>
-
-        <label>
+        <label className="stage-controls__font">
           Fonte
           <input
             type="range"
