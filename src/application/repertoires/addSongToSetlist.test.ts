@@ -36,6 +36,7 @@ describe('addSongToSetlist', () => {
         setlistId: 'setlist-1',
         songId: 'song-1',
         position: 0,
+        updatedAt: '2026-08-24T10:00:00.000Z',
       },
     ])
 
@@ -52,6 +53,7 @@ describe('addSongToSetlist', () => {
         setlistId: 'setlist-1',
         songId: 'song-2',
         position: 1,
+        updatedAt: expect.any(String),
       }),
     )
   })
@@ -66,6 +68,7 @@ describe('addSongToSetlist', () => {
       setlistId: 'setlist-1',
       songId: 'song-1',
       position: 0,
+      updatedAt: '2026-08-24T10:00:00.000Z',
     })
 
     const result = await addSongToSetlist(
