@@ -206,7 +206,6 @@ export function StagePage({
     if (!currentSong) return
 
     window.scrollTo({ top: 0 })
-    setPageIndex(0)
     restartAtCurrentPosition()
   }, [currentSong, restartAtCurrentPosition])
 
@@ -272,15 +271,15 @@ export function StagePage({
     return result.length > 0 ? result : ['']
   }, [displayedLyrics, linesPerPage, readMode])
 
-  useEffect(() => {
-    setPageIndex((current) => Math.min(current, Math.max(0, pages.length - 1)))
-  }, [pages.length])
+  const activePageIndex =
+    pages.length > 0 ? Math.min(pageIndex, pages.length - 1) : 0
 
   function selectSong(index: number) {
     if (index < 0 || index >= songs.length) return
 
     setCurrentIndex(index)
     setCurrentSong(songs[index])
+    setPageIndex(0)
   }
 
   function selectPage(index: number) {
@@ -307,7 +306,7 @@ export function StagePage({
 
     if (readMode === 'pages') {
       if (horizontalSwipe) {
-        selectPage(deltaX < 0 ? pageIndex + 1 : pageIndex - 1)
+        selectPage(deltaX < 0 ? activePageIndex + 1 : activePageIndex - 1)
         return
       }
 
@@ -315,9 +314,9 @@ export function StagePage({
         const width = window.innerWidth
 
         if (event.clientX >= width * 0.78) {
-          selectPage(pageIndex + 1)
+          selectPage(activePageIndex + 1)
         } else if (event.clientX <= width * 0.22) {
-          selectPage(pageIndex - 1)
+          selectPage(activePageIndex - 1)
         }
       }
 
@@ -427,7 +426,7 @@ export function StagePage({
           <strong>{currentSong.title}</strong>
           {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
           {readMode === 'pages' && (
-            <span aria-live="polite">Página {pageIndex + 1}/{pages.length}</span>
+            <span aria-live="polite">Página {activePageIndex + 1}/{pages.length}</span>
           )}
         </div>
 
@@ -448,7 +447,7 @@ export function StagePage({
         aria-label={`Letra de ${currentSong.title}`}
       >
         {readMode === 'pages' ? (
-          <StageLyrics lyrics={pages[pageIndex] ?? ''} />
+          <StageLyrics lyrics={pages[activePageIndex] ?? ''} />
         ) : (
           <StageLyrics lyrics={displayedLyrics} />
         )}
@@ -460,7 +459,7 @@ export function StagePage({
           </aside>
         )}
 
-        {readMode === 'pages' && currentSong.notes && pageIndex === pages.length - 1 && (
+        {readMode === 'pages' && currentSong.notes && activePageIndex === pages.length - 1 && (
           <aside className="stage-notes stage-notes--page">
             <strong>Observações</strong>
             <p>{currentSong.notes}</p>
