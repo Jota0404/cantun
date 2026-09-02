@@ -1,5 +1,5 @@
 const CHORD_TOKEN_PATTERN =
-  /^([A-G](?:#|b)?)(?:(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?)$/
+  /^([A-G](?:#|b)?)(?:(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?)(?:\([^)]+\))?$/
 
 const SECTION_LABELS = new Set([
   'intro', 'introdução', 'verso', 'verse', 'refrão', 'coro', 'chorus',
