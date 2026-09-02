@@ -30,6 +30,12 @@ type ParsedStageLine = {
 
 type StageReadMode = 'scroll' | 'pages'
 
+const LEGACY_CHORD_PATTERN = /^(?:[A-G](?:#|b)?)(?:(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?)(?:\([^)]+\))?$/
+
+function isChordToken(value: string): boolean {
+  return LEGACY_CHORD_PATTERN.test(value)
+}
+
 function parseStageLine(line: string): ParsedStageLine[] {
   if (!line) return [{ type: 'text', value: '' }]
 
@@ -48,11 +54,30 @@ function parseStageLine(line: string): ParsedStageLine[] {
     match = chordPattern.exec(line)
   }
 
-  if (cursor < line.length) {
-    parts.push({ type: 'text', value: line.slice(cursor) })
+  if (parts.length > 0) {
+    if (cursor < line.length) {
+      parts.push({ type: 'text', value: line.slice(cursor) })
+    }
+
+    return parts
   }
 
-  return parts.length > 0 ? parts : [{ type: 'text', value: line }]
+  const legacyLine = line.replace(/^\s*">\s?/, '').trim()
+  const legacyTokens = legacyLine.split(/(\s+)/).filter(Boolean)
+  const hasLegacyChords =
+    legacyLine.length > 0 &&
+    legacyTokens.every((token) => /^\s+$/.test(token) || isChordToken(token)) &&
+    legacyTokens.some((token) => isChordToken(token))
+
+  if (hasLegacyChords) {
+    return legacyTokens.map((token) =>
+      /^\s+$/.test(token)
+        ? { type: 'text', value: token }
+        : { type: 'chord', value: token },
+    )
+  }
+
+  return [{ type: 'text', value: line }]
 }
 
 function StageLyrics({ lyrics }: { lyrics: string }) {
