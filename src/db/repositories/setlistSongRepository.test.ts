@@ -13,6 +13,7 @@ function buildEntry(overrides: Partial<SetlistSong> = {}): SetlistSong {
     setlistId: 'setlist-1',
     songId: 'song-1',
     position: 0,
+    updatedAt: '2026-08-24T10:00:00.000Z',
     ...overrides,
   }
 }
