@@ -80,9 +80,9 @@ function parseStageLine(line: string): ParsedStageLine[] {
   return [{ type: 'text', value: line }]
 }
 
-function StageLyrics({ lyrics }: { lyrics: string }) {
+function StageLyrics({ lyrics, className = '' }: { lyrics: string; className?: string }) {
   return (
-    <div className="stage-lyrics">
+    <div className={`stage-lyrics${className ? ` ${className}` : ''}`}>
       {lyrics.split('\n').map((line, index) => (
         <div className="stage-lyrics__line" key={`${index}-${line}`}>
           {parseStageLine(line).map((part, partIndex) =>
@@ -100,6 +100,140 @@ function StageLyrics({ lyrics }: { lyrics: string }) {
         </div>
       ))}
     </div>
+  )
+}
+
+function estimateFallbackLinesPerPage(fontSize: number): number {
+  const availableHeight = Math.max(
+    1,
+    window.innerHeight - (window.innerWidth <= 800 ? 250 : 190),
+  )
+  const lineHeight = fontSize * (window.innerWidth <= 800 ? 1.5 : 1.55)
+
+  return Math.max(1, Math.floor(availableHeight / lineHeight))
+}
+
+function buildVisualPages(
+  lyrics: string,
+  measurementElement: HTMLElement | null,
+  availableHeight: number,
+  fontSize: number,
+): string[] {
+  const lines = lyrics.split('\n')
+  const lineElements = measurementElement
+    ? Array.from(
+        measurementElement.querySelectorAll<HTMLElement>('.stage-lyrics__line'),
+      )
+    : []
+
+  const hasUsableMeasurements =
+    lineElements.length === lines.length &&
+    availableHeight > 0 &&
+    lineElements.some((line) => line.offsetHeight > 0)
+
+  if (!hasUsableMeasurements) {
+    const fallbackLinesPerPage = estimateFallbackLinesPerPage(fontSize)
+    const result: string[] = []
+
+    for (let index = 0; index < lines.length; index += fallbackLinesPerPage) {
+      result.push(lines.slice(index, index + fallbackLinesPerPage).join('\n'))
+    }
+
+    return result.length > 0 ? result : ['']
+  }
+
+  const result: string[] = []
+  let pageLines: string[] = []
+  let pageTop = lineElements[0].offsetTop
+
+  lineElements.forEach((lineElement, index) => {
+    const lineBottom = lineElement.offsetTop + lineElement.offsetHeight
+    const wouldOverflow =
+      pageLines.length > 0 && lineBottom > pageTop + availableHeight
+
+    if (wouldOverflow) {
+      result.push(pageLines.join('\n'))
+      pageLines = []
+      pageTop = lineElement.offsetTop
+    }
+
+    pageLines.push(lines[index])
+  })
+
+  if (pageLines.length > 0) {
+    result.push(pageLines.join('\n'))
+  }
+
+  return result.length > 0 ? result : ['']
+}
+
+function StagePagedLyrics({
+  lyrics,
+  fontSize,
+  pageIndex,
+  onPageCountChange,
+}: {
+  lyrics: string
+  fontSize: number
+  pageIndex: number
+  onPageCountChange: (count: number) => void
+}) {
+  const [pages, setPages] = useState<string[]>([lyrics])
+  const containerRef = useRef<HTMLElement | null>(null)
+  const measurementRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    const measurement = measurementRef.current
+    if (!container || !measurement) return
+
+    const updatePages = () => {
+      const nextPages = buildVisualPages(
+        lyrics,
+        measurement,
+        container.clientHeight,
+        fontSize,
+      )
+
+      setPages(nextPages)
+      onPageCountChange(nextPages.length)
+    }
+
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updatePages)
+        : undefined
+
+    observer?.observe(container)
+    observer?.observe(measurement)
+
+    window.addEventListener('resize', updatePages)
+
+    const fallbackTimer = window.setTimeout(updatePages, 0)
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updatePages)
+      window.clearTimeout(fallbackTimer)
+    }
+  }, [fontSize, lyrics, onPageCountChange])
+
+  const activePageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1))
+
+  return (
+    <>
+      <section
+        ref={containerRef}
+        className="stage-content--pages"
+        aria-label="Página da cifra"
+      >
+        <StageLyrics lyrics={pages[activePageIndex] ?? ''} />
+      </section>
+
+      <div ref={measurementRef} className="stage-page-measurement" aria-hidden="true">
+        <StageLyrics lyrics={lyrics} />
+      </div>
+    </>
   )
 }
 
@@ -124,9 +258,8 @@ export function StagePage({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [readMode, setReadMode] = useState<StageReadMode>('scroll')
   const [pageIndex, setPageIndex] = useState(0)
-  const [linesPerPage, setLinesPerPage] = useState(20)
+  const [pageCount, setPageCount] = useState(1)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
-  const stageContentRef = useRef<HTMLElement | null>(null)
 
   useWakeLock()
 
@@ -159,6 +292,8 @@ export function StagePage({
           setSongs(loadedSongs)
           setCurrentSong(loadedSongs[0])
           setCurrentIndex(0)
+          setPageIndex(0)
+          setPageCount(1)
           setLoading(false)
         }
 
@@ -172,6 +307,8 @@ export function StagePage({
           setSongs(song ? [song] : [])
           setCurrentSong(song)
           setCurrentIndex(0)
+          setPageIndex(0)
+          setPageCount(1)
           setLoading(false)
         }
 
@@ -221,28 +358,6 @@ export function StagePage({
     }
   }, [])
 
-  useEffect(() => {
-    if (readMode !== 'pages') return
-
-    function updateLinesPerPage() {
-      const measuredHeight = stageContentRef.current?.clientHeight ?? 0
-      const fallbackHeight = window.innerHeight -
-        (window.innerWidth <= 800 ? 250 : 190)
-      const availableHeight = measuredHeight > 0 ? measuredHeight : fallbackHeight
-      const lineHeight = fontSize * 1.5
-      const nextLinesPerPage = Math.max(1, Math.floor(availableHeight / lineHeight))
-
-      setLinesPerPage(nextLinesPerPage)
-    }
-
-    updateLinesPerPage()
-    window.addEventListener('resize', updateLinesPerPage)
-
-    return () => {
-      window.removeEventListener('resize', updateLinesPerPage)
-    }
-  }, [fontSize, readMode])
-
   const displayedLyrics = useMemo(() => {
     if (!currentSong) return ''
 
@@ -258,21 +373,7 @@ export function StagePage({
     )
   }, [currentSong])
 
-  const pages = useMemo(() => {
-    if (readMode !== 'pages') return []
-
-    const lines = displayedLyrics.split('\n')
-    const result: string[] = []
-
-    for (let index = 0; index < lines.length; index += linesPerPage) {
-      result.push(lines.slice(index, index + linesPerPage).join('\n'))
-    }
-
-    return result.length > 0 ? result : ['']
-  }, [displayedLyrics, linesPerPage, readMode])
-
-  const activePageIndex =
-    pages.length > 0 ? Math.min(pageIndex, pages.length - 1) : 0
+  const activePageIndex = Math.min(pageIndex, Math.max(0, pageCount - 1))
 
   function selectSong(index: number) {
     if (index < 0 || index >= songs.length) return
@@ -280,10 +381,11 @@ export function StagePage({
     setCurrentIndex(index)
     setCurrentSong(songs[index])
     setPageIndex(0)
+    setPageCount(1)
   }
 
   function selectPage(index: number) {
-    if (index < 0 || index >= pages.length) return
+    if (index < 0 || index >= pageCount) return
 
     setPageIndex(index)
   }
@@ -346,6 +448,7 @@ export function StagePage({
   function changeReadMode(mode: StageReadMode) {
     setReadMode(mode)
     setPageIndex(0)
+    setPageCount(1)
 
     if (mode === 'pages') {
       pauseAutoScroll()
@@ -426,7 +529,7 @@ export function StagePage({
           <strong>{currentSong.title}</strong>
           {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
           {readMode === 'pages' && (
-            <span aria-live="polite">Página {activePageIndex + 1}/{pages.length}</span>
+            <span aria-live="polite">Página {activePageIndex + 1}/{pageCount}</span>
           )}
         </div>
 
@@ -441,31 +544,33 @@ export function StagePage({
         {currentSong.bpm !== undefined && <span>BPM: {currentSong.bpm}</span>}
       </section>
 
-      <section
-        ref={stageContentRef}
-        className={`stage-content${readMode === 'pages' ? ' stage-content--pages' : ''}`}
-        aria-label={`Letra de ${currentSong.title}`}
-      >
-        {readMode === 'pages' ? (
-          <StageLyrics lyrics={pages[activePageIndex] ?? ''} />
-        ) : (
+      {readMode === 'pages' ? (
+        <StagePagedLyrics
+          key={`${currentSong.id}-${displayedLyrics}`}
+          lyrics={displayedLyrics}
+          fontSize={fontSize}
+          pageIndex={activePageIndex}
+          onPageCountChange={setPageCount}
+        />
+      ) : (
+        <section className="stage-content" aria-label={`Letra de ${currentSong.title}`}>
           <StageLyrics lyrics={displayedLyrics} />
-        )}
 
-        {readMode === 'scroll' && currentSong.notes && (
-          <aside className="stage-notes">
-            <strong>Observações</strong>
-            <p>{currentSong.notes}</p>
-          </aside>
-        )}
+          {currentSong.notes && (
+            <aside className="stage-notes">
+              <strong>Observações</strong>
+              <p>{currentSong.notes}</p>
+            </aside>
+          )}
+        </section>
+      )}
 
-        {readMode === 'pages' && currentSong.notes && activePageIndex === pages.length - 1 && (
-          <aside className="stage-notes stage-notes--page">
-            <strong>Observações</strong>
-            <p>{currentSong.notes}</p>
-          </aside>
-        )}
-      </section>
+      {readMode === 'pages' && currentSong.notes && activePageIndex === pageCount - 1 && (
+        <aside className="stage-notes stage-notes--page">
+          <strong>Observações</strong>
+          <p>{currentSong.notes}</p>
+        </aside>
+      )}
 
       <footer className={`stage-controls${readMode === 'pages' ? ' stage-controls--pages' : ''}`}>
         <div className="stage-controls__mode" aria-label="Modo de leitura">
