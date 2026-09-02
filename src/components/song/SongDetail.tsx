@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { Song } from '../../domain/songs/song'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import './SongDetail.css'
@@ -67,6 +68,11 @@ function SongLyrics({ lyrics }: { lyrics: string }) {
   )
 }
 
+function getDisplayedLyrics(song: Song): string {
+  const semitones = getSemitoneDistance(song.originalKey, song.currentKey)
+  return transposeSongLyrics(song.lyrics, semitones, song.currentKey)
+}
+
 export function SongDetail({
   song,
   onEdit,
@@ -78,8 +84,10 @@ export function SongDetail({
   isUpdatingFavorite = false,
   isTransposing = false,
 }: SongDetailProps) {
-  const semitones = getSemitoneDistance(song.originalKey, song.currentKey)
-  const displayedLyrics = transposeSongLyrics(song.lyrics, semitones, song.currentKey)
+  const displayedLyrics = useMemo(
+    () => getDisplayedLyrics(song),
+    [song.lyrics, song.originalKey, song.currentKey],
+  )
 
   return (
     <article className="song-detail">
@@ -113,7 +121,7 @@ export function SongDetail({
 
       <section className="song-detail__section" aria-labelledby="song-lyrics">
         <h3 id="song-lyrics">Cifra/letra</h3>
-        <SongLyrics lyrics={displayedLyrics} />
+        <SongLyrics key={`${song.originalKey}-${song.currentKey}-${song.lyrics}`} lyrics={displayedLyrics} />
       </section>
 
       {song.notes && (
