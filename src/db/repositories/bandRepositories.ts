@@ -9,7 +9,12 @@ import { db as defaultDb } from '../database'
 import { queueBandDelete, queueBandUpsert } from '../../sync/bandSyncService'
 
 export class BandRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: Band) { await this.db.bands.add(value); await queueBandUpsert('bands', value) }
   async getById(id: string) { return this.db.bands.get(id) }
   async list() { return this.db.bands.orderBy('updatedAt').reverse().toArray() }
@@ -18,7 +23,12 @@ export class BandRepository {
 }
 
 export class BandMemberRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: BandMember) { await this.db.bandMembers.add(value); await queueBandUpsert('bandMembers', value) }
   async getById(id: string) { return this.db.bandMembers.get(id) }
   async listByBandId(bandId: string) { return this.db.bandMembers.where('bandId').equals(bandId).toArray() }
@@ -28,7 +38,12 @@ export class BandMemberRepository {
 }
 
 export class BandSongRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: BandSong) { await this.db.bandSongs.add(value); await queueBandUpsert('bandSongs', value) }
   async getById(id: string) { return this.db.bandSongs.get(id) }
   async listByBandId(bandId: string) { return this.db.bandSongs.where('bandId').equals(bandId).toArray() }
@@ -37,7 +52,12 @@ export class BandSongRepository {
 }
 
 export class BandSongMemberStateRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: BandSongMemberState) { await this.db.bandSongMemberStates.add(value); await queueBandUpsert('bandSongMemberStates', value) }
   async getById(id: string) { return this.db.bandSongMemberStates.get(id) }
   async findByBandSongAndUser(bandSongId: string, userId: string) { return this.db.bandSongMemberStates.where('[bandSongId+userId]').equals([bandSongId, userId]).first() }
@@ -46,7 +66,12 @@ export class BandSongMemberStateRepository {
 }
 
 export class BandSetlistRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: BandSetlist) { await this.db.bandSetlists.add(value); await queueBandUpsert('bandSetlists', value) }
   async getById(id: string) { return this.db.bandSetlists.get(id) }
   async listByBandId(bandId: string) { return this.db.bandSetlists.where('bandId').equals(bandId).toArray() }
@@ -55,7 +80,12 @@ export class BandSetlistRepository {
 }
 
 export class BandSetlistSongRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
+
   async create(value: BandSetlistSong) { await this.db.bandSetlistSongs.add(value); await queueBandUpsert('bandSetlistSongs', value) }
   async getById(id: string) { return this.db.bandSetlistSongs.get(id) }
   async listBySetlistId(bandSetlistId: string) { return this.db.bandSetlistSongs.where('bandSetlistId').equals(bandSetlistId).sortBy('position') }
