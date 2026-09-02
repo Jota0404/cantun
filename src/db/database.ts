@@ -31,6 +31,24 @@ export class SalmodiaDatabase extends Dexie {
         'id, setlistId, songId, position, [setlistId+position], [setlistId+songId]',
       syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
     })
+
+    this.version(4)
+      .stores({
+        songs: 'id, updatedAt',
+        setlists: 'id, name, updatedAt',
+        setlistSongs:
+          'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
+        syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+      })
+      .upgrade(async (transaction) => {
+        const now = new Date().toISOString()
+        await transaction
+          .table<SetlistSong, string>('setlistSongs')
+          .toCollection()
+          .modify((entry) => {
+            if (!entry.updatedAt) entry.updatedAt = now
+          })
+      })
   }
 }
 
