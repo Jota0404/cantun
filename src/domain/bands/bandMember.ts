@@ -1,4 +1,4 @@
-export type BandMemberRole = 'member' | 'md'
+export type BandMemberRole = 'owner' | 'editor' | 'member'
 
 export interface BandMember {
   id: string
