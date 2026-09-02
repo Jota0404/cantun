@@ -116,12 +116,23 @@ export class SyncEngine {
 
   private async pushItem(userId: string, item: SyncQueueItem) {
     const table = tables[item.entity]
+    const { data: remote, error: readError } = await this.client
+      .from(table)
+      .select('id, updated_at, deleted_at')
+      .eq('user_id', userId)
+      .eq('id', item.entityId)
+      .maybeSingle()
+    if (readError) throw readError
+
+    const remoteUpdatedAt = remote ? getRemoteUpdatedAt(remote as RemoteRow) : undefined
+    if (remoteUpdatedAt && remoteUpdatedAt >= item.updatedAt) return
+
     if (item.operation === 'delete') {
       const { error } = await this.client.from(table).update({ deleted_at: item.updatedAt }).eq('user_id', userId).eq('id', item.entityId)
       if (error) throw error
       return
     }
-    const { error } = await this.client.from(table).upsert({ ...toRemoteRow(item.payload!, item.updatedAt), user_id: userId, deleted_at: null }, { onConflict: 'user_id,id' })
+    const { error } = await this.client.from(table).upsert({ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }, { onConflict: 'user_id,id' })
     if (error) throw error
   }
 
@@ -138,7 +149,7 @@ export class SyncEngine {
     if (pending) return
 
     const local = await getLocal(this.db, entity, remote.id)
-    const remoteUpdatedAt = remote.deleted_at ?? remote.updated_at
+    const remoteUpdatedAt = getRemoteUpdatedAt(remote)
     if (!remoteUpdatedAt || (local && getUpdatedAt(local) > remoteUpdatedAt)) return
 
     if (remote.deleted_at) {
@@ -165,7 +176,7 @@ async function removeLocal(db: SalmodiaDatabase, entity: EntityName, id: string)
   else await db.setlistSongs.delete(id)
 }
 
-function toRemoteRow(entity: Entity, updatedAt: string) {
+function toRemoteRow(entity: Entity) {
   if ('originalKey' in entity) {
     const song = entity as Song
     return { id: song.id, title: song.title, artist: song.artist ?? null, original_key: song.originalKey, current_key: song.currentKey, bpm: song.bpm ?? null, lyrics: song.lyrics, notes: song.notes ?? null, is_favorite: song.isFavorite, created_at: song.createdAt, updated_at: song.updatedAt }
@@ -175,17 +186,22 @@ function toRemoteRow(entity: Entity, updatedAt: string) {
     return { id: setlist.id, name: setlist.name, created_at: setlist.createdAt, updated_at: setlist.updatedAt }
   }
   const entry = entity as SetlistSong
-  return { id: entry.id, setlist_id: entry.setlistId, song_id: entry.songId, position: entry.position, updated_at: updatedAt }
+  return { id: entry.id, setlist_id: entry.setlistId, song_id: entry.songId, position: entry.position, updated_at: entry.updatedAt }
 }
 
 function fromRemoteRow(entity: EntityName, row: RemoteRow): Entity {
   if (entity === 'songs') return { id: row.id, title: row.title as string, artist: (row.artist as string | null) ?? undefined, originalKey: row.original_key as Song['originalKey'], currentKey: row.current_key as Song['currentKey'], bpm: (row.bpm as number | null) ?? undefined, lyrics: row.lyrics as string, notes: (row.notes as string | null) ?? undefined, isFavorite: row.is_favorite as boolean, createdAt: row.created_at as string, updatedAt: row.updated_at as string }
   if (entity === 'setlists') return { id: row.id, name: row.name as string, createdAt: row.created_at as string, updatedAt: row.updated_at as string }
-  return { id: row.id, setlistId: row.setlist_id as string, songId: row.song_id as string, position: row.position as number }
+  return { id: row.id, setlistId: row.setlist_id as string, songId: row.song_id as string, position: row.position as number, updatedAt: row.updated_at as string }
 }
 
 function getUpdatedAt(entity: Entity) {
-  return 'updatedAt' in entity ? entity.updatedAt : new Date().toISOString()
+  return entity.updatedAt
+}
+
+function getRemoteUpdatedAt(row: RemoteRow) {
+  if (row.deleted_at && row.updated_at) return row.deleted_at > row.updated_at ? row.deleted_at : row.updated_at
+  return row.deleted_at ?? row.updated_at
 }
 
 export type { SyncQueueItem }
