@@ -62,7 +62,7 @@ function parseStageLine(line: string): ParsedStageLine[] {
     return parts
   }
 
-  const legacyLine = line.replace(/^\s*">\s?/, '').trim()
+  const legacyLine = line.replace(/^\s*"?>\s?/, '').trim()
   const legacyTokens = legacyLine.split(/(\s+)/).filter(Boolean)
   const hasLegacyChords =
     legacyLine.length > 0 &&
