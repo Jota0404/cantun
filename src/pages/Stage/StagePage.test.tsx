@@ -9,13 +9,13 @@ import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 
-function song(id: string, title: string): Song {
+function song(id: string, title: string, lyrics = `[C]${title}`): Song {
   return {
     id,
     title,
     originalKey: 'C',
     currentKey: 'C',
-    lyrics: `[C]${title}`,
+    lyrics,
     notes: 'Observação',
     bpm: 90,
     isFavorite: false,
@@ -57,7 +57,7 @@ function renderStage(
           }
         />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
@@ -257,5 +257,49 @@ describe('StagePage', () => {
     expect(scrollPosition).toBe(0)
     expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
     expect(callbacks.size).toBe(1)
+  })
+
+  it('renders legacy chord lines with highlighted chords', async () => {
+    renderStage([song('song-1', 'Legado', 'Intro\n>G\nC    D    Em\n>Em\nVerso')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+    ])
+
+    await screen.findByText('Legado', { selector: 'strong' })
+
+    expect(screen.getByText('G', { selector: '.stage-chord' })).toBeInTheDocument()
+    expect(screen.getByText('C', { selector: '.stage-chord' })).toBeInTheDocument()
+    expect(screen.getByText('D', { selector: '.stage-chord' })).toBeInTheDocument()
+    expect(screen.getByText('Em', { selector: '.stage-chord' })).toBeInTheDocument()
+  })
+
+  it('switches to page mode and navigates pages without affecting song navigation', async () => {
+    const user = userEvent.setup()
+    const lyrics = Array.from({ length: 25 }, (_, index) =>
+      index === 0 ? '>G' : `Linha ${index + 1}`,
+    ).join('\n')
+
+    renderStage([song('song-1', 'Primeira', lyrics), song('song-2', 'Segunda')], [
+      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
+      { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
+    ])
+
+    await screen.findByText('Primeira', { selector: 'strong' })
+    await user.click(screen.getByRole('button', { name: 'Páginas' }))
+
+    expect(screen.getByRole('button', { name: 'Páginas' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Página 1/2')).toBeInTheDocument()
+    expect(screen.queryByText('Auto-scroll: Pausado')).not.toBeInTheDocument()
+    expect(screen.getByText('G', { selector: '.stage-chord' })).toBeInTheDocument()
+
+    const stage = screen.getByRole('main')
+    fireEvent.pointerDown(stage, { clientX: 700, clientY: 300 })
+    fireEvent.pointerUp(stage, { clientX: 500, clientY: 300 })
+
+    expect(screen.getByText('Página 2/2')).toBeInTheDocument()
+    expect(screen.getByText('Segunda', { selector: 'strong' })).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(stage, { clientX: 500, clientY: 300 })
+    fireEvent.pointerUp(stage, { clientX: 1000, clientY: 300 })
+    expect(screen.getByText('Página 2/2')).toBeInTheDocument()
   })
 })
