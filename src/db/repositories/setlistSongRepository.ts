@@ -38,10 +38,12 @@ export class SetlistSongRepository {
   }
 
   async remove(id: string): Promise<void> {
+    const entry = await this.db.setlistSongs.get(id)
+    const updatedAt = entry?.updatedAt ?? new Date().toISOString()
     await this.db.setlistSongs.delete(id)
     if (!supabase) return
     const { data } = await supabase.auth.getSession()
-    await queueLocalDelete(data.session?.user.id ?? null, 'setlistSongs', id)
+    await queueLocalDelete(data.session?.user.id ?? null, 'setlistSongs', id, updatedAt)
   }
 
   private async enqueueUpsert(entry: SetlistSong) {
