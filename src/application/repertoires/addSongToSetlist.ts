@@ -27,18 +27,20 @@ export async function addSongToSetlist(
   }
 
   const entries = await setlistSongs.listBySetlistId(setlistId)
+  const now = new Date().toISOString()
   const entry: SetlistSong = {
     id: crypto.randomUUID(),
     setlistId,
     songId,
     position: entries.length,
+    updatedAt: now,
   }
 
   await setlistSongs.create(entry)
 
   const setlist = await setlists.getById(setlistId)
   if (setlist) {
-    await setlists.update({ ...setlist, updatedAt: new Date().toISOString() })
+    await setlists.update({ ...setlist, updatedAt: now })
   }
 
   return { success: true, entry }
