@@ -28,8 +28,20 @@ const songB: Song = {
 }
 
 const entries: SetlistSong[] = [
-  { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-b', position: 2 },
-  { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-a', position: 1 },
+  {
+    id: 'entry-2',
+    setlistId: 'setlist-1',
+    songId: 'song-b',
+    position: 2,
+    updatedAt: '2026-08-24T10:00:00.000Z',
+  },
+  {
+    id: 'entry-1',
+    setlistId: 'setlist-1',
+    songId: 'song-a',
+    position: 1,
+    updatedAt: '2026-08-24T10:00:00.000Z',
+  },
 ]
 
 describe('getStageSongs', () => {
