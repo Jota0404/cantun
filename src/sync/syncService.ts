@@ -10,7 +10,7 @@ export async function queueLocalUpsert(userId: string | null, entity: EntityName
   await syncEngine.queueUpsert(userId, entity, payload)
 }
 
-export async function queueLocalDelete(userId: string | null, entity: EntityName, entityId: string) {
+export async function queueLocalDelete(userId: string | null, entity: EntityName, entityId: string, updatedAt?: string) {
   if (!userId || !syncEngine) return
-  await syncEngine.queueDelete(userId, entity, entityId)
+  await syncEngine.queueDelete(userId, entity, entityId, updatedAt)
 }
