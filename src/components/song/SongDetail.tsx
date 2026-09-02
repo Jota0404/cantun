@@ -86,7 +86,7 @@ export function SongDetail({
 }: SongDetailProps) {
   const displayedLyrics = useMemo(
     () => getDisplayedLyrics(song),
-    [song.lyrics, song.originalKey, song.currentKey],
+    [song],
   )
 
   return (
