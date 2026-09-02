@@ -47,6 +47,7 @@ export async function duplicateSetlist(
         setlistId: duplicated.id,
         songId: entry.songId,
         position: entry.position,
+        updatedAt: now,
       }
       await setlistSongs.create(duplicatedEntry)
       createdEntries.push(duplicatedEntry)
