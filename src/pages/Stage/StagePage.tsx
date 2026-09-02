@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
@@ -113,6 +113,18 @@ function estimateFallbackLinesPerPage(fontSize: number): number {
   return Math.max(1, Math.floor(availableHeight / lineHeight))
 }
 
+function buildFallbackPages(lyrics: string, fontSize: number): string[] {
+  const lines = lyrics.split('\n')
+  const linesPerPage = estimateFallbackLinesPerPage(fontSize)
+  const result: string[] = []
+
+  for (let index = 0; index < lines.length; index += linesPerPage) {
+    result.push(lines.slice(index, index + linesPerPage).join('\n'))
+  }
+
+  return result.length > 0 ? result : ['']
+}
+
 function buildVisualPages(
   lyrics: string,
   measurementElement: HTMLElement | null,
@@ -132,14 +144,7 @@ function buildVisualPages(
     lineElements.some((line) => line.offsetHeight > 0)
 
   if (!hasUsableMeasurements) {
-    const fallbackLinesPerPage = estimateFallbackLinesPerPage(fontSize)
-    const result: string[] = []
-
-    for (let index = 0; index < lines.length; index += fallbackLinesPerPage) {
-      result.push(lines.slice(index, index + fallbackLinesPerPage).join('\n'))
-    }
-
-    return result.length > 0 ? result : ['']
+    return buildFallbackPages(lyrics, fontSize)
   }
 
   const result: string[] = []
@@ -178,7 +183,9 @@ function StagePagedLyrics({
   pageIndex: number
   onPageCountChange: (count: number) => void
 }) {
-  const [pages, setPages] = useState<string[]>([lyrics])
+  const [pages, setPages] = useState<string[]>(() =>
+    buildFallbackPages(lyrics, fontSize),
+  )
   const containerRef = useRef<HTMLElement | null>(null)
   const measurementRef = useRef<HTMLDivElement | null>(null)
 
@@ -206,7 +213,6 @@ function StagePagedLyrics({
 
     observer?.observe(container)
     observer?.observe(measurement)
-
     window.addEventListener('resize', updatePages)
 
     const fallbackTimer = window.setTimeout(updatePages, 0)
@@ -374,6 +380,10 @@ export function StagePage({
   }, [currentSong])
 
   const activePageIndex = Math.min(pageIndex, Math.max(0, pageCount - 1))
+
+  const handlePageCountChange = useCallback((count: number) => {
+    setPageCount(count)
+  }, [])
 
   function selectSong(index: number) {
     if (index < 0 || index >= songs.length) return
@@ -550,7 +560,7 @@ export function StagePage({
           lyrics={displayedLyrics}
           fontSize={fontSize}
           pageIndex={activePageIndex}
-          onPageCountChange={setPageCount}
+          onPageCountChange={handlePageCountChange}
         />
       ) : (
         <section className="stage-content" aria-label={`Letra de ${currentSong.title}`}>
