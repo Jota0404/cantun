@@ -1,4 +1,5 @@
 import type { BandInvite, BandInviteRole, BandInviteStatus } from '../../domain/bands/bandInvite'
+import type { BandMemberRole } from '../../domain/bands/bandMember'
 import { supabase } from '../../lib/supabase'
 
 export interface CreatedBandInvite extends BandInvite { token: string }
@@ -55,7 +56,17 @@ export async function listBandInvites(bandId: string): Promise<Array<BandInvite 
 }
 
 export async function revokeBandInvite(inviteId: string) {
-  const { error } = await requireSupabase().from('band_invites').update({ revoked_at: new Date().toISOString() }).eq('id', inviteId)
+  const { error } = await requireSupabase().rpc('revoke_band_invite', { p_invite_id: inviteId })
+  if (error) throw error
+}
+
+export async function updateBandMemberRole(memberId: string, role: Exclude<BandMemberRole, 'owner'>) {
+  const { error } = await requireSupabase().rpc('update_band_member_role', { p_member_id: memberId, p_role: role })
+  if (error) throw error
+}
+
+export async function removeBandMember(memberId: string) {
+  const { error } = await requireSupabase().rpc('remove_band_member', { p_member_id: memberId })
   if (error) throw error
 }
 
