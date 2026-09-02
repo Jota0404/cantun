@@ -33,7 +33,7 @@ describe('SongRepository', () => {
 
     expect(await repository.getById(song.id)).toEqual({
       ...song,
-      lyrics: '[G]          [D]\nGrandioso és Tu, ó Deus...',
+      lyrics: '[G] [D]\nGrandioso és Tu, ó Deus...',
     })
   })
 
