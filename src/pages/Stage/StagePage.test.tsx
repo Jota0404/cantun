@@ -269,7 +269,7 @@ describe('StagePage', () => {
     expect(screen.getByText('G', { selector: '.stage-chord' })).toBeInTheDocument()
     expect(screen.getByText('C', { selector: '.stage-chord' })).toBeInTheDocument()
     expect(screen.getByText('D', { selector: '.stage-chord' })).toBeInTheDocument()
-    expect(screen.getByText('Em', { selector: '.stage-chord' })).toBeInTheDocument()
+    expect(screen.getAllByText('Em', { selector: '.stage-chord' })).toHaveLength(2)
   })
 
   it('switches to page mode and navigates pages without affecting song navigation', async () => {
@@ -296,10 +296,14 @@ describe('StagePage', () => {
     fireEvent.pointerUp(stage, { clientX: 500, clientY: 300 })
 
     expect(screen.getByText('Página 2/2')).toBeInTheDocument()
-    expect(screen.getByText('Segunda', { selector: 'strong' })).not.toBeInTheDocument()
+    expect(screen.getByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.queryByText('Segunda', { selector: 'strong' })).not.toBeInTheDocument()
 
     fireEvent.pointerDown(stage, { clientX: 500, clientY: 300 })
     fireEvent.pointerUp(stage, { clientX: 1000, clientY: 300 })
-    expect(screen.getByText('Página 2/2')).toBeInTheDocument()
+    expect(screen.getByText('Página 1/2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
+    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
   })
 })
