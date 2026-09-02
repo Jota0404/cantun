@@ -1,6 +1,7 @@
 import type { MusicalKey } from '../music/musicalKey'
 import { MUSICAL_KEYS } from '../music/musicalKey'
 import type { Song } from './song'
+import { normalizeSongLyrics } from './normalizeSongLyrics'
 
 export type SongImportData = Pick<
   Song,
@@ -24,16 +25,12 @@ type HeaderField = (typeof HEADER_FIELDS)[keyof typeof HEADER_FIELDS]
 function parseHeader(line: string): { field: HeaderField; value: string } | null {
   const separatorIndex = line.indexOf(':')
 
-  if (separatorIndex <= 0) {
-    return null
-  }
+  if (separatorIndex <= 0) return null
 
   const label = line.slice(0, separatorIndex).trim() as keyof typeof HEADER_FIELDS
   const field = HEADER_FIELDS[label]
 
-  if (!field) {
-    return null
-  }
+  if (!field) return null
 
   return {
     field,
@@ -45,36 +42,12 @@ function isMusicalKey(value: string): value is MusicalKey {
   return MUSICAL_KEYS.includes(value as MusicalKey)
 }
 
-function normalizeChordSheetLine(line: string): string {
-  const cleaned = line.replace(/^\s*">\s?/, '').trim()
-
-  if (!cleaned || cleaned.startsWith('[')) {
-    return cleaned
-  }
-
-  // Existing chord sheets commonly place a chord on its own line. Convert it
-  // to CANTUM's native [chord] notation so display and transposition work.
-  const chordPattern = /^[A-G](?:#|b)?(?:m|min|maj|dim|aug|sus|add|no|omit|M|°|ø)?(?:[0-9]+)?(?:[#b][0-9]+)?(?:\/[A-G](?:#|b)?)?(?:\([^)]+\))?$/
-
-  if (chordPattern.test(cleaned)) {
-    return `[${cleaned}]`
-  }
-
-  return cleaned
-}
-
-function normalizeLyrics(lines: string[]): string {
-  return lines.map(normalizeChordSheetLine).join('\n').trim()
-}
-
 export function parseSongText(text: string): SongTextParseResult {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const headers: Partial<Record<HeaderField, string>> = {}
   let index = 0
 
-  while (index < lines.length && lines[index].trim() === '') {
-    index += 1
-  }
+  while (index < lines.length && lines[index].trim() === '') index += 1
 
   const firstHeader = parseHeader(lines[index] ?? '')
 
@@ -84,9 +57,7 @@ export function parseSongText(text: string): SongTextParseResult {
     headers.title = lines[index].trim()
     index += 1
 
-    while (index < lines.length && lines[index].trim() === '') {
-      index += 1
-    }
+    while (index < lines.length && lines[index].trim() === '') index += 1
 
     if (index < lines.length && !parseHeader(lines[index])) {
       headers.artist = lines[index].trim()
@@ -101,16 +72,13 @@ export function parseSongText(text: string): SongTextParseResult {
     }
 
     const header = parseHeader(lines[index])
-
-    if (!header) {
-      break
-    }
+    if (!header) break
 
     headers[header.field] = header.value
     index += 1
   }
 
-  const lyrics = normalizeLyrics(lines.slice(index))
+  const lyrics = normalizeSongLyrics(lines.slice(index).join('\n')).trim()
   const title = headers.title?.trim() ?? ''
   const key = headers.key?.trim() ?? ''
   const artist = headers.artist?.trim() || undefined
@@ -118,36 +86,22 @@ export function parseSongText(text: string): SongTextParseResult {
   const bpmText = headers.bpm?.trim() ?? ''
   const errors: string[] = []
 
-  if (!title) {
-    errors.push('Título é obrigatório.')
-  }
-
-  if (!key) {
-    errors.push('Tom é obrigatório.')
-  } else if (!isMusicalKey(key)) {
-    errors.push(`Tom inválido: ${key}.`)
-  }
-
-  if (!lyrics) {
-    errors.push('Cifra/letra é obrigatória.')
-  }
+  if (!title) errors.push('Título é obrigatório.')
+  if (!key) errors.push('Tom é obrigatório.')
+  else if (!isMusicalKey(key)) errors.push(`Tom inválido: ${key}.`)
+  if (!lyrics) errors.push('Cifra/letra é obrigatória.')
 
   let bpm: number | undefined
-
   if (bpmText) {
     bpm = Number(bpmText)
-
     if (!Number.isInteger(bpm) || bpm < 1 || bpm > 999) {
       errors.push('BPM deve ser um número inteiro entre 1 e 999.')
     }
   }
 
-  if (errors.length > 0) {
-    return { success: false, errors }
-  }
+  if (errors.length > 0) return { success: false, errors }
 
   const musicalKey = key as MusicalKey
-
   return {
     success: true,
     data: {
