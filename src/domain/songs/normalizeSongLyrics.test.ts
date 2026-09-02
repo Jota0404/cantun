@@ -52,7 +52,7 @@ describe('normalizeSongLyrics', () => {
     expect(normalizeSongLyrics(lyrics)).toBe([
       'Intro [C] [D]',
       '[Em]',
-      '  [Bm] [C]',
+      '[Bm] [C]',
       '',
       'Tab - Intro',
       'E|----------------|',
