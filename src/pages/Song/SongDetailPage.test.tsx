@@ -92,7 +92,7 @@ describe('SongDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Próximo tom' }))
     await waitFor(() => expect(transposeSongMock).toHaveBeenCalledWith({ id: 'song-1', semitones: 1 }))
     expect(screen.getByText('Tom atual: F')).toBeInTheDocument()
-    expect(screen.getByText('[F]Grandioso és [C]Tu')).toBeInTheDocument()
+    expect(screen.getByLabelText('Cifra e letra')).toHaveTextContent('FGrandioso és CTu')
   })
 
   it('renders a not found message when the song does not exist', async () => {
