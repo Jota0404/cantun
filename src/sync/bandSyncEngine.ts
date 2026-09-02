@@ -18,7 +18,13 @@ const RETRY_MS = 10000
 export class BandSyncEngine {
   private syncing = false
   private retryTimer: number | undefined
-  constructor(private readonly db: SalmodiaDatabase, private readonly client: SupabaseClient) {}
+  private readonly db: SalmodiaDatabase
+  private readonly client: SupabaseClient
+
+  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+    this.db = db
+    this.client = client
+  }
 
   async queueUpsert(userId: string, entity: BandEntityName, payload: BandEntity) {
     await this.db.bandSyncQueue.where('[userId+entity+entityId]').equals([userId, entity, payload.id]).delete()
