@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -289,7 +289,11 @@ describe('StagePage', () => {
     expect(screen.getByRole('button', { name: 'Páginas' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('Página 1/2')).toBeInTheDocument()
     expect(screen.queryByText('Auto-scroll: Pausado')).not.toBeInTheDocument()
-    expect(screen.getByText('G', { selector: '.stage-chord' })).toBeInTheDocument()
+
+    const visiblePage = screen.getByRole('region', { name: 'Página da cifra' })
+    expect(
+      within(visiblePage).getByText('G', { selector: '.stage-chord' }),
+    ).toBeInTheDocument()
 
     const stage = screen.getByRole('main')
     fireEvent.pointerDown(stage, { clientX: 700, clientY: 300 })
