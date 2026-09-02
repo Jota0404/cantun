@@ -24,15 +24,16 @@ export async function removeSongFromSetlist(
   const entries = await setlistSongs.listBySetlistId(setlistId)
   await setlistSongs.remove(entry.id)
 
+  const now = new Date().toISOString()
   await Promise.all(
     entries
       .filter((current) => current.id !== entry.id && current.position > entry.position)
-      .map((current) => setlistSongs.update({ ...current, position: current.position - 1 })),
+      .map((current) => setlistSongs.update({ ...current, position: current.position - 1, updatedAt: now })),
   )
 
   const setlist = await setlists.getById(setlistId)
   if (setlist) {
-    await setlists.update({ ...setlist, updatedAt: new Date().toISOString() })
+    await setlists.update({ ...setlist, updatedAt: now })
   }
 
   return { success: true }
