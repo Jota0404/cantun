@@ -20,19 +20,9 @@ describe('transpose', () => {
 
   it('transposes every chord-quality token accepted by the parser', () => {
     const cases = [
-      ['C', 'D'],
-      ['Cm', 'Dm'],
-      ['Cmin', 'Dmin'],
-      ['Cmaj', 'Dmaj'],
-      ['Cdim', 'Ddim'],
-      ['Caug', 'Daug'],
-      ['Csus', 'Dsus'],
-      ['Cadd', 'Dadd'],
-      ['Cno', 'Dno'],
-      ['Comit', 'Domit'],
-      ['CM', 'DM'],
-      ['C°', 'D°'],
-      ['Cø', 'Dø'],
+      ['C', 'D'], ['Cm', 'Dm'], ['Cmin', 'Dmin'], ['Cmaj', 'Dmaj'],
+      ['Cdim', 'Ddim'], ['Caug', 'Daug'], ['Csus', 'Dsus'], ['Cadd', 'Dadd'],
+      ['Cno', 'Dno'], ['Comit', 'Domit'], ['CM', 'DM'], ['C°', 'D°'], ['Cø', 'Dø'],
     ] as const
 
     for (const [source, expected] of cases) {
@@ -42,26 +32,23 @@ describe('transpose', () => {
 
   it('transposes numeric extensions and one alteration accepted by the parser', () => {
     const cases = [
-      ['C7', 'D7'],
-      ['C9', 'D9'],
-      ['C13', 'D13'],
-      ['Cmaj7', 'Dmaj7'],
-      ['Cmin7', 'Dmin7'],
-      ['Cdim7', 'Ddim7'],
-      ['Csus4', 'Dsus4'],
-      ['Cadd9', 'Dadd9'],
-      ['Cno3', 'Dno3'],
-      ['Comit5', 'Domit5'],
-      ['CM7', 'DM7'],
-      ['C°7', 'D°7'],
-      ['Cø7', 'Dø7'],
-      ['C7b5', 'D7b5'],
-      ['Cmaj7#11', 'Dmaj7#11'],
+      ['C7', 'D7'], ['C9', 'D9'], ['C13', 'D13'], ['Cmaj7', 'Dmaj7'],
+      ['Cmin7', 'Dmin7'], ['Cdim7', 'Ddim7'], ['Csus4', 'Dsus4'], ['Cadd9', 'Dadd9'],
+      ['Cno3', 'Dno3'], ['Comit5', 'Domit5'], ['CM7', 'DM7'], ['C°7', 'D°7'],
+      ['Cø7', 'Dø7'], ['C7b5', 'D7b5'], ['Cmaj7#11', 'Dmaj7#11'],
     ] as const
 
     for (const [source, expected] of cases) {
       expect(transposeChord(source, 2, 'D')).toBe(expected)
     }
+  })
+
+  it('transposes common parenthesized chord notation', () => {
+    expect(transposeChord('G5(7M)', 2, 'D')).toBe('A5(7M)')
+    expect(transposeChord('C(9)', 2, 'D')).toBe('D(9)')
+    expect(transposeSongLyrics('[G5(7M)]Vem [C(9)]Senhor', 2, 'D')).toBe(
+      '[A5(7M)]Vem [D(9)]Senhor',
+    )
   })
 
   it('rejects unsupported combinations instead of partially rewriting them', () => {
@@ -90,18 +77,13 @@ describe('transpose', () => {
 
   it('supports negative and multi-octave transposition without changing lyrics', () => {
     const lyrics = '[D]Grandioso [A]és [Bm]Tu\nJesus é fiel'
-    expect(transposeSongLyrics(lyrics, -2, 'C')).toBe(
-      '[C]Grandioso [G]és [Am]Tu\nJesus é fiel',
-    )
+    expect(transposeSongLyrics(lyrics, -2, 'C')).toBe('[C]Grandioso [G]és [Am]Tu\nJesus é fiel')
     expect(transposeSongLyrics(lyrics, 12, 'C')).toBe(lyrics)
   })
 
   it('transposes only valid bracketed chord tokens', () => {
     const lyrics = '[C]Santo\n[G]Tu és [Am]meu Senhor\nJesus é fiel [texto]'
-
-    expect(transposeSongLyrics(lyrics, 2, 'D')).toBe(
-      '[D]Santo\n[A]Tu és [Bm]meu Senhor\nJesus é fiel [texto]',
-    )
+    expect(transposeSongLyrics(lyrics, 2, 'D')).toBe('[D]Santo\n[A]Tu és [Bm]meu Senhor\nJesus é fiel [texto]')
   })
 
   it('preserves every line, lyric, annotation, and chord occurrence', () => {
@@ -136,22 +118,14 @@ describe('transpose', () => {
 
   it('returns to the original chord text after a 12-semitone round trip', () => {
     const lyrics = '[Db]Santo [Bbm]meu [Ab/C]Senhor'
-
     expect(transposeSongLyrics(lyrics, 12, 'Db')).toBe(lyrics)
     expect(transposeSongLyrics(lyrics, -12, 'Db')).toBe(lyrics)
   })
 
   it('derives displayed chords from original key for multiple target keys', () => {
     const lyrics = '[D]Grandioso [A]és [Bm]Tu'
-
-    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'E'), 'E')).toBe(
-      '[E]Grandioso [B]és [C#m]Tu',
-    )
-    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'F#'), 'F#')).toBe(
-      '[F#]Grandioso [C#]és [D#m]Tu',
-    )
-    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'D'), 'D')).toBe(
-      lyrics,
-    )
+    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'E'), 'E')).toBe('[E]Grandioso [B]és [C#m]Tu')
+    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'F#'), 'F#')).toBe('[F#]Grandioso [C#]és [D#m]Tu')
+    expect(transposeSongLyrics(lyrics, getSemitoneDistance('D', 'D'), 'D')).toBe(lyrics)
   })
 })
