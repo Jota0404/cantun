@@ -31,7 +31,22 @@ describe('SongRepository', () => {
     const song = buildSong()
     await repository.create(song)
 
-    expect(await repository.getById(song.id)).toEqual(song)
+    expect(await repository.getById(song.id)).toEqual({
+      ...song,
+      lyrics: '[G] [D]\nGrandioso és Tu, ó Deus...',
+    })
+  })
+
+  it('normalizes a legacy song already stored in the local database', async () => {
+    const song = buildSong({
+      lyrics: 'Intro G D\n>Em\nBm C\nE|----------------|',
+    })
+    await db.songs.add(song)
+
+    expect(await repository.getById(song.id)).toEqual({
+      ...song,
+      lyrics: 'Intro [G] [D]\n[Em]\n[Bm] [C]\nE|----------------|',
+    })
   })
 
   it('returns undefined when the song does not exist', async () => {
