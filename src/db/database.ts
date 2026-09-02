@@ -9,6 +9,7 @@ import type { BandSongMemberState } from '../domain/bands/bandSongMemberState'
 import type { BandSetlist } from '../domain/bands/bandSetlist'
 import type { BandSetlistSong } from '../domain/bands/bandSetlistSong'
 import type { SyncQueueItem } from '../sync/syncEngine'
+import type { BandSyncQueueItem } from '../sync/bandSyncEngine'
 
 export class SalmodiaDatabase extends Dexie {
   songs!: Table<Song, string>
@@ -21,25 +22,23 @@ export class SalmodiaDatabase extends Dexie {
   bandSongMemberStates!: Table<BandSongMemberState, string>
   bandSetlists!: Table<BandSetlist, string>
   bandSetlistSongs!: Table<BandSetlistSong, string>
+  bandSyncQueue!: Table<BandSyncQueueItem, number>
 
   constructor() {
     super('SalmodiaDatabase')
 
     this.version(1).stores({ songs: 'id' })
     this.version(2).stores({
-      songs: 'id',
-      setlists: 'id, name, updatedAt',
+      songs: 'id', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, [setlistId+position], [setlistId+songId]',
     })
     this.version(3).stores({
-      songs: 'id, updatedAt',
-      setlists: 'id, name, updatedAt',
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, [setlistId+position], [setlistId+songId]',
       syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
     })
     this.version(4).stores({
-      songs: 'id, updatedAt',
-      setlists: 'id, name, updatedAt',
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
       syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
     }).upgrade(async (transaction) => {
@@ -49,16 +48,25 @@ export class SalmodiaDatabase extends Dexie {
       })
     })
     this.version(5).stores({
-      songs: 'id, updatedAt',
-      setlists: 'id, name, updatedAt',
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
       syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
-      bands: 'id, ownerUserId, updatedAt',
-      bandMembers: 'id, bandId, userId, [bandId+userId], updatedAt',
+      bands: 'id, ownerUserId, updatedAt', bandMembers: 'id, bandId, userId, [bandId+userId], updatedAt',
       bandSongs: 'id, bandId, sourceSongId, [bandId+sourceSongId], updatedAt',
       bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
       bandSetlists: 'id, bandId, createdByUserId, updatedAt',
       bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
+    })
+    this.version(6).stores({
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
+      setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
+      syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+      bands: 'id, ownerUserId, updatedAt', bandMembers: 'id, bandId, userId, [bandId+userId], updatedAt',
+      bandSongs: 'id, bandId, sourceSongId, [bandId+sourceSongId], updatedAt',
+      bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
+      bandSetlists: 'id, bandId, createdByUserId, updatedAt',
+      bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
+      bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
     })
   }
 }
