@@ -3,4 +3,5 @@ export interface SetlistSong {
   setlistId: string
   songId: string
   position: number
+  updatedAt: string
 }
