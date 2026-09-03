@@ -53,6 +53,6 @@ describe('bandInviteService', () => {
   })
 
   it('builds an invite URL under the Vite base path', () => {
-    expect(buildBandInviteUrl('secret')).toContain('/bands/invite?token=secret')
+    expect(buildBandInviteUrl('secret')).toContain('/bands/invite/secret')
   })
 })
