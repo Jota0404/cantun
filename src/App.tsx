@@ -28,7 +28,7 @@ function App() {
   const { user, loading, signOut } = useAuth()
   const isStageMode = location.pathname.startsWith('/stage/')
   const isAuthRoute = location.pathname === '/auth'
-  const isInviteRoute = location.pathname === '/bands/invite'
+  const isInviteRoute = location.pathname.startsWith('/bands/invite/')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
@@ -54,7 +54,7 @@ function App() {
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/setlist/:setlistId" element={<StagePage />} /><Route path="/stage/song/:songId" element={<StagePage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />
-        <Route path="/bands" element={<BandListPage />} /><Route path="/bands/invite" element={<BandInvitePage />} /><Route path="/bands/:bandId" element={<BandDetailPage />} />
+        <Route path="/bands" element={<BandListPage />} /><Route path="/bands/invite/:token" element={<BandInvitePage />} /><Route path="/bands/:bandId" element={<BandDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
