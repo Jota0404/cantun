@@ -1,11 +1,5 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
-import type {
-  BandStageEvent,
-  BandStageEventType,
-  BandStageSession,
-  BandStageSnapshot,
-  BandStageState,
-} from '../domain/stage/bandStage'
+import type { BandStageEvent, BandStageEventType, BandStageSnapshot } from '../domain/stage/bandStage'
 import { toBandStageSession, toBandStageState } from '../domain/stage/bandStage'
 
 const EVENT_TYPES: readonly BandStageEventType[] = [
@@ -63,15 +57,8 @@ export function createBandStageEvent<T>(input: {
   }
 }
 
-export async function publishBandStageEvent(
-  channel: RealtimeChannel,
-  event: BandStageEvent,
-): Promise<void> {
-  const result = await channel.send({
-    type: 'broadcast',
-    event: event.type,
-    payload: event,
-  })
+export async function publishBandStageEvent(channel: RealtimeChannel, event: BandStageEvent): Promise<void> {
+  const result = await channel.send({ type: 'broadcast', event: event.type, payload: event })
   if (result !== 'ok') throw new Error(`Falha ao publicar evento de palco: ${result}`)
 }
 
@@ -101,6 +88,9 @@ export class BandStageReconciler {
 
   async reconcile(reason: 'initial' | 'reconnect' | 'revision-gap' = 'reconnect'): Promise<BandStageSnapshot> {
     const snapshot = await this.fetchSnapshot()
+    if (snapshot.session.id !== this.options.sessionId) {
+      throw new Error('Snapshot de palco pertence a outra sessão.')
+    }
     if (snapshot.state.revision >= this.currentRevision) {
       this.currentRevision = snapshot.state.revision
       this.options.onSnapshot?.(snapshot, reason)
@@ -115,6 +105,7 @@ export class BandStageReconciler {
       this.seenEventIds.add(event.eventId)
       return 'ignored'
     }
+
     if (event.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
       await this.reconcile('revision-gap')
       if (event.revision <= this.currentRevision) {
@@ -122,13 +113,19 @@ export class BandStageReconciler {
         return 'reconciled'
       }
     }
+
     this.currentRevision = event.revision
     this.seenEventIds.add(event.eventId)
     this.options.onEvent?.(event)
+
     if (event.type === 'stage.snapshot') {
       const snapshot = parseSnapshotPayload(event.payload)
-      if (snapshot) this.options.onSnapshot?.(snapshot, 'event')
+      if (snapshot && snapshot.state.revision > this.currentRevision) {
+        this.currentRevision = snapshot.state.revision
+        this.options.onSnapshot?.(snapshot, 'event')
+      }
     }
+
     return 'applied'
   }
 
@@ -143,15 +140,16 @@ export class BandStageReconciler {
     if (!row || typeof row !== 'object') throw new Error('Snapshot de palco inválido.')
 
     const record = row as Record<string, unknown>
-    const sessionRow = (record.session ?? record[0]) as Record<string, unknown> | null
-    const stateRow = (record.state ?? record[1]) as Record<string, unknown> | null
-    if (!sessionRow || !stateRow) throw new Error('Snapshot de palco incompleto.')
+    const session = isRowRecord(record.session) ? record.session : null
+    const state = isRowRecord(record.state) ? record.state : null
+    if (!session || !state) throw new Error('Snapshot de palco incompleto.')
 
-    return {
-      session: toBandStageSession(sessionRow),
-      state: toBandStageState(stateRow),
-    }
+    return { session: toBandStageSession(session), state: toBandStageState(state) }
   }
+}
+
+function isRowRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
 function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
@@ -159,10 +157,7 @@ function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
   const value = payload as { session?: Record<string, unknown>; state?: Record<string, unknown> }
   if (!value.session || !value.state) return null
   try {
-    return {
-      session: toBandStageSession(value.session),
-      state: toBandStageState(value.state),
-    }
+    return { session: toBandStageSession(value.session), state: toBandStageState(value.state) }
   } catch {
     return null
   }
@@ -178,10 +173,11 @@ export class BandStageRealtime {
       config: { broadcast: { self: false, ack: true } },
     })
     this.reconciler = new BandStageReconciler(options)
-
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload)) return
-      void this.reconciler.acceptEvent(payload)
+      void this.reconciler.acceptEvent(payload).catch(() => {
+        void this.reconciler.reconcile('revision-gap')
+      })
     })
   }
 
@@ -200,6 +196,10 @@ export class BandStageRealtime {
 
   async reconnect(): Promise<BandStageSnapshot> {
     this.reconciler.reset()
+    if (this.subscribed) {
+      await this.channel.unsubscribe()
+      this.subscribed = false
+    }
     return this.connect()
   }
 
