@@ -79,6 +79,9 @@ begin
 end;
 $$;
 
+-- The K migration already owns this invariant trigger. Recreate it safely so
+-- the V migration is idempotent on a database where K was already applied.
+drop trigger if exists band_stage_states_protect_invariants on public.band_stage_states;
 create trigger band_stage_states_protect_invariants
 before insert or update on public.band_stage_states
 for each row execute function private.protect_band_stage_state_invariants();

@@ -12,6 +12,8 @@ const EVENT_TYPES: readonly BandStageEventType[] = [
   'stage.previous',
   'stage.goto',
   'stage.set-key',
+  'stage.prepare-next',
+  'stage.clear-prepared',
   'stage.annotation-updated',
   'stage.session-ended',
   'stage.md-changed',
@@ -290,8 +292,17 @@ export class BandStageRealtime {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     if (this.lastSnapshotMdUserId === null) throw new Error('Snapshot de palco ainda não foi carregado.')
-    this.presencePayload = payload
-    await this.trackPresenceInternal(payload)
+
+    const { data, error } = await this.options.client.auth.getUser()
+    if (error || !data.user) throw new Error('Não foi possível validar a identidade para publicar presença de palco.')
+    if (data.user.id !== payload.userId) throw new Error('A presença de palco deve pertencer ao usuário autenticado.')
+
+    const normalizedPayload: BandStagePresencePayload = {
+      ...payload,
+      isMd: payload.userId === this.lastSnapshotMdUserId,
+    }
+    this.presencePayload = normalizedPayload
+    await this.trackPresenceInternal(normalizedPayload)
   }
 
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
