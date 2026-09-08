@@ -33,12 +33,15 @@ begin
     bs.title,
     bs.artist,
     bs.original_key,
-    bs.current_key,
+    coalesce(bsms.current_key, bs.original_key) as current_key,
     bs.lyrics,
     bs.notes,
     bs.bpm
   from public.band_setlist_songs bss
   join public.band_songs bs on bs.id = bss.band_song_id
+  left join public.band_song_member_states bsms
+    on bsms.band_song_id = bs.id
+   and bsms.user_id = auth.uid()
   where bss.band_setlist_id = v_session.setlist_id
   order by bss.position asc;
 end;
