@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
-import { isMusicalRole } from '../../domain/bands/musicalRole'
+import { isMusicalRole, MUSICAL_ROLE_LABELS } from '../../domain/bands/musicalRole'
 
 export type MusicalRoleStageExperience = {
   fontSize: number
@@ -20,68 +20,25 @@ const DEFAULT_EXPERIENCE: MusicalRoleStageExperience = {
   accentLabel: 'Função musical',
 }
 
-const EXPERIENCES: Partial<Record<MusicalRole, MusicalRoleStageExperience>> = {
-  vocals: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 24,
-    showBpm: true,
-    accentLabel: 'Vocal',
-  },
-  'electric-guitar': {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 22,
-    accentLabel: 'Guitarra elétrica',
-  },
-  'acoustic-guitar': {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 22,
-    accentLabel: 'Violão',
-  },
-  bass: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 24,
-    showNotes: false,
-    accentLabel: 'Baixo',
-  },
-  drums: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 20,
-    readMode: 'pages',
-    showNotes: false,
-    showKey: false,
-    accentLabel: 'Bateria',
-  },
-  keys: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 21,
-    accentLabel: 'Teclas',
-  },
-  piano: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 21,
-    accentLabel: 'Piano',
-  },
-  strings: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 22,
-    accentLabel: 'Cordas',
-  },
-  brass: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 22,
-    showNotes: false,
-    accentLabel: 'Metais',
-  },
-  woodwinds: {
-    ...DEFAULT_EXPERIENCE,
-    fontSize: 22,
-    showNotes: false,
-    accentLabel: 'Madeiras',
-  },
+const EXPERIENCES: Partial<Record<MusicalRole, Omit<MusicalRoleStageExperience, 'accentLabel'>>> = {
+  vocals: { ...DEFAULT_EXPERIENCE, fontSize: 24 },
+  'electric-guitar': { ...DEFAULT_EXPERIENCE },
+  'acoustic-guitar': { ...DEFAULT_EXPERIENCE },
+  bass: { ...DEFAULT_EXPERIENCE, fontSize: 24, showNotes: false },
+  drums: { ...DEFAULT_EXPERIENCE, fontSize: 20, readMode: 'pages', showNotes: false, showKey: false },
+  keys: { ...DEFAULT_EXPERIENCE, fontSize: 21 },
+  piano: { ...DEFAULT_EXPERIENCE, fontSize: 21 },
+  strings: { ...DEFAULT_EXPERIENCE },
+  brass: { ...DEFAULT_EXPERIENCE, showNotes: false },
+  woodwinds: { ...DEFAULT_EXPERIENCE, showNotes: false },
 }
 
 export function getMusicalRoleStageExperience(role: MusicalRole): MusicalRoleStageExperience {
-  return EXPERIENCES[role] ?? DEFAULT_EXPERIENCE
+  const base = EXPERIENCES[role] ?? DEFAULT_EXPERIENCE
+  return {
+    ...base,
+    accentLabel: MUSICAL_ROLE_LABELS[role] ?? DEFAULT_EXPERIENCE.accentLabel,
+  }
 }
 
 type RpcClient = {
@@ -95,5 +52,6 @@ export async function getMyBandMusicalRoleForStage(
   if (!client) return 'other'
   const { data, error } = await client.rpc('get_my_band_musical_role', { p_band_id: bandId })
   if (error) throw new Error(error.message)
-  return isMusicalRole(data) ? data : 'other'
+  const value = Array.isArray(data) ? data[0] : data
+  return isMusicalRole(value) ? value : 'other'
 }
