@@ -23,20 +23,20 @@ vi.mock('../../auth/authContext', () => ({
 }))
 
 vi.mock('../../application/stage/bandStageService', () => ({
-  BandStageService: vi.fn().mockImplementation(() => ({
-    connect,
-    disconnect,
-    trackPresence,
-    refresh,
-    play: vi.fn(),
-    pause: vi.fn(),
-    next: vi.fn(),
-    previous: vi.fn(),
-    goto: vi.fn(),
-    setKey: vi.fn(),
-    getSnapshot: vi.fn(),
-    endSession: vi.fn(),
-  })),
+  BandStageService: class {
+    connect = connect
+    disconnect = disconnect
+    trackPresence = trackPresence
+    refresh = refresh
+    play = vi.fn()
+    pause = vi.fn()
+    next = vi.fn()
+    previous = vi.fn()
+    goto = vi.fn()
+    setKey = vi.fn()
+    getSnapshot = vi.fn()
+    endSession = vi.fn()
+  },
 }))
 
 vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
