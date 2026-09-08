@@ -6,17 +6,21 @@ describe('musicalRoleStageService', () => {
     expect(getMusicalRoleStageExperience('vocals').fontSize).toBe(24)
     expect(getMusicalRoleStageExperience('drums').readMode).toBe('pages')
     expect(getMusicalRoleStageExperience('drums').showKey).toBe(false)
+    expect(getMusicalRoleStageExperience('bass').showNotes).toBe(false)
   })
 
-  it('falls back to the generic experience for other', () => {
-    expect(getMusicalRoleStageExperience('other')).toEqual({
-      fontSize: 22,
-      readMode: 'scroll',
-      showNotes: true,
-      showBpm: true,
-      showKey: true,
-      accentLabel: 'Função musical',
-    })
+  it('uses the shared domain label for the role', () => {
+    expect(getMusicalRoleStageExperience('electric-guitar').accentLabel).toBe('Guitarra elétrica')
+    expect(getMusicalRoleStageExperience('other').accentLabel).toBe('Outro')
+  })
+
+  it('keeps the generic defaults for other', () => {
+    const experience = getMusicalRoleStageExperience('other')
+    expect(experience.fontSize).toBe(22)
+    expect(experience.readMode).toBe('scroll')
+    expect(experience.showNotes).toBe(true)
+    expect(experience.showBpm).toBe(true)
+    expect(experience.showKey).toBe(true)
   })
 
   it('loads the authenticated member role through the existing RPC', async () => {
