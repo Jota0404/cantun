@@ -6,8 +6,8 @@ import { toSharedExecutionState } from '../../domain/stage/sharedExecution'
 export type SharedExecutionListener = (state: SharedExecutionState) => void
 
 export class SharedExecutionService {
-  private stateBySession = new Map<string, SharedExecutionState>()
-  private listenersBySession = new Map<string, Set<SharedExecutionListener>>()
+  private readonly stateBySession = new Map<string, SharedExecutionState>()
+  private readonly listenersBySession = new Map<string, Set<SharedExecutionListener>>()
 
   constructor(private readonly stageService: BandStageService) {}
 
@@ -16,7 +16,18 @@ export class SharedExecutionService {
   }
 
   applySnapshot(snapshot: BandStageSnapshot): SharedExecutionState {
-    return this.apply(snapshot)
+    const current = this.stateBySession.get(snapshot.session.id)
+    const next = toSharedExecutionState(snapshot.state, snapshot.session.status)
+
+    // Snapshots can arrive from an initial read, an explicit refresh or a
+    // delayed event reconciliation. Never let an older revision roll the UI
+    // backwards.
+    if (current && next.revision < current.revision) return current
+    if (current && next.revision === current.revision && next.updatedAt < current.updatedAt) return current
+
+    this.stateBySession.set(snapshot.session.id, next)
+    for (const listener of this.listenersBySession.get(snapshot.session.id) ?? []) listener(next)
+    return next
   }
 
   subscribe(sessionId: string, listener: SharedExecutionListener): () => void {
@@ -63,12 +74,5 @@ export class SharedExecutionService {
   dispose(sessionId: string): void {
     this.stateBySession.delete(sessionId)
     this.listenersBySession.delete(sessionId)
-  }
-
-  private apply(snapshot: BandStageSnapshot): SharedExecutionState {
-    const next = toSharedExecutionState(snapshot.state, snapshot.session.status)
-    this.stateBySession.set(snapshot.session.id, next)
-    for (const listener of this.listenersBySession.get(snapshot.session.id) ?? []) listener(next)
-    return next
   }
 }
