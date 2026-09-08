@@ -104,6 +104,7 @@ export function BandMusicianStagePage() {
         </div>
       </header>
       <section className="band-musician-stage__presence" aria-label="Estado da sessão"><span>Função: {experience.accentLabel}</span><span>Revisão {snapshot.state.revision}</span><span>MD operacional</span><span>Somente leitura</span>{snapshot.state.isRunning ? <span>Fluxo ativo</span> : <span>Fluxo pausado</span>}</section>
+      {snapshot.state.mdAnnotation && <aside className="band-musician-stage__annotation"><strong>Nota do MD</strong><p>{snapshot.state.mdAnnotation}</p></aside>}
       {error && <p className="band-musician-stage__error" role="alert">{error}</p>}
       <div className="band-musician-stage__layout">
         <aside className="band-musician-stage__setlist" aria-label="Setlist da sessão"><div className="band-musician-stage__setlist-header"><strong>Setlist</strong><span>{songs.length}</span></div>{songs.map((song, index) => <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}><span>{index + 1}</span><strong>{song.title}</strong></div>)}</aside>
