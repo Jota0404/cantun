@@ -8,14 +8,14 @@ const snapshot = (status: 'live' | 'ended' = 'live') => ({
 })
 
 function makeChannel() {
-  const handlers = new Map<string, (payload: any) => void>()
-  const state: Record<string, unknown> = {}
+  const handlers = new Map<string, (payload?: unknown) => void>()
+  const state: Record<string, unknown[]> = {}
   const value = {
-    on: vi.fn((kind:string, config:{event:string}, handler:(payload:any)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
+    on: vi.fn((kind:string, config:{event:string}, handler:(payload?: unknown)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
     subscribe: vi.fn(async () => 'SUBSCRIBED'),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
-    track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.({}); return 'ok' }),
+    track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.(); return 'ok' }),
     untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.({}); return 'ok' }),
     presenceState: vi.fn(() => state),
     emitPresence: (next:Record<string,unknown>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.({}) },
