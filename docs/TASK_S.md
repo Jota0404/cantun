@@ -21,14 +21,16 @@ O músico continua podendo ajustar tamanho da fonte e modo de leitura durante a 
 ```text
 BandMember.musicalRole
         ↓
-getMyBandMusicalRoleForStage()
+get_my_band_stage_experience()
         ↓
-getMusicalRoleStageExperience()
+getMyBandStageExperience()
         ↓
 BandStagePage / BandMusicianStagePage
 ```
 
-A implementação reutiliza a RPC `get_my_band_musical_role` da Tarefa R. Nenhuma permissão nova é criada e o MD continua sendo a autoridade operacional da sessão.
+A RPC de experiência é derivada da mesma associação autenticada de `band_members` usada pela Tarefa R. Existe fallback para `get_my_band_musical_role`, mantendo compatibilidade caso a migração de S ainda não tenha sido aplicada.
+
+Nenhuma permissão operacional nova é criada e o MD continua sendo a autoridade operacional da sessão.
 
 ## Fora do escopo
 
