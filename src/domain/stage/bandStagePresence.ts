@@ -36,13 +36,21 @@ export function toBandStageParticipant(value: unknown, mdUserId: string): BandSt
   }
 }
 
+function shouldReplaceParticipant(current: BandStageParticipant, next: BandStageParticipant): boolean {
+  if (current.isMd !== next.isMd) return next.isMd
+  if (current.readiness !== next.readiness) return next.readiness === 'ready'
+  return false
+}
+
 export function presenceStateToParticipants(state: Record<string, unknown>, mdUserId: string): BandStageParticipant[] {
   const participants = new Map<string, BandStageParticipant>()
   for (const value of Object.values(state)) {
     if (!Array.isArray(value)) continue
     for (const presence of value) {
       const participant = toBandStageParticipant(presence, mdUserId)
-      if (participant) participants.set(participant.userId, participant)
+      if (!participant) continue
+      const current = participants.get(participant.userId)
+      if (!current || shouldReplaceParticipant(current, participant)) participants.set(participant.userId, participant)
     }
   }
   return [...participants.values()].sort((a, b) => {
