@@ -369,7 +369,8 @@ set search_path = ''
 as $$
 declare
   v_session public.band_stage_sessions;
-  v_index integer;
+  v_current_index integer;
+  v_next_index integer;
   v_next_song_id uuid;
 begin
   v_session := private.require_band_stage_md(p_session_id);
@@ -378,16 +379,23 @@ begin
     raise exception 'operational stage commands require a live session';
   end if;
 
-  select coalesce(max(current_index), 0) + 1
-    into v_index
+  select current_index
+    into v_current_index
   from public.band_stage_states
-  where session_id = p_session_id;
+  where session_id = p_session_id
+  for update;
+
+  if not found then
+    raise exception 'stage state not found';
+  end if;
+
+  v_next_index := v_current_index + 1;
 
   select bss.band_song_id
     into v_next_song_id
   from public.band_setlist_songs bss
   where bss.band_setlist_id = v_session.setlist_id
-    and bss.position = v_index
+    and bss.position = v_next_index
   limit 1;
 
   if v_next_song_id is null then
@@ -396,7 +404,7 @@ begin
 
   return private.mutate_band_stage_state(
     p_session_id,
-    p_current_index => v_index,
+    p_current_index => v_next_index,
     p_current_song_id => v_next_song_id
   );
 end;
@@ -412,7 +420,8 @@ set search_path = ''
 as $$
 declare
   v_session public.band_stage_sessions;
-  v_index integer;
+  v_current_index integer;
+  v_previous_index integer;
   v_previous_song_id uuid;
 begin
   v_session := private.require_band_stage_md(p_session_id);
@@ -421,26 +430,24 @@ begin
     raise exception 'operational stage commands require a live session';
   end if;
 
-  select greatest(current_index - 1, 0)
-    into v_index
+  select current_index
+    into v_current_index
   from public.band_stage_states
-  where session_id = p_session_id;
+  where session_id = p_session_id
+  for update;
 
-  if v_index = 0 then
-    select bss.band_song_id
-      into v_previous_song_id
-    from public.band_setlist_songs bss
-    where bss.band_setlist_id = v_session.setlist_id
-      and bss.position = 0
-    limit 1;
-  else
-    select bss.band_song_id
-      into v_previous_song_id
-    from public.band_setlist_songs bss
-    where bss.band_setlist_id = v_session.setlist_id
-      and bss.position = v_index
-    limit 1;
+  if not found then
+    raise exception 'stage state not found';
   end if;
+
+  v_previous_index := greatest(v_current_index - 1, 0);
+
+  select bss.band_song_id
+    into v_previous_song_id
+  from public.band_setlist_songs bss
+  where bss.band_setlist_id = v_session.setlist_id
+    and bss.position = v_previous_index
+  limit 1;
 
   if v_previous_song_id is null then
     raise exception 'stage setlist has no song at requested index';
@@ -448,7 +455,7 @@ begin
 
   return private.mutate_band_stage_state(
     p_session_id,
-    p_current_index => v_index,
+    p_current_index => v_previous_index,
     p_current_song_id => v_previous_song_id
   );
 end;
