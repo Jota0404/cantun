@@ -48,6 +48,12 @@ export function BandStagePage() {
     setAnnotationDraft(nextExecution.mdAnnotation ?? '')
   }, [execution])
 
+  const handlePresence = useCallback((nextParticipants: BandStageParticipant[]) => {
+    setParticipants(nextParticipants)
+    const ownParticipant = nextParticipants.find((participant) => participant.userId === user?.id)
+    if (ownParticipant) setReadiness(ownParticipant.readiness)
+  }, [user?.id])
+
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -65,7 +71,7 @@ export function BandStagePage() {
             }).catch(() => undefined)
           },
           onStatus: setStatus,
-          onPresence: setParticipants,
+          onPresence: handlePresence,
         })
         if (cancelled) return
         applySnapshot(initial)
@@ -101,18 +107,13 @@ export function BandStagePage() {
       execution.dispose(sessionId)
       void service.disconnect(sessionId)
     }
-  }, [applySnapshot, execution, service, sessionId])
+  }, [applySnapshot, execution, handlePresence, service, sessionId, user?.email, user?.id, user?.user_metadata?.display_name, user?.user_metadata?.name])
 
   useEffect(() => execution.subscribe(sessionId, setExecutionState), [execution, sessionId])
 
   useEffect(() => {
     if (snapshot?.session.status === 'ended') void service.disconnect(sessionId)
   }, [service, sessionId, snapshot?.session.status])
-
-  useEffect(() => {
-    const ownParticipant = participants.find((participant) => participant.userId === user?.id)
-    if (ownParticipant) setReadiness(ownParticipant.readiness)
-  }, [participants, user?.id])
 
   async function updateReadiness(next: BandStageReadiness) {
     if (!user?.id || md || next === readiness) return
