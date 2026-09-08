@@ -30,7 +30,10 @@ describe('BandStageService', () => {
   it('uses the protected RPC and publishes the authoritative revision', async () => {
     const client = makeClient()
     const publish = vi.fn(async () => undefined)
-    const connect = vi.fn()
+    const connect = vi.fn(async () => ({
+      session: { id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live' as const, createdAt: '', startedAt: '', updatedAt: '' },
+      state: { sessionId: 's1', revision: 0, currentIndex: 0, isRunning: true, updatedAt: '' },
+    }))
     const fakeRealtime = { publish, connect, disconnect: vi.fn(), reconnect: vi.fn(), refresh: vi.fn() }
     const service = new BandStageService({
       client,
@@ -40,7 +43,7 @@ describe('BandStageService', () => {
     await service.connect('s1')
     const result = await service.next('s1')
 
-    expect(client.calls).toEqual(['get_band_stage_snapshot', 'band_stage_next', 'get_band_stage_snapshot'])
+    expect(client.calls).toEqual(['band_stage_next', 'get_band_stage_snapshot'])
     expect(result.state.revision).toBe(1)
     expect(result.event.revision).toBe(1)
     expect(publish).toHaveBeenCalledOnce()
