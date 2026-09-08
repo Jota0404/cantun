@@ -88,6 +88,8 @@ describe('BandStageRealtime entry/reconnect', () => {
     const second = await realtime.reconnect()
     expect(second.state.revision).toBe(12)
     expect(client.channels[0].unsubscribe).toHaveBeenCalledTimes(1)
+    expect(client.channels[0].subscribe).toHaveBeenCalledTimes(2)
+    expect(client.channel).toHaveBeenCalledTimes(1)
     expect(client.rpc).toHaveBeenCalledTimes(2)
   })
 })
