@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BandStageService } from '../../application/stage/bandStageService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
+import { getMyBandMusicalRoleForStage, getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
+import type { MusicalRole } from '../../domain/bands/musicalRole'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import './BandMusicianStagePage.css'
@@ -19,6 +21,7 @@ export function BandMusicianStagePage() {
   const [status, setStatus] = useState('Conectando…')
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
+  const [musicalRole, setMusicalRole] = useState<MusicalRole>('other')
 
   const applySnapshot = useCallback((next: BandStageSnapshot) => {
     setSnapshot(next)
@@ -47,6 +50,15 @@ export function BandMusicianStagePage() {
         const loadedSongs = await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
+
+        const role = await getMyBandMusicalRoleForStage(initial.session.bandId)
+        if (!cancelled) {
+          setMusicalRole(role)
+          const experience = getMusicalRoleStageExperience(role)
+          setFontSize(experience.fontSize)
+          setReadMode(experience.readMode)
+        }
+
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
@@ -75,6 +87,7 @@ export function BandMusicianStagePage() {
 
   const activeIndex = snapshot?.state.currentIndex ?? 0
   const activeSong = songs[activeIndex]
+  const experience = getMusicalRoleStageExperience(musicalRole)
 
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
@@ -96,13 +109,17 @@ export function BandMusicianStagePage() {
   }
 
   return (
-    <main className="band-musician-stage" style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}>
+    <main className="band-musician-stage" data-musical-role={musicalRole} style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}>
       <header className="band-musician-stage__header">
         <div>
           <Link to="/bands">← Bandas</Link>
-          <span className="band-musician-stage__kicker">MODO BANDA · MÚSICO</span>
+          <span className="band-musician-stage__kicker">MODO BANDA · {experience.accentLabel.toUpperCase()}</span>
           <h1>{activeSong.title}</h1>
-          <p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</p>
+          <p>
+            {activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}
+            {experience.showKey && <> · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</>}
+            {experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}
+          </p>
         </div>
         <div className="band-musician-stage__session">
           <span className={`band-musician-stage__status band-musician-stage__status--${snapshot.session.status}`}>
@@ -115,6 +132,7 @@ export function BandMusicianStagePage() {
       </header>
 
       <section className="band-musician-stage__presence" aria-label="Estado da sessão">
+        <span>Função: {experience.accentLabel}</span>
         <span>Revisão {snapshot.state.revision}</span>
         <span>MD operacional</span>
         <span>Somente leitura</span>
@@ -144,7 +162,7 @@ export function BandMusicianStagePage() {
           </div>
           <article className={`band-musician-stage__lyrics band-musician-stage__lyrics--${readMode}`}>
             {displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}
-            {activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
+            {experience.showNotes && activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
           </article>
         </section>
       </div>
