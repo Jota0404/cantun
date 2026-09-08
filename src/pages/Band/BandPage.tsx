@@ -17,7 +17,23 @@ const isoNow = () => new Date().toISOString()
 export function BandListPage() {
   const [bands, setBands] = useState<Band[]>([]); const [name, setName] = useState(''); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const navigate = useNavigate()
   const load = useCallback(async () => { try { await syncBands(); setBands(await bandRepository.list()) } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar as bandas.') } finally { setLoading(false) } }, [])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    let cancelled = false
+    async function loadInitial() {
+      try {
+        await syncBands()
+        const nextBands = await bandRepository.list()
+        if (cancelled) return
+        setBands(nextBands)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Não foi possível carregar as bandas.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void loadInitial()
+    return () => { cancelled = true }
+  }, [])
   async function create() { if (!name.trim()) return; setError(''); setLoading(true); try { const user = (await supabase?.auth.getUser())?.data.user; if (!user) throw new Error('Faça login para criar uma banda.'); const timestamp = isoNow(); const band: Band = { id: crypto.randomUUID(), name: name.trim(), ownerUserId: user.id, createdAt: timestamp, updatedAt: timestamp }; await bandRepository.create(band); setName(''); await load(); navigate(`/bands/${band.id}`) } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a banda.') } }
   return <main className="band-page"><section className="band-card"><div className="band-heading"><span>CHURCH WORKSPACE</span><h2>Minhas bandas</h2><p>Crie uma banda ou entre por convite.</p></div><div className="band-create"><input aria-label="Nome da banda" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome da banda" /><button type="button" onClick={() => void create()}>Criar banda</button></div>{error && <p className="band-error" role="alert">{error}</p>}{loading ? <p>Carregando…</p> : <ul className="band-list">{bands.map((band) => <li key={band.id}><Link to={`/bands/${band.id}`}><strong>{band.name}</strong><span>Abrir banda →</span></Link></li>)}</ul>}</section></main>
 }
