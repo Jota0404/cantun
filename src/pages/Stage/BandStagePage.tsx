@@ -26,6 +26,7 @@ export function BandStagePage() {
   const [running, setRunning] = useState(false)
 
   const md = Boolean(user?.id && snapshot?.session.mdUserId === user.id)
+  const musicianView = !md
   const activeIndex = snapshot?.state.currentIndex ?? selectedIndex
   const activeSong = songs[activeIndex] ?? songs[selectedIndex]
 
@@ -133,6 +134,67 @@ export function BandStagePage() {
     return <main className="band-stage-page"><div className="band-stage-empty"><p>Nenhuma música disponível nesta sessão.</p><button type="button" onClick={() => navigate(-1)}>Voltar</button></div></main>
   }
 
+  if (musicianView) {
+    return (
+      <main className="band-stage-page band-stage-page--musician" style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
+        <header className="band-stage-header">
+          <div>
+            <Link to="/bands">← Bandas</Link>
+            <span className="band-stage-kicker">MODO BANDA · MÚSICO</span>
+            <h1>{activeSong.title}</h1>
+            <p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</p>
+          </div>
+          <div className="band-stage-header__right">
+            <span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span>
+            <span aria-live="polite">{status}</span>
+            <button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button>
+            <button type="button" onClick={() => navigate('/')}>Sair</button>
+          </div>
+        </header>
+
+        <section className="band-stage-presence" aria-label="Informações da sessão">
+          <span>Revisão {snapshot.state.revision}</span>
+          <span>MD operacional</span>
+          <span>Somente visualização</span>
+          <span>{snapshot.state.isRunning ? 'Fluxo ativo' : 'Fluxo pausado'}</span>
+        </section>
+
+        {error && <p className="band-stage-error" role="alert">{error}</p>}
+
+        <div className="band-stage-layout">
+          <aside className="band-stage-setlist" aria-label="Setlist da sessão">
+            <div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>
+            {songs.map((song, index) => (
+              <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}>
+                <span>{index + 1}</span>
+                <strong>{song.title}</strong>
+              </div>
+            ))}
+          </aside>
+
+          <section className="band-stage-content" aria-label={`Letra de ${activeSong.title}`}>
+            <div className="band-stage-content__toolbar">
+              <div>
+                <button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button>
+                <button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button>
+              </div>
+              <label>Tamanho <input aria-label="Tamanho da fonte" type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
+            </div>
+            <article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>
+              {displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}
+              {activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
+            </article>
+          </section>
+        </div>
+
+        <footer className="band-stage-controls band-stage-controls--musician">
+          <strong>{snapshot.state.isRunning ? 'O MD está conduzindo a música' : 'Aguardando comando do MD'}</strong>
+          <span>Seu dispositivo acompanha o estado compartilhado. Comandos de palco ficam com o MD.</span>
+        </footer>
+      </main>
+    )
+  }
+
   return (
     <main className="band-stage-page" style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
       <header className="band-stage-header">
@@ -145,7 +207,7 @@ export function BandStagePage() {
         <div className="band-stage-header__right">
           <span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span>
           <span aria-live="polite">{status}</span>
-          {md && snapshot.session.status === 'live' && <strong>MD</strong>}
+          <strong>MD</strong>
           <button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button>
           <button type="button" onClick={() => navigate('/')} >Sair</button>
         </div>
@@ -153,8 +215,7 @@ export function BandStagePage() {
 
       <section className="band-stage-presence" aria-label="Informações da sessão">
         <span>Revisão {snapshot.state.revision}</span>
-        <span>{md ? 'Você controla o palco' : `MD: ${snapshot.session.mdUserId}`}</span>
-        {!md && <span>Somente visualização</span>}
+        <span>Você controla o palco</span>
       </section>
 
       {error && <p className="band-stage-error" role="alert">{error}</p>}
@@ -167,7 +228,7 @@ export function BandStagePage() {
               key={song.songId}
               type="button"
               className={index === activeIndex ? 'is-active' : ''}
-              onClick={() => md && snapshot.session.status === 'live' ? void command(() => service.goto(sessionId, index, song.songId)) : setSelectedIndex(index)}
+              onClick={() => snapshot.session.status === 'live' ? void command(() => service.goto(sessionId, index, song.songId)) : setSelectedIndex(index)}
               disabled={busy}
             >
               <span>{index + 1}</span>
@@ -192,13 +253,13 @@ export function BandStagePage() {
       </div>
 
       <footer className="band-stage-controls">
-        <button type="button" disabled={busy || !md || activeIndex <= 0 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.previous(sessionId))}>← Anterior</button>
-        {md && snapshot.session.status === 'live' ? (
+        <button type="button" disabled={busy || activeIndex <= 0 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.previous(sessionId))}>← Anterior</button>
+        {snapshot.session.status === 'live' ? (
           <button type="button" className="band-stage-controls__primary" disabled={busy} onClick={() => void command(() => running ? service.pause(sessionId) : service.play(sessionId))}>{running ? 'Pausar' : 'Play'}</button>
-        ) : <span>{snapshot.session.status === 'live' ? 'Aguardando MD' : 'Sessão não está ao vivo'}</span>}
-        <button type="button" disabled={busy || !md || activeIndex >= songs.length - 1 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.next(sessionId))}>Próxima →</button>
-        {md && snapshot.session.status === 'live' && <button type="button" disabled={busy} onClick={() => void command(() => service.setKey(sessionId, activeSong.currentKey))}>Aplicar tom</button>}
-        {md && snapshot.session.status === 'live' && <button type="button" className="band-stage-controls__danger" disabled={busy} onClick={() => void endSession()}>Encerrar sessão</button>}
+        ) : <span>Sessão não está ao vivo</span>}
+        <button type="button" disabled={busy || activeIndex >= songs.length - 1 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.next(sessionId))}>Próxima →</button>
+        {snapshot.session.status === 'live' && <button type="button" disabled={busy} onClick={() => void command(() => service.setKey(sessionId, activeSong.currentKey))}>Aplicar tom</button>}
+        {snapshot.session.status === 'live' && <button type="button" className="band-stage-controls__danger" disabled={busy} onClick={() => void endSession()}>Encerrar sessão</button>}
       </footer>
     </main>
   )
