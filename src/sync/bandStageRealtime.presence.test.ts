@@ -1,0 +1,66 @@
+import { describe, expect, it, vi } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { BandStageRealtime } from './bandStageRealtime'
+
+const snapshot = (status: 'live' | 'ended' = 'live') => ({
+  session: { id:'s1', bandId:'b1', setlistId:'sl1', mdUserId:'md1', status, createdAt:'2026-09-08T00:00:00Z', startedAt:'2026-09-08T00:00:01Z', ...(status === 'ended' ? { endedAt:'2026-09-08T00:00:03Z' } : {}), updatedAt:'2026-09-08T00:00:02Z' },
+  state: { sessionId:'s1', revision:3, currentIndex:0, currentSongId:'song-1', currentKey:'C', isRunning:true, updatedAt:'2026-09-08T00:00:02Z' },
+})
+
+function makeChannel() {
+  const handlers = new Map<string, (payload: any) => void>()
+  const state: Record<string, unknown> = {}
+  const value = {
+    on: vi.fn((kind:string, config:{event:string}, handler:(payload:any)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
+    subscribe: vi.fn(async () => 'SUBSCRIBED'),
+    unsubscribe: vi.fn(async () => 'ok'),
+    send: vi.fn(async () => 'ok'),
+    track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.({}); return 'ok' }),
+    untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.({}); return 'ok' }),
+    presenceState: vi.fn(() => state),
+    emitPresence: (next:Record<string,unknown>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.({}) },
+  }
+  return value
+}
+function makeClient(status:'live'|'ended'='live') {
+  const channel=makeChannel()
+  return { channel:vi.fn(()=>channel), rpc:vi.fn(async()=>({data:[{session:snapshot(status).session,state:snapshot(status).state}],error:null})), channelRef:channel }
+}
+describe('BandStageRealtime presence',()=>{
+  it('tracks after the snapshot',async()=>{
+    const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
+    await realtime.connect()
+    await realtime.trackPresence({userId:'md1',displayName:'João',musicalRole:'vocals',isMd:true})
+    expect(client.channelRef.track).toHaveBeenCalledWith(expect.objectContaining({userId:'md1'}))
+    expect(onPresence).toHaveBeenLastCalledWith([{userId:'md1',displayName:'João',musicalRole:'vocals',isMd:true}])
+  })
+  it('supports multiple participants and derives MD from snapshot',async()=>{
+    const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
+    await realtime.connect()
+    client.channelRef.emitPresence({a:[{userId:'md1',displayName:'João',musicalRole:'vocals',isMd:false}],b:[{userId:'bass1',displayName:'Lucas',musicalRole:'bass',isMd:true}]})
+    expect(onPresence).toHaveBeenLastCalledWith([{userId:'md1',displayName:'João',musicalRole:'vocals',isMd:true},{userId:'bass1',displayName:'Lucas',musicalRole:'bass',isMd:false}])
+  })
+  it('falls back safely',async()=>{
+    const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
+    await realtime.connect()
+    client.channelRef.emitPresence({a:[{userId:'u1',displayName:'',musicalRole:'invalid'}],b:[{displayName:'missing'}]})
+    expect(onPresence).toHaveBeenLastCalledWith([{userId:'u1',displayName:'Participante',musicalRole:'other',isMd:false}])
+  })
+  it('retracks after reconnect and ignores presence after teardown',async()=>{
+    const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
+    await realtime.connect()
+    await realtime.trackPresence({userId:'u1',displayName:'Pedro',musicalRole:'electric-guitar',isMd:false})
+    await realtime.reconnect()
+    expect(client.channelRef.track).toHaveBeenCalledTimes(2)
+    onPresence.mockClear()
+    await realtime.disconnect()
+    client.channelRef.emitPresence({c:[{userId:'late',displayName:'Late',musicalRole:'bass'}]})
+    expect(onPresence).not.toHaveBeenCalled()
+  })
+  it('does not track an ended snapshot',async()=>{
+    const client=makeClient('ended'), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1'})
+    await realtime.connect()
+    expect(client.channelRef.track).not.toHaveBeenCalled()
+    expect(client.channelRef.untrack).toHaveBeenCalledTimes(1)
+  })
+})

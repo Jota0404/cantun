@@ -7,6 +7,7 @@ import { BandStagePage } from './BandStagePage'
 
 const connect = vi.fn()
 const disconnect = vi.fn()
+const trackPresence = vi.fn()
 const refresh = vi.fn()
 
 vi.mock('../../auth/authContext', () => ({
@@ -25,6 +26,7 @@ vi.mock('../../application/stage/bandStageService', () => ({
   BandStageService: vi.fn().mockImplementation(() => ({
     connect,
     disconnect,
+    trackPresence,
     refresh,
     play: vi.fn(),
     pause: vi.fn(),
@@ -87,6 +89,7 @@ beforeEach(() => {
     return snapshot
   })
   disconnect.mockReset().mockResolvedValue(undefined)
+  trackPresence.mockReset().mockResolvedValue(undefined)
   refresh.mockReset().mockResolvedValue(snapshot)
 })
 
