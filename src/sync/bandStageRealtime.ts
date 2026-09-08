@@ -14,10 +14,12 @@ const EVENT_TYPES: readonly BandStageEventType[] = [
   'stage.md-changed',
 ]
 
+type SnapshotReason = 'initial' | 'event' | 'reconnect' | 'revision-gap'
+
 export interface BandStageRealtimeOptions {
   client: SupabaseClient
   sessionId: string
-  onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
+  onSnapshot?: (snapshot: BandStageSnapshot, reason: SnapshotReason) => void
   onEvent?: (event: BandStageEvent) => void
   onStatus?: (status: string) => void
 }
@@ -76,6 +78,7 @@ export class BandStageReconciler {
   reset(): void {
     this.currentRevision = -1
     this.seenEventIds.clear()
+    this.snapshotInFlight = null
   }
 
   async fetchSnapshot(): Promise<BandStageSnapshot> {
@@ -86,11 +89,15 @@ export class BandStageReconciler {
     return this.snapshotInFlight
   }
 
-  async reconcile(reason: 'initial' | 'reconnect' | 'revision-gap' = 'reconnect'): Promise<BandStageSnapshot> {
+  async reconcile(reason: SnapshotReason = 'reconnect'): Promise<BandStageSnapshot> {
     const snapshot = await this.fetchSnapshot()
     if (snapshot.session.id !== this.options.sessionId) {
       throw new Error('Snapshot de palco pertence a outra sessão.')
     }
+    if (snapshot.state.sessionId !== this.options.sessionId) {
+      throw new Error('Estado de palco pertence a outra sessão.')
+    }
+
     if (snapshot.state.revision >= this.currentRevision) {
       this.currentRevision = snapshot.state.revision
       this.options.onSnapshot?.(snapshot, reason)
@@ -120,9 +127,11 @@ export class BandStageReconciler {
 
     if (event.type === 'stage.snapshot') {
       const snapshot = parseSnapshotPayload(event.payload)
-      if (snapshot && snapshot.state.revision > this.currentRevision) {
-        this.currentRevision = snapshot.state.revision
-        this.options.onSnapshot?.(snapshot, 'event')
+      if (snapshot && snapshot.state.sessionId === this.options.sessionId) {
+        if (snapshot.state.revision >= this.currentRevision) {
+          this.currentRevision = snapshot.state.revision
+          this.options.onSnapshot?.(snapshot, 'event')
+        }
       }
     }
 
@@ -167,6 +176,7 @@ export class BandStageRealtime {
   private readonly channel: RealtimeChannel
   private readonly reconciler: BandStageReconciler
   private subscribed = false
+  private connecting: Promise<BandStageSnapshot> | null = null
 
   constructor(private readonly options: BandStageRealtimeOptions) {
     this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
@@ -176,7 +186,7 @@ export class BandStageRealtime {
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload)) return
       void this.reconciler.acceptEvent(payload).catch(() => {
-        void this.reconciler.reconcile('revision-gap')
+        void this.reconciler.reconcile('revision-gap').catch(() => undefined)
       })
     })
   }
@@ -186,18 +196,36 @@ export class BandStageRealtime {
   }
 
   async connect(): Promise<BandStageSnapshot> {
-    const snapshot = await this.reconciler.reconcile('initial')
-    const status = await this.channel.subscribe()
-    this.options.onStatus?.(status)
-    if (status !== 'SUBSCRIBED') throw new Error(`Falha ao assinar sessão de palco: ${status}`)
-    this.subscribed = true
-    return snapshot
+    if (this.connecting) return this.connecting
+
+    this.connecting = this.connectInternal().finally(() => {
+      this.connecting = null
+    })
+    return this.connecting
+  }
+
+  private async connectInternal(): Promise<BandStageSnapshot> {
+    if (!this.subscribed) {
+      const status = await this.channel.subscribe()
+      this.options.onStatus?.(status)
+      if (status !== 'SUBSCRIBED') {
+        this.subscribed = false
+        throw new Error(`Falha ao assinar sessão de palco: ${status}`)
+      }
+      this.subscribed = true
+    }
+
+    // Subscribe first, then load the authoritative snapshot. This closes the
+    // late-join/reconnect race where events could be emitted between the RPC
+    // snapshot and channel subscription.
+    return this.reconciler.reconcile('initial')
   }
 
   async reconnect(): Promise<BandStageSnapshot> {
     this.reconciler.reset()
     if (this.subscribed) {
-      await this.channel.unsubscribe()
+      const status = await this.channel.unsubscribe()
+      this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
       this.subscribed = false
     }
     return this.connect()
