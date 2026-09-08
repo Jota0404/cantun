@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase'
 import type { BandStageService, StageCommandResult } from './bandStageService'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
@@ -20,16 +19,13 @@ export class SharedExecutionService {
     return this.apply(snapshot)
   }
 
-  applyEvent(snapshot: BandStageSnapshot): SharedExecutionState {
-    return this.apply(snapshot)
-  }
-
   subscribe(sessionId: string, listener: SharedExecutionListener): () => void {
     const listeners = this.listenersBySession.get(sessionId) ?? new Set<SharedExecutionListener>()
     listeners.add(listener)
     this.listenersBySession.set(sessionId, listeners)
     const current = this.stateBySession.get(sessionId)
     if (current) listener(current)
+
     return () => {
       listeners.delete(listener)
       if (listeners.size === 0) this.listenersBySession.delete(sessionId)
@@ -76,7 +72,3 @@ export class SharedExecutionService {
     return next
   }
 }
-
-export const sharedExecutionService = supabase
-  ? null
-  : null
