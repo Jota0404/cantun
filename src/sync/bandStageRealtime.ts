@@ -181,6 +181,7 @@ function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
 }
 
 export class BandStageRealtime {
+  private readonly options: BandStageRealtimeOptions
   private readonly channel: RealtimeChannel
   private readonly reconciler: BandStageReconciler
   private subscribed = false
@@ -191,7 +192,8 @@ export class BandStageRealtime {
   private presencePayload: BandStagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
-  constructor(private readonly options: BandStageRealtimeOptions) {
+  constructor(options: BandStageRealtimeOptions) {
+    this.options = options
     this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
       config: { private: true, broadcast: { self: false, ack: true } },
     })
@@ -240,13 +242,20 @@ export class BandStageRealtime {
 
   private async connectInternal(): Promise<BandStageSnapshot> {
     if (!this.subscribed) {
-      const status = await this.channel.subscribe()
-      this.options.onStatus?.(status)
-      if (status !== 'SUBSCRIBED') {
-        this.subscribed = false
-        throw new Error(`Falha ao assinar sessão de palco: ${status}`)
+      await new Promise<void>((resolve, reject) => {
+        this.channel.subscribe((status, error) => {
+          this.options.onStatus?.(status)
+          if (status === 'SUBSCRIBED') {
+            this.subscribed = true
+            resolve()
+            return
+          }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            this.subscribed = false
+            reject(error ?? new Error(`Falha ao assinar sessão de palco: ${status}`))
+          }
+        })
       }
-      this.subscribed = true
     }
 
     this.setConnectionStatus('SUBSCRIBED')
