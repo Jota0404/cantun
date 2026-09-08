@@ -116,18 +116,19 @@ export function BandStagePage() {
 
   async function updateReadiness(next: BandStageReadiness) {
     if (!user?.id || md || next === readiness) return
+    const previous = readiness
     try {
       setReadiness(next)
       await service.trackPresence(sessionId, {
         userId: user.id,
-        displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
+        displayName: user.user_metadata?.displayName ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
         musicalRole,
         isMd: false,
         readiness: next,
       })
       setError('')
     } catch (err) {
-      setReadiness('waiting')
+      setReadiness(previous)
       setError(err instanceof Error ? err.message : 'Não foi possível atualizar seu status de preparação.')
     }
   }
@@ -148,9 +149,8 @@ export function BandStagePage() {
     try {
       setBusy(true)
       setError('')
-      const result = await action()
+      await action()
       applySnapshot(await service.getSnapshot(sessionId))
-      execution.applySnapshot({ session: snapshot!.session, state: result.state })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível aplicar o comando.')
       await refresh()
@@ -179,10 +179,8 @@ export function BandStagePage() {
     try {
       setBusy(true)
       setError('')
-      const result = await service.setAnnotation(sessionId, annotationDraft)
-      const next = await service.getSnapshot(sessionId)
-      applySnapshot({ session: snapshot!.session, state: next.state })
-      execution.applySnapshot({ session: snapshot!.session, state: result.state })
+      await service.setAnnotation(sessionId, annotationDraft)
+      applySnapshot(await service.getSnapshot(sessionId))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar a anotação.')
       await refresh()
