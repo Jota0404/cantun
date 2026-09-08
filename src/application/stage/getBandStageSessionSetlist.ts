@@ -1,6 +1,8 @@
 import { supabase } from '../../lib/supabase'
 import type { BandStageSession } from '../../domain/stage/bandStage'
 import type { MusicalKey } from '../../domain/music/musicalKey'
+import type { MusicalRole } from '../../domain/bands/musicalRole'
+import { toMusicalRole } from '../../domain/bands/musicalRole'
 
 export type BandStageSetlistItem = {
   position: number
@@ -12,6 +14,7 @@ export type BandStageSetlistItem = {
   lyrics: string
   notes?: string
   bpm?: number
+  musicalRole: MusicalRole
 }
 
 type RpcClient = {
@@ -51,6 +54,7 @@ export async function getBandStageSessionSetlist(
         lyrics: String(row.lyrics ?? ''),
         notes: row.notes ? String(row.notes) : undefined,
         bpm: row.bpm === null || row.bpm === undefined ? undefined : Number(row.bpm),
+        musicalRole: toMusicalRole(row.musical_role),
       }
     })
     .sort((a, b) => a.position - b.position)
