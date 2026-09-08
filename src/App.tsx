@@ -10,6 +10,7 @@ import { SongLibraryPage } from './pages/Song/SongLibraryPage'
 import { RepertoireListPage } from './pages/Repertoire/RepertoireListPage'
 import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 import { StagePage } from './pages/Stage/StagePage'
+import { BandStagePage } from './pages/Stage/BandStagePage'
 import { AuthPage } from './pages/Auth/AuthPage'
 import { BandListPage, BandDetailPage, BandInvitePage } from './pages/Band/BandPage'
 import './App.css'
@@ -52,7 +53,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
-        <Route path="/stage/setlist/:setlistId" element={<StagePage />} /><Route path="/stage/song/:songId" element={<StagePage />} />
+        <Route path="/stage/setlist/:setlistId" element={<StagePage />} /><Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/session/:sessionId" element={<BandStagePage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />
         <Route path="/bands" element={<BandListPage />} /><Route path="/bands/invite/:token" element={<BandInvitePage />} /><Route path="/bands/:bandId" element={<BandDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
