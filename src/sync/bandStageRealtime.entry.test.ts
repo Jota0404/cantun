@@ -3,7 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BandStageReconciler, BandStageRealtime, createBandStageEvent, bandStageChannelName } from './bandStageRealtime'
 
 type FakeChannel = ReturnType<typeof makeChannel>
-
 type FakeClient = {
   rpc: ReturnType<typeof vi.fn>
   channel: ReturnType<typeof vi.fn>
@@ -48,7 +47,7 @@ function makeClient(revision = 7): FakeClient {
 
 function makeChannel() {
   let callback: ((args: { payload: unknown }) => void) | undefined
-  return {
+  const value = {
     on: vi.fn((_kind: string, _config: unknown, handler: (args: { payload: unknown }) => void) => {
       callback = handler
       return value
@@ -58,7 +57,7 @@ function makeChannel() {
     send: vi.fn(async () => 'ok'),
     emit: (payload: unknown) => callback?.({ payload }),
   }
-  const value = undefined as never
+  return value
 }
 
 function createRealtime(client: FakeClient, onStatus?: (value: string) => void) {
