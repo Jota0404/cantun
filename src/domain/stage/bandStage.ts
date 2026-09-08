@@ -8,6 +8,7 @@ export type BandStageEventType =
   | 'stage.previous'
   | 'stage.goto'
   | 'stage.set-key'
+  | 'stage.annotation-updated'
   | 'stage.session-ended'
   | 'stage.md-changed'
 
@@ -30,6 +31,7 @@ export interface BandStageState {
   currentSongId?: string
   currentKey?: string
   isRunning: boolean
+  mdAnnotation?: string
   updatedAt: string
 }
 
@@ -70,6 +72,7 @@ export function toBandStageState(row: Record<string, unknown>): BandStageState {
     currentSongId: row.current_song_id ? String(row.current_song_id) : undefined,
     currentKey: row.current_key ? String(row.current_key) : undefined,
     isRunning: Boolean(row.is_running),
+    mdAnnotation: row.md_annotation ? String(row.md_annotation) : undefined,
     updatedAt: String(row.updated_at),
   }
 }
