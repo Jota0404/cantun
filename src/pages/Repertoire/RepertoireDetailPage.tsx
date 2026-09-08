@@ -8,6 +8,7 @@ import { removeSongFromSetlist } from '../../application/repertoires/removeSongF
 import { renameSetlist } from '../../application/repertoires/renameSetlist'
 import { reorderSetlist } from '../../application/repertoires/reorderSetlist'
 import { listSongs } from '../../application/songs/listSongs'
+import { BandStageService } from '../../application/stage/bandStageService'
 import type { Setlist } from '../../domain/repertoires/setlist'
 import type { SetlistSong } from '../../domain/repertoires/setlistSong'
 import type { Song } from '../../domain/songs/song'
@@ -38,6 +39,7 @@ export function RepertoireDetailPage({
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState('')
   const [renaming, setRenaming] = useState(false)
+  const [startingStage, setStartingStage] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -176,6 +178,23 @@ export function RepertoireDetailPage({
     }
   }
 
+  async function handleStartStage() {
+    if (!setlist || orderedSongs.length === 0) return
+    setActionError(undefined)
+    setStartingStage(true)
+
+    try {
+      const service = new BandStageService()
+      const session = await service.createSession(setlist.bandId, setlist.id)
+      await service.startSession(session.id)
+      navigate(`/stage/session/${session.id}`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Não foi possível iniciar o Modo Banda.')
+    } finally {
+      setStartingStage(false)
+    }
+  }
+
   if (loading) {
     return <p>Carregando repertório...</p>
   }
@@ -232,10 +251,10 @@ export function RepertoireDetailPage({
         </div>
         <button
           type="button"
-          disabled={orderedSongs.length === 0}
-          onClick={() => navigate(`/stage/setlist/${setlist.id}`)}
+          disabled={orderedSongs.length === 0 || startingStage}
+          onClick={() => void handleStartStage()}
         >
-          Iniciar Modo Palco
+          {startingStage ? 'Iniciando Modo Banda...' : 'Iniciar Modo Banda'}
         </button>
       </header>
 
