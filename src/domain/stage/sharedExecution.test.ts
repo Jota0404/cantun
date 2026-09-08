@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { toSharedExecutionState } from './sharedExecution'
+import type { SharedExecutionState } from './sharedExecution'
 
-const baseState = {
+const baseState: SharedExecutionState = {
   sessionId: 'session-1',
   revision: 4,
   currentIndex: 2,
@@ -11,7 +12,7 @@ const baseState = {
   isRunning: false,
   mdAnnotation: 'Entrar direto no refrão',
   updatedAt: '2026-09-08T22:00:00.000Z',
-} as const
+}
 
 const snapshot = (revision: number, overrides: Partial<typeof baseState> = {}) => ({
   session: {
