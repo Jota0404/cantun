@@ -5,10 +5,10 @@
 -- invite lookup indexes, RPC-only invite revocation, and owner-only
 -- membership management RPCs.
 
-create index if not exists public.band_invites_accepted_by_user_idx
+create index if not exists band_invites_accepted_by_user_idx
   on public.band_invites (accepted_by_user_id);
 
-create index if not exists public.band_invites_invited_by_user_idx
+create index if not exists band_invites_invited_by_user_idx
   on public.band_invites (invited_by_user_id);
 
 create or replace function private.revoke_band_invite(p_invite_id uuid)
