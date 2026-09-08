@@ -15,7 +15,7 @@ function makeClient(revision = 3) {
 }
 
 function options(client = makeClient()): BandStageRealtimeOptions {
-  return { client, sessionId: 's1' }
+  return { client: client as unknown as BandStageRealtimeOptions['client'], sessionId: 's1' }
 }
 
 describe('BandStageReconciler', () => {
