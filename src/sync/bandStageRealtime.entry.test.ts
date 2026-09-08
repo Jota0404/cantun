@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { BandStageRealtimeOptions } from './bandStageRealtime'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { BandStageReconciler, BandStageRealtime, createBandStageEvent, bandStageChannelName } from './bandStageRealtime'
+
+type FakeChannel = ReturnType<typeof makeChannel>
+
+type FakeClient = {
+  rpc: ReturnType<typeof vi.fn>
+  channel: ReturnType<typeof vi.fn>
+  channels: FakeChannel[]
+}
 
 const snapshot = (revision: number) => ({
   session: {
@@ -24,17 +32,18 @@ const snapshot = (revision: number) => ({
   },
 })
 
-function makeClient(revision = 7) {
-  const channels: Array<ReturnType<typeof makeChannel>> = []
-  return {
-    rpc: vi.fn(async () => ({ data: [{ session: snapshot(revision).session, state: snapshot(revision).state }], error: null })),
-    channel: vi.fn(() => {
-      const channel = makeChannel()
-      channels.push(channel)
-      return channel
-    }),
-    channels,
-  } as never
+function makeClient(revision = 7): FakeClient {
+  const channels: FakeChannel[] = []
+  const rpc = vi.fn(async () => ({
+    data: [{ session: snapshot(revision).session, state: snapshot(revision).state }],
+    error: null,
+  }))
+  const channel = vi.fn(() => {
+    const value = makeChannel()
+    channels.push(value)
+    return value
+  })
+  return { rpc, channel, channels }
 }
 
 function makeChannel() {
@@ -42,24 +51,25 @@ function makeChannel() {
   return {
     on: vi.fn((_kind: string, _config: unknown, handler: (args: { payload: unknown }) => void) => {
       callback = handler
-      return this
+      return value
     }),
     subscribe: vi.fn(async () => 'SUBSCRIBED'),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
     emit: (payload: unknown) => callback?.({ payload }),
   }
+  const value = undefined as never
+}
+
+function createRealtime(client: FakeClient, onStatus?: (value: string) => void) {
+  return new BandStageRealtime({ client: client as unknown as SupabaseClient, sessionId: 's1', onStatus })
 }
 
 describe('BandStageRealtime entry/reconnect', () => {
   it('subscribes before fetching the authoritative snapshot', async () => {
     const client = makeClient(7)
     const statuses: string[] = []
-    const realtime = new BandStageRealtime({
-      client,
-      sessionId: 's1',
-      onStatus: (value) => statuses.push(value),
-    })
+    const realtime = createRealtime(client, (value) => statuses.push(value))
 
     const result = await realtime.connect()
 
@@ -72,7 +82,7 @@ describe('BandStageRealtime entry/reconnect', () => {
 
   it('reconnects from a clean revision after a dropped connection', async () => {
     const client = makeClient(12)
-    const realtime = new BandStageRealtime(client as unknown as BandStageRealtimeOptions['client'] extends never ? never : any)
+    const realtime = createRealtime(client)
     const first = await realtime.connect()
     expect(first.state.revision).toBe(12)
 
@@ -84,11 +94,11 @@ describe('BandStageRealtime entry/reconnect', () => {
 })
 
 describe('BandStageReconciler late events', () => {
-  it('does not regress after an event that arrives while the snapshot is being applied', async () => {
+  it('does not regress after an event arrives after the initial snapshot', async () => {
     const client = makeClient(9)
     const events: string[] = []
     const reconciler = new BandStageReconciler({
-      client,
+      client: client as unknown as SupabaseClient,
       sessionId: 's1',
       onEvent: (event) => events.push(`${event.type}:${event.revision}`),
     })
