@@ -31,7 +31,19 @@ describe('BandStageReconciler', () => {
   })
 
   it('fetches a snapshot when a revision gap is detected', async () => {
+    let callCount = 0
     const client = makeClient(6)
+    client.rpc.mockImplementation(async () => {
+      callCount += 1
+      const revision = callCount === 1 ? 6 : 8
+      return {
+        data: [{
+          session: { id: 's1', band_id: 'b1', setlist_id: 'sl1', md_user_id: 'md1', status: 'live', created_at: '2026-09-08T00:00:00Z', started_at: '2026-09-08T00:00:01Z', ended_at: null, updated_at: '2026-09-08T00:00:02Z' },
+          state: { session_id: 's1', revision, current_index: revision, current_song_id: null, current_key: null, is_running: false, updated_at: '2026-09-08T00:00:02Z' },
+        }],
+        error: null,
+      }
+    })
     const callbacks = vi.fn()
     const reconciler = new BandStageReconciler({ ...options(client), onSnapshot: callbacks })
     await reconciler.reconcile('initial')
@@ -42,5 +54,8 @@ describe('BandStageReconciler', () => {
     expect(result).toBe('reconciled')
     expect(client.rpc).toHaveBeenCalledTimes(2)
     expect(reconciler.revision).toBe(8)
+    expect(callbacks).toHaveBeenCalledWith(expect.objectContaining({
+      state: expect.objectContaining({ revision: 8 }),
+    }), 'revision-gap')
   })
 })
