@@ -20,7 +20,7 @@ const DEFAULT_EXPERIENCE: MusicalRoleStageExperience = {
   accentLabel: 'Função musical',
 }
 
-const EXPERIENCES: Partial<Record<MusicalRole, Omit<MusicalRoleStageExperience, 'accentLabel'>>> = {
+const LOCAL_EXPERIENCES: Partial<Record<MusicalRole, Omit<MusicalRoleStageExperience, 'accentLabel'>>> = {
   vocals: { ...DEFAULT_EXPERIENCE, fontSize: 24 },
   'electric-guitar': { ...DEFAULT_EXPERIENCE },
   'acoustic-guitar': { ...DEFAULT_EXPERIENCE },
@@ -34,7 +34,7 @@ const EXPERIENCES: Partial<Record<MusicalRole, Omit<MusicalRoleStageExperience, 
 }
 
 export function getMusicalRoleStageExperience(role: MusicalRole): MusicalRoleStageExperience {
-  const base = EXPERIENCES[role] ?? DEFAULT_EXPERIENCE
+  const base = LOCAL_EXPERIENCES[role] ?? DEFAULT_EXPERIENCE
   return {
     ...base,
     accentLabel: MUSICAL_ROLE_LABELS[role] ?? DEFAULT_EXPERIENCE.accentLabel,
@@ -43,6 +43,49 @@ export function getMusicalRoleStageExperience(role: MusicalRole): MusicalRoleSta
 
 type RpcClient = {
   rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+}
+
+type StageExperienceRow = {
+  musical_role?: unknown
+  font_size?: unknown
+  read_mode?: unknown
+  show_notes?: unknown
+  show_bpm?: unknown
+  show_key?: unknown
+}
+
+function parseStageExperience(value: unknown, fallbackRole: MusicalRole): MusicalRoleStageExperience | null {
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null
+  const data = row as StageExperienceRow
+  const role = isMusicalRole(data.musical_role) ? data.musical_role : fallbackRole
+  const local = getMusicalRoleStageExperience(role)
+  const readMode = data.read_mode === 'pages' ? 'pages' : data.read_mode === 'scroll' ? 'scroll' : local.readMode
+  return {
+    fontSize: Number.isFinite(Number(data.font_size)) ? Number(data.font_size) : local.fontSize,
+    readMode,
+    showNotes: typeof data.show_notes === 'boolean' ? data.show_notes : local.showNotes,
+    showBpm: typeof data.show_bpm === 'boolean' ? data.show_bpm : local.showBpm,
+    showKey: typeof data.show_key === 'boolean' ? data.show_key : local.showKey,
+    accentLabel: MUSICAL_ROLE_LABELS[role] ?? local.accentLabel,
+  }
+}
+
+export async function getMyBandStageExperience(
+  bandId: string,
+  client: RpcClient | null | undefined = supabase,
+): Promise<MusicalRoleStageExperience> {
+  const fallbackRole: MusicalRole = 'other'
+  if (!client) return getMusicalRoleStageExperience(fallbackRole)
+  const { data, error } = await client.rpc('get_my_band_stage_experience', { p_band_id: bandId })
+  if (error) {
+    const roleData = await client.rpc('get_my_band_musical_role', { p_band_id: bandId })
+    if (roleData.error) throw new Error(roleData.error.message)
+    const roleValue = Array.isArray(roleData.data) ? roleData.data[0] : roleData.data
+    const role = isMusicalRole(roleValue) ? roleValue : fallbackRole
+    return getMusicalRoleStageExperience(role)
+  }
+  return parseStageExperience(data, fallbackRole) ?? getMusicalRoleStageExperience(fallbackRole)
 }
 
 export async function getMyBandMusicalRoleForStage(
