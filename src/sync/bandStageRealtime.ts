@@ -10,6 +10,7 @@ const EVENT_TYPES: readonly BandStageEventType[] = [
   'stage.previous',
   'stage.goto',
   'stage.set-key',
+  'stage.annotation-updated',
   'stage.session-ended',
   'stage.md-changed',
 ]

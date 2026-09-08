@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { BandStageEventType, BandStageSession, BandStageSnapshot, BandStageState } from '../../domain/stage/bandStage'
 import { toBandStageSession, toBandStageState } from '../../domain/stage/bandStage'
 import { BandStageRealtime, createBandStageEvent } from '../../sync/bandStageRealtime'
+import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
 
 export interface BandStageRpcClient {
   rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
@@ -140,6 +141,29 @@ export class BandStageService {
 
   async setKey(sessionId: string, key: string): Promise<StageCommandResult> {
     return this.command(sessionId, 'setKey', 'band_stage_set_key', { p_key: key }, { currentKey: key })
+  }
+
+  async setAnnotation(sessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
+    const normalized = normalizeBandStageAnnotation(annotation)
+    const { data, error } = await this.client.rpc('band_stage_set_annotation', {
+      p_session_id: sessionId,
+      p_annotation: normalized,
+    })
+    if (error) throw new Error(error.message)
+    const state = toBandStageState(this.singleRow(data))
+    const snapshot = await this.getSnapshot(sessionId)
+    if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação da anotação; reconciliação necessária.')
+
+    const event = createBandStageEvent({
+      type: 'stage.annotation-updated',
+      sessionId,
+      revision: state.revision,
+      actorUserId: snapshot.session.mdUserId,
+      payload: { annotation: state.mdAnnotation ?? null, state },
+    })
+    const realtime = this.realtimeBySession.get(sessionId)
+    if (realtime) await realtime.publish(event)
+    return { state, event }
   }
 
   async getSnapshot(sessionId: string): Promise<BandStageSnapshot> {
