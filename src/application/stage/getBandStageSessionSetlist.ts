@@ -1,13 +1,14 @@
 import { supabase } from '../../lib/supabase'
 import type { BandStageSession } from '../../domain/stage/bandStage'
+import type { MusicalKey } from '../../domain/music/musicalKey'
 
 export type BandStageSetlistItem = {
   position: number
   songId: string
   title: string
   artist?: string
-  originalKey: string
-  currentKey: string
+  originalKey: MusicalKey
+  currentKey: MusicalKey
   lyrics: string
   notes?: string
   bpm?: number
@@ -17,9 +18,15 @@ type RpcClient = {
   rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
 }
 
+function asMusicalKey(value: unknown, fallback: MusicalKey = 'C'): MusicalKey {
+  const key = String(value ?? fallback)
+  const valid: MusicalKey[] = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
+  return valid.includes(key as MusicalKey) ? key as MusicalKey : fallback
+}
+
 export async function getBandStageSessionSetlist(
   session: BandStageSession,
-  client: RpcClient = supabase,
+  client: RpcClient | null | undefined = supabase,
 ): Promise<BandStageSetlistItem[]> {
   if (!client) throw new Error('Supabase não está configurado para o Modo Banda.')
 
@@ -32,16 +39,19 @@ export async function getBandStageSessionSetlist(
   const rows = Array.isArray(data) ? data : data ? [data] : []
   return rows
     .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object' && !Array.isArray(row)))
-    .map((row) => ({
-      position: Number(row.position),
-      songId: String(row.song_id),
-      title: String(row.title),
-      artist: row.artist ? String(row.artist) : undefined,
-      originalKey: String(row.original_key),
-      currentKey: String(row.current_key ?? row.original_key),
-      lyrics: String(row.lyrics ?? ''),
-      notes: row.notes ? String(row.notes) : undefined,
-      bpm: row.bpm === null || row.bpm === undefined ? undefined : Number(row.bpm),
-    }))
+    .map((row) => {
+      const originalKey = asMusicalKey(row.original_key)
+      return {
+        position: Number(row.position),
+        songId: String(row.song_id),
+        title: String(row.title),
+        artist: row.artist ? String(row.artist) : undefined,
+        originalKey,
+        currentKey: asMusicalKey(row.current_key, originalKey),
+        lyrics: String(row.lyrics ?? ''),
+        notes: row.notes ? String(row.notes) : undefined,
+        bpm: row.bpm === null || row.bpm === undefined ? undefined : Number(row.bpm),
+      }
+    })
     .sort((a, b) => a.position - b.position)
 }
