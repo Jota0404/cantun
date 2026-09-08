@@ -34,6 +34,10 @@ create table public.band_stage_states (
 create index band_stage_sessions_band_status_idx
   on public.band_stage_sessions(band_id, status);
 
+create unique index band_stage_sessions_one_live_per_band_idx
+  on public.band_stage_sessions(band_id)
+  where status = 'live';
+
 create index band_stage_sessions_setlist_idx
   on public.band_stage_sessions(setlist_id);
 
