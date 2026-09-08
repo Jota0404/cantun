@@ -3,7 +3,7 @@ import type { BandStageState } from '../../domain/stage/bandStage'
 import { toBandStageState } from '../../domain/stage/bandStage'
 
 type RpcClient = {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 export const MAX_STAGE_ANNOTATION_LENGTH = 500
