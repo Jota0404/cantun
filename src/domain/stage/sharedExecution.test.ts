@@ -40,6 +40,7 @@ describe('shared execution', () => {
     const listener = vi.fn()
     service.applySnapshot(snapshot(4))
     service.subscribe('session-1', listener)
+    listener.mockClear()
 
     const current = service.applySnapshot(snapshot(3, { currentIndex: 1 }))
 
