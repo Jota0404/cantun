@@ -3,6 +3,7 @@ import type { BandStageEventType, BandStageSession, BandStageSnapshot, BandStage
 import { toBandStageSession, toBandStageState } from '../../domain/stage/bandStage'
 import { BandStageRealtime, createBandStageEvent } from '../../sync/bandStageRealtime'
 import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
+import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 
 export interface BandStageRpcClient {
   rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
@@ -12,6 +13,7 @@ type RealtimeCallbacks = {
   onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
   onEvent?: (event: ReturnType<typeof createBandStageEvent>) => void
   onStatus?: (status: string) => void
+  onPresence?: (participants: BandStageParticipant[]) => void
 }
 
 export interface BandStageServiceOptions {
@@ -99,6 +101,12 @@ export class BandStageService {
       this.realtimeBySession.delete(sessionId)
       throw error
     }
+  }
+
+  async trackPresence(sessionId: string, payload: BandStagePresencePayload): Promise<void> {
+    const realtime = this.realtimeBySession.get(sessionId)
+    if (!realtime) throw new Error('Sessão de palco não está conectada.')
+    await realtime.trackPresence(payload)
   }
 
   async reconnect(sessionId: string): Promise<BandStageSnapshot> {

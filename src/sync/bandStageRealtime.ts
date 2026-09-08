@@ -1,6 +1,8 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import type { BandStageEvent, BandStageEventType, BandStageSnapshot } from '../domain/stage/bandStage'
 import { toBandStageSession, toBandStageState } from '../domain/stage/bandStage'
+import type { BandStageParticipant, BandStagePresencePayload } from '../domain/stage/bandStagePresence'
+import { presenceStateToParticipants } from '../domain/stage/bandStagePresence'
 
 const EVENT_TYPES: readonly BandStageEventType[] = [
   'stage.snapshot',
@@ -25,6 +27,7 @@ export interface BandStageRealtimeOptions {
   onEvent?: (event: BandStageEvent) => void
   onStatus?: (status: string) => void
   onConnectionStatus?: (status: BandStageConnectionStatus) => void
+  onPresence?: (participants: BandStageParticipant[]) => void
 }
 
 export function bandStageChannelName(sessionId: string): string {
@@ -183,12 +186,26 @@ export class BandStageRealtime {
   private reconnecting: Promise<BandStageSnapshot> | null = null
   private disposed = false
   private connectionStatus: BandStageConnectionStatus = 'DISCONNECTED'
+  private presencePayload: BandStagePresencePayload | null = null
+  private lastSnapshotMdUserId: string | null = null
 
   constructor(private readonly options: BandStageRealtimeOptions) {
     this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
-      config: { broadcast: { self: false, ack: true } },
+      config: { private: true, broadcast: { self: false, ack: true } },
     })
     this.reconciler = new BandStageReconciler(options)
+    this.channel.on('presence', { event: 'sync' }, () => {
+      if (this.disposed) return
+      this.emitPresence()
+    })
+    this.channel.on('presence', { event: 'join' }, () => {
+      if (this.disposed) return
+      this.emitPresence()
+    })
+    this.channel.on('presence', { event: 'leave' }, () => {
+      if (this.disposed) return
+      this.emitPresence()
+    })
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload) || this.disposed) return
       void this.reconciler.acceptEvent(payload).catch(() => {
@@ -231,7 +248,11 @@ export class BandStageRealtime {
     }
 
     this.setConnectionStatus('SUBSCRIBED')
-    return this.reconciler.reconcile('initial')
+    const snapshot = await this.reconciler.reconcile('initial')
+    this.lastSnapshotMdUserId = snapshot.session.mdUserId
+    if (this.presencePayload && snapshot.session.status !== 'ended') await this.trackPresenceInternal(this.presencePayload)
+    if (snapshot.session.status === 'ended') await this.channel.untrack().catch(() => undefined)
+    return snapshot
   }
 
   async reconnect(): Promise<BandStageSnapshot> {
@@ -265,6 +286,26 @@ export class BandStageRealtime {
     return this.reconciler.reconcile('reconnect')
   }
 
+  async trackPresence(payload: BandStagePresencePayload): Promise<void> {
+    if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
+    if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
+    if (this.lastSnapshotMdUserId === null) throw new Error('Snapshot de palco ainda não foi carregado.')
+    this.presencePayload = payload
+    await this.trackPresenceInternal(payload)
+  }
+
+  private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
+    const result = await this.channel.track(payload)
+    if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
+    this.emitPresence()
+  }
+
+  private emitPresence(): void {
+    if (this.disposed) return
+    const state = this.channel.presenceState() as Record<string, unknown>
+    this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
+  }
+
   async publish(event: BandStageEvent): Promise<void> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
@@ -280,6 +321,8 @@ export class BandStageRealtime {
     if (this.disposed) return
     this.disposed = true
     this.reconciler.reset()
+    this.presencePayload = null
+    this.lastSnapshotMdUserId = null
     this.subscribed = false
     this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
