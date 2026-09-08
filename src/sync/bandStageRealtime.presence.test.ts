@@ -16,9 +16,9 @@ function makeChannel() {
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
     track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.(); return 'ok' }),
-    untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.({}); return 'ok' }),
+    untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.(); return 'ok' }),
     presenceState: vi.fn(() => state),
-    emitPresence: (next:Record<string,unknown>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.({}) },
+    emitPresence: (next:Record<string, unknown[]>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.() },
   }
   return value
 }
