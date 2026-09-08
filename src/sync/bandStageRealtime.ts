@@ -98,6 +98,7 @@ export class BandStageReconciler {
   }
 
   async reconcile(reason: SnapshotReason = 'reconnect'): Promise<BandStageSnapshot> {
+    const previousRevision = this.currentRevision
     const snapshot = await this.fetchSnapshot()
     if (snapshot.session.id !== this.options.sessionId) {
       throw new Error('Snapshot de palco pertence a outra sessão.')
@@ -110,6 +111,7 @@ export class BandStageReconciler {
       this.currentRevision = snapshot.state.revision
       this.options.onSnapshot?.(snapshot, reason)
     }
+    void previousRevision
     return snapshot
   }
 
