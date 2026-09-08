@@ -31,6 +31,8 @@ const EVENT_BY_COMMAND = {
   previous: 'stage.previous',
   goto: 'stage.goto',
   setKey: 'stage.set-key',
+  prepareNext: 'stage.prepare-next',
+  clearPrepared: 'stage.clear-prepared',
 } as const satisfies Record<string, BandStageEventType>
 
 type Command = keyof typeof EVENT_BY_COMMAND
@@ -141,6 +143,20 @@ export class BandStageService {
 
   async setKey(sessionId: string, key: string): Promise<StageCommandResult> {
     return this.command(sessionId, 'setKey', 'band_stage_set_key', { p_key: key }, { currentKey: key })
+  }
+
+  async prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult> {
+    return this.command(sessionId, 'prepareNext', 'band_stage_prepare_next', {
+      p_index: index,
+      p_song_id: songId,
+    }, { preparedIndex: index, preparedSongId: songId })
+  }
+
+  async clearPrepared(sessionId: string): Promise<StageCommandResult> {
+    return this.command(sessionId, 'clearPrepared', 'band_stage_clear_prepared', {}, {
+      preparedIndex: null,
+      preparedSongId: null,
+    })
   }
 
   async setAnnotation(sessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {

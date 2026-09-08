@@ -8,6 +8,8 @@ export interface SharedExecutionState {
   currentIndex: number
   currentSongId?: string
   currentKey?: string
+  preparedIndex?: number
+  preparedSongId?: string
   isRunning: boolean
   mdAnnotation?: string
   status: SharedExecutionStatus
@@ -24,6 +26,8 @@ export function toSharedExecutionState(
     currentIndex: state.currentIndex,
     currentSongId: state.currentSongId,
     currentKey: state.currentKey,
+    preparedIndex: state.preparedIndex,
+    preparedSongId: state.preparedSongId,
     isRunning: state.isRunning,
     mdAnnotation: state.mdAnnotation,
     status: sessionStatus === 'lobby' ? 'lobby' : sessionStatus === 'ended' ? 'ended' : state.isRunning ? 'running' : 'paused',
@@ -38,6 +42,8 @@ export function hasSharedExecutionChanged(a: SharedExecutionState | undefined, b
     a.currentIndex !== b.currentIndex ||
     a.currentSongId !== b.currentSongId ||
     a.currentKey !== b.currentKey ||
+    a.preparedIndex !== b.preparedIndex ||
+    a.preparedSongId !== b.preparedSongId ||
     a.isRunning !== b.isRunning ||
     a.mdAnnotation !== b.mdAnnotation ||
     a.status !== b.status ||

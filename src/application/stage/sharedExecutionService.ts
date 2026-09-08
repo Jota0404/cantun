@@ -19,9 +19,6 @@ export class SharedExecutionService {
     const current = this.stateBySession.get(snapshot.session.id)
     const next = toSharedExecutionState(snapshot.state, snapshot.session.status)
 
-    // Snapshots can arrive from an initial read, an explicit refresh or a
-    // delayed event reconciliation. Never let an older revision roll the UI
-    // backwards.
     if (current && next.revision < current.revision) return current
     if (current && next.revision === current.revision && next.updatedAt < current.updatedAt) return current
 
@@ -65,6 +62,14 @@ export class SharedExecutionService {
 
   async setKey(sessionId: string, key: string): Promise<StageCommandResult> {
     return this.stageService.setKey(sessionId, key)
+  }
+
+  async prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult> {
+    return this.stageService.prepareNext(sessionId, index, songId)
+  }
+
+  async clearPrepared(sessionId: string): Promise<StageCommandResult> {
+    return this.stageService.clearPrepared(sessionId)
   }
 
   async end(sessionId: string): Promise<void> {
