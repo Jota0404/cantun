@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { BandStageService } from '../../application/stage/bandStageService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
+import { getMyBandStageExperience, getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
+import type { MusicalRole } from '../../domain/bands/musicalRole'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import './BandStagePage.css'
@@ -24,9 +26,11 @@ export function BandStagePage() {
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
   const [running, setRunning] = useState(false)
+  const [musicalRole, setMusicalRole] = useState<MusicalRole>('other')
 
   const md = Boolean(user?.id && snapshot?.session.mdUserId === user.id)
   const musicianView = !md
+  const experience = getMusicalRoleStageExperience(musicalRole)
   const activeIndex = snapshot?.state.currentIndex ?? selectedIndex
   const activeSong = songs[activeIndex] ?? songs[selectedIndex]
 
@@ -59,6 +63,14 @@ export function BandStagePage() {
         const loadedSongs = await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
+
+        const roleExperience = await getMyBandStageExperience(initial.session.bandId)
+        if (!cancelled) {
+          setMusicalRole(loadedSongs[0]?.musicalRole ?? 'other')
+          setFontSize(roleExperience.fontSize)
+          setReadMode(roleExperience.readMode)
+        }
+
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
@@ -136,13 +148,13 @@ export function BandStagePage() {
 
   if (musicianView) {
     return (
-      <main className="band-stage-page band-stage-page--musician" style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
+      <main className="band-stage-page band-stage-page--musician" data-musical-role={musicalRole} style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
         <header className="band-stage-header">
           <div>
             <Link to="/bands">← Bandas</Link>
-            <span className="band-stage-kicker">MODO BANDA · MÚSICO</span>
+            <span className="band-stage-kicker">MODO BANDA · {experience.accentLabel.toUpperCase()}</span>
             <h1>{activeSong.title}</h1>
-            <p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</p>
+            <p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p>
           </div>
           <div className="band-stage-header__right">
             <span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span>
@@ -151,116 +163,28 @@ export function BandStagePage() {
             <button type="button" onClick={() => navigate('/')}>Sair</button>
           </div>
         </header>
-
-        <section className="band-stage-presence" aria-label="Informações da sessão">
-          <span>Revisão {snapshot.state.revision}</span>
-          <span>MD operacional</span>
-          <span>Somente visualização</span>
-          <span>{snapshot.state.isRunning ? 'Fluxo ativo' : 'Fluxo pausado'}</span>
-        </section>
-
+        <section className="band-stage-presence" aria-label="Informações da sessão"><span>Função: {experience.accentLabel}</span><span>Revisão {snapshot.state.revision}</span><span>MD operacional</span><span>Somente visualização</span><span>{snapshot.state.isRunning ? 'Fluxo ativo' : 'Fluxo pausado'}</span></section>
         {error && <p className="band-stage-error" role="alert">{error}</p>}
-
         <div className="band-stage-layout">
-          <aside className="band-stage-setlist" aria-label="Setlist da sessão">
-            <div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>
-            {songs.map((song, index) => (
-              <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}>
-                <span>{index + 1}</span>
-                <strong>{song.title}</strong>
-              </div>
-            ))}
-          </aside>
-
+          <aside className="band-stage-setlist" aria-label="Setlist da sessão"><div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>{songs.map((song, index) => <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}><span>{index + 1}</span><strong>{song.title}</strong></div>)}</aside>
           <section className="band-stage-content" aria-label={`Letra de ${activeSong.title}`}>
-            <div className="band-stage-content__toolbar">
-              <div>
-                <button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button>
-                <button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button>
-              </div>
-              <label>Tamanho <input aria-label="Tamanho da fonte" type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
-            </div>
-            <article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>
-              {displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}
-              {activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
-            </article>
+            <div className="band-stage-content__toolbar"><div><button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button><button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button></div><label>Tamanho <input aria-label="Tamanho da fonte" type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label></div>
+            <article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>{displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}{experience.showNotes && activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}</article>
           </section>
         </div>
-
-        <footer className="band-stage-controls band-stage-controls--musician">
-          <strong>{snapshot.state.isRunning ? 'O MD está conduzindo a música' : 'Aguardando comando do MD'}</strong>
-          <span>Seu dispositivo acompanha o estado compartilhado. Comandos de palco ficam com o MD.</span>
-        </footer>
+        <footer className="band-stage-controls band-stage-controls--musician"><strong>{snapshot.state.isRunning ? 'O MD está conduzindo a música' : 'Aguardando comando do MD'}</strong><span>Seu dispositivo acompanha o estado compartilhado. Comandos de palco ficam com o MD.</span></footer>
       </main>
     )
   }
 
   return (
     <main className="band-stage-page" style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
-      <header className="band-stage-header">
-        <div>
-          <Link to="/bands">← Bandas</Link>
-          <span className="band-stage-kicker">MODO BANDA</span>
-          <h1>{activeSong.title}</h1>
-          <p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</p>
-        </div>
-        <div className="band-stage-header__right">
-          <span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span>
-          <span aria-live="polite">{status}</span>
-          <strong>MD</strong>
-          <button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button>
-          <button type="button" onClick={() => navigate('/')} >Sair</button>
-        </div>
-      </header>
-
-      <section className="band-stage-presence" aria-label="Informações da sessão">
-        <span>Revisão {snapshot.state.revision}</span>
-        <span>Você controla o palco</span>
-      </section>
-
+      <header className="band-stage-header"><div><Link to="/bands">← Bandas</Link><span className="band-stage-kicker">MODO BANDA</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {snapshot.state.currentKey ?? activeSong.currentKey}</p></div><div className="band-stage-header__right"><span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{status}</span><strong>MD</strong><button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
+      <section className="band-stage-presence" aria-label="Informações da sessão"><span>Revisão {snapshot.state.revision}</span><span>Você controla o palco</span></section>
       {error && <p className="band-stage-error" role="alert">{error}</p>}
-
-      <div className="band-stage-layout">
-        <aside className="band-stage-setlist" aria-label="Setlist da sessão">
-          <div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>
-          {songs.map((song, index) => (
-            <button
-              key={song.songId}
-              type="button"
-              className={index === activeIndex ? 'is-active' : ''}
-              onClick={() => snapshot.session.status === 'live' ? void command(() => service.goto(sessionId, index, song.songId)) : setSelectedIndex(index)}
-              disabled={busy}
-            >
-              <span>{index + 1}</span>
-              <strong>{song.title}</strong>
-            </button>
-          ))}
-        </aside>
-
-        <section className="band-stage-content" aria-label={`Letra de ${activeSong.title}`}>
-          <div className="band-stage-content__toolbar">
-            <div>
-              <button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button>
-              <button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button>
-            </div>
-            <label>Tamanho <input type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label>
-          </div>
-          <article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>
-            {displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}
-            {activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
-          </article>
-        </section>
-      </div>
-
-      <footer className="band-stage-controls">
-        <button type="button" disabled={busy || activeIndex <= 0 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.previous(sessionId))}>← Anterior</button>
-        {snapshot.session.status === 'live' ? (
-          <button type="button" className="band-stage-controls__primary" disabled={busy} onClick={() => void command(() => running ? service.pause(sessionId) : service.play(sessionId))}>{running ? 'Pausar' : 'Play'}</button>
-        ) : <span>Sessão não está ao vivo</span>}
-        <button type="button" disabled={busy || activeIndex >= songs.length - 1 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.next(sessionId))}>Próxima →</button>
-        {snapshot.session.status === 'live' && <button type="button" disabled={busy} onClick={() => void command(() => service.setKey(sessionId, activeSong.currentKey))}>Aplicar tom</button>}
-        {snapshot.session.status === 'live' && <button type="button" className="band-stage-controls__danger" disabled={busy} onClick={() => void endSession()}>Encerrar sessão</button>}
-      </footer>
+      <div className="band-stage-layout"><aside className="band-stage-setlist" aria-label="Setlist da sessão"><div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>{songs.map((song, index) => <button key={song.songId} type="button" className={index === activeIndex ? 'is-active' : ''} onClick={() => snapshot.session.status === 'live' ? void command(() => service.goto(sessionId, index, song.songId)) : setSelectedIndex(index)} disabled={busy}><span>{index + 1}</span><strong>{song.title}</strong></button>)}</aside>
+        <section className="band-stage-content" aria-label={`Letra de ${activeSong.title}`}><div className="band-stage-content__toolbar"><div><button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button><button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button></div><label>Tamanho <input type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label></div><article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>{displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}{activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}</article></section></div>
+      <footer className="band-stage-controls"><button type="button" disabled={busy || activeIndex <= 0 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.previous(sessionId))}>← Anterior</button>{snapshot.session.status === 'live' ? <button type="button" className="band-stage-controls__primary" disabled={busy} onClick={() => void command(() => running ? service.pause(sessionId) : service.play(sessionId))}>{running ? 'Pausar' : 'Play'}</button> : <span>Sessão não está ao vivo</span>}<button type="button" disabled={busy || activeIndex >= songs.length - 1 || snapshot.session.status !== 'live'} onClick={() => void command(() => service.next(sessionId))}>Próxima →</button>{snapshot.session.status === 'live' && <button type="button" disabled={busy} onClick={() => void command(() => service.setKey(sessionId, activeSong.currentKey))}>Aplicar tom</button>}{snapshot.session.status === 'live' && <button type="button" className="band-stage-controls__danger" disabled={busy} onClick={() => void endSession()}>Encerrar sessão</button>}</footer>
     </main>
   )
 }
