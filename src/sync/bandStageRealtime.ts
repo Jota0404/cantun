@@ -15,6 +15,7 @@ const EVENT_TYPES: readonly BandStageEventType[] = [
 ]
 
 type SnapshotReason = 'initial' | 'event' | 'reconnect' | 'revision-gap'
+export type BandStageConnectionStatus = 'DISCONNECTED' | 'CONNECTING' | 'SUBSCRIBED' | 'RECONNECTING' | 'ERROR'
 
 export interface BandStageRealtimeOptions {
   client: SupabaseClient
@@ -22,6 +23,7 @@ export interface BandStageRealtimeOptions {
   onSnapshot?: (snapshot: BandStageSnapshot, reason: SnapshotReason) => void
   onEvent?: (event: BandStageEvent) => void
   onStatus?: (status: string) => void
+  onConnectionStatus?: (status: BandStageConnectionStatus) => void
 }
 
 export function bandStageChannelName(sessionId: string): string {
@@ -127,7 +129,7 @@ export class BandStageReconciler {
 
     if (event.type === 'stage.snapshot') {
       const snapshot = parseSnapshotPayload(event.payload)
-      if (snapshot && snapshot.state.sessionId === this.options.sessionId) {
+      if (snapshot && snapshot.session.id === this.options.sessionId && snapshot.state.sessionId === this.options.sessionId) {
         if (snapshot.state.revision >= this.currentRevision) {
           this.currentRevision = snapshot.state.revision
           this.options.onSnapshot?.(snapshot, 'event')
@@ -177,6 +179,9 @@ export class BandStageRealtime {
   private readonly reconciler: BandStageReconciler
   private subscribed = false
   private connecting: Promise<BandStageSnapshot> | null = null
+  private reconnecting: Promise<BandStageSnapshot> | null = null
+  private disposed = false
+  private connectionStatus: BandStageConnectionStatus = 'DISCONNECTED'
 
   constructor(private readonly options: BandStageRealtimeOptions) {
     this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
@@ -184,9 +189,9 @@ export class BandStageRealtime {
     })
     this.reconciler = new BandStageReconciler(options)
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
-      if (!isStageEvent(payload)) return
+      if (!isStageEvent(payload) || this.disposed) return
       void this.reconciler.acceptEvent(payload).catch(() => {
-        void this.reconciler.reconcile('revision-gap').catch(() => undefined)
+        void this.refresh().catch(() => undefined)
       })
     })
   }
@@ -195,10 +200,19 @@ export class BandStageRealtime {
     return this.reconciler.revision
   }
 
+  get status(): BandStageConnectionStatus {
+    return this.connectionStatus
+  }
+
   async connect(): Promise<BandStageSnapshot> {
+    if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (this.connecting) return this.connecting
 
-    this.connecting = this.connectInternal().finally(() => {
+    this.setConnectionStatus(this.subscribed ? 'SUBSCRIBED' : 'CONNECTING')
+    this.connecting = this.connectInternal().catch((error) => {
+      this.setConnectionStatus('ERROR')
+      throw error
+    }).finally(() => {
       this.connecting = null
     })
     return this.connecting
@@ -215,33 +229,64 @@ export class BandStageRealtime {
       this.subscribed = true
     }
 
-    // Subscribe first, then load the authoritative snapshot. This closes the
-    // late-join/reconnect race where events could be emitted between the RPC
-    // snapshot and channel subscription.
+    this.setConnectionStatus('SUBSCRIBED')
     return this.reconciler.reconcile('initial')
   }
 
   async reconnect(): Promise<BandStageSnapshot> {
+    if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
+    if (this.reconnecting) return this.reconnecting
+
+    this.reconnecting = this.reconnectInternal().catch((error) => {
+      this.setConnectionStatus('ERROR')
+      throw error
+    }).finally(() => {
+      this.reconnecting = null
+    })
+    return this.reconnecting
+  }
+
+  private async reconnectInternal(): Promise<BandStageSnapshot> {
+    this.setConnectionStatus('RECONNECTING')
     this.reconciler.reset()
+
     if (this.subscribed) {
       const status = await this.channel.unsubscribe()
       this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
       this.subscribed = false
     }
+
     return this.connect()
   }
 
   async refresh(): Promise<BandStageSnapshot> {
+    if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     return this.reconciler.reconcile('reconnect')
   }
 
   async publish(event: BandStageEvent): Promise<void> {
+    if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
-    await publishBandStageEvent(this.channel, event)
+    try {
+      await publishBandStageEvent(this.channel, event)
+    } catch (error) {
+      this.setConnectionStatus('ERROR')
+      throw error
+    }
   }
 
   async disconnect(): Promise<void> {
+    if (this.disposed) return
+    this.disposed = true
+    this.reconciler.reset()
     this.subscribed = false
+    this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
+  }
+
+  private setConnectionStatus(status: BandStageConnectionStatus): void {
+    if (this.connectionStatus === status) return
+    this.connectionStatus = status
+    this.options.onConnectionStatus?.(status)
   }
 }
