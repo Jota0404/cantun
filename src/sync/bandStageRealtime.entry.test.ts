@@ -11,23 +11,12 @@ type FakeClient = {
 
 const snapshot = (revision: number) => ({
   session: {
-    id: 's1',
-    band_id: 'b1',
-    setlist_id: 'sl1',
-    md_user_id: 'md1',
-    status: 'live' as const,
-    created_at: '2026-09-08T00:00:00Z',
-    started_at: '2026-09-08T00:00:01Z',
-    updated_at: '2026-09-08T00:00:02Z',
+    id: 's1', band_id: 'b1', setlist_id: 'sl1', md_user_id: 'md1', status: 'live' as const,
+    created_at: '2026-09-08T00:00:00Z', started_at: '2026-09-08T00:00:01Z', updated_at: '2026-09-08T00:00:02Z',
   },
   state: {
-    session_id: 's1',
-    revision,
-    current_index: revision,
-    current_song_id: `song-${revision}`,
-    current_key: 'C',
-    is_running: true,
-    updated_at: '2026-09-08T00:00:02Z',
+    session_id: 's1', revision, current_index: revision, current_song_id: `song-${revision}`,
+    current_key: 'C', is_running: true, updated_at: '2026-09-08T00:00:02Z',
   },
 })
 
@@ -46,7 +35,7 @@ function makeClient(revision = 7): FakeClient {
 }
 
 function makeChannel() {
-  let callback: ((status: string, error?: Error) => void) | undefined
+  let subscribeHandler: ((status: string, error?: Error) => void) | undefined
   let broadcastHandler: ((args: { payload: unknown }) => void) | undefined
   const value = {
     on: vi.fn((kind: string, config: { event: string }, handler: (args: { payload: unknown }) => void) => {
@@ -54,8 +43,8 @@ function makeChannel() {
       return value
     }),
     subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
-      callback = handler
-      queueMicrotask(() => callback?.('SUBSCRIBED'))
+      subscribeHandler = handler
+      queueMicrotask(() => subscribeHandler?.('SUBSCRIBED'))
       return Promise.resolve('SUBSCRIBED')
     }),
     unsubscribe: vi.fn(async () => 'ok'),
