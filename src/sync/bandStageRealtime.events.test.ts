@@ -4,13 +4,15 @@ import { BandStageRealtime, createBandStageEvent } from './bandStageRealtime'
 
 function makeChannel() {
   const handlers = new Map<string, (payload: { payload: unknown }) => void>()
+  let subscribeHandler: ((status: string, error?: Error) => void) | undefined
   const channel = {
     on: vi.fn((kind: string, config: { event: string }, handler: (payload: { payload: unknown }) => void) => {
       handlers.set(`${kind}:${config.event}`, handler)
       return channel
     }),
     subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
-      queueMicrotask(() => handler?.('SUBSCRIBED'))
+      subscribeHandler = handler
+      queueMicrotask(() => subscribeHandler?.('SUBSCRIBED'))
       return Promise.resolve('SUBSCRIBED')
     }),
     unsubscribe: vi.fn(async () => 'ok'),
