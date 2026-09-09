@@ -12,7 +12,7 @@ function makeChannel() {
   const state: Record<string, unknown[]> = {}
   const value = {
     on: vi.fn((kind:string, config:{event:string}, handler:(payload?: unknown)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
-    subscribe: vi.fn((callback?: (status: string, error?: Error) => void) => { callback?.('SUBSCRIBED'); return channel }),
+    subscribe: vi.fn((callback?: (status: string, error?: Error) => void) => { callback?.('SUBSCRIBED'); return value }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
     track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.(); return 'ok' }),
