@@ -243,16 +243,32 @@ export class BandStageRealtime {
   private async connectInternal(): Promise<BandStageSnapshot> {
     if (!this.subscribed) {
       await new Promise<void>((resolve, reject) => {
-        this.channel.subscribe((status, error) => {
+        let settled = false
+        const onSubscribe = (status: string, error?: Error) => {
           this.options.onStatus?.(status)
+          if (settled) return
           if (status === 'SUBSCRIBED') {
+            settled = true
             this.subscribed = true
             resolve()
             return
           }
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            settled = true
             this.subscribed = false
             reject(error ?? new Error(`Falha ao assinar sessão de palco: ${status}`))
+          }
+        }
+        const result = this.channel.subscribe(onSubscribe)
+        void Promise.resolve(result).then((status) => {
+          if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            onSubscribe(status)
+          }
+        }).catch((error) => {
+          if (!settled) {
+            settled = true
+            this.subscribed = false
+            reject(error instanceof Error ? error : new Error('Falha ao assinar sessão de palco.'))
           }
         })
       })
