@@ -256,7 +256,6 @@ export class BandStageRealtime {
           }
         })
       }
-      })
 
     this.setConnectionStatus('SUBSCRIBED')
     const snapshot = await this.reconciler.reconcile('initial')
