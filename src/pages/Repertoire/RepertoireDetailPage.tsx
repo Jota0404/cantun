@@ -8,8 +8,6 @@ import { removeSongFromSetlist } from '../../application/repertoires/removeSongF
 import { renameSetlist } from '../../application/repertoires/renameSetlist'
 import { reorderSetlist } from '../../application/repertoires/reorderSetlist'
 import { listSongs } from '../../application/songs/listSongs'
-import { BandStageService } from '../../application/stage/bandStageService'
-import { bandRepository } from '../../db/repositories/bandRepository'
 import type { Setlist } from '../../domain/repertoires/setlist'
 import type { SetlistSong } from '../../domain/repertoires/setlistSong'
 import type { Song } from '../../domain/songs/song'
@@ -40,7 +38,6 @@ export function RepertoireDetailPage({
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState('')
   const [renaming, setRenaming] = useState(false)
-  const [startingStage, setStartingStage] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -113,21 +110,6 @@ export function RepertoireDetailPage({
     } catch { setActionError('Não foi possível reordenar as músicas. Tente novamente.') }
   }
 
-  async function handleStartStage() {
-    if (!setlist || orderedSongs.length === 0) return
-    setActionError(undefined); setStartingStage(true)
-    try {
-      const bandId = await bandRepository.getBandIdForSetlist(setlist.id)
-      if (!bandId) throw new Error('Não foi possível determinar a banda deste repertório.')
-      const service = new BandStageService()
-      const session = await service.createSession(bandId, setlist.id)
-      await service.startSession(session.id)
-      navigate(`/stage/session/${session.id}`)
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Não foi possível iniciar o Modo Banda.')
-    } finally { setStartingStage(false) }
-  }
-
   if (loading) return <p>Carregando repertório...</p>
   if (!setlist) return <p>Repertório não encontrado.</p>
 
@@ -149,7 +131,6 @@ export function RepertoireDetailPage({
           )}
         </header>
         {actionError && <p className="repertoire-error" role="alert">{actionError}</p>}
-        <button type="button" onClick={() => void handleStartStage()} disabled={startingStage || orderedSongs.length === 0}>{startingStage ? 'Iniciando…' : 'Iniciar Modo Banda'}</button>
         <section>
           <h3>Músicas</h3>
           <ul>{orderedSongs.map(({ entry, song }) => <li key={entry.songId}><span>{song.title}</span><button type="button" onClick={() => void handleRemove(song.id)} disabled={busySongId === song.id}>Remover</button></li>)}</ul>
