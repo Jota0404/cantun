@@ -31,7 +31,7 @@ describe('BandStageService', () => {
     const client = makeClient()
     const publish = vi.fn(async () => undefined)
     const connect = vi.fn(async () => ({
-      session: { id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live' as const, createdAt: '', startedAt: '', updatedAt: '' },
+      session: { id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live' as const, createdAt: '', updatedAt: '' },
       state: { sessionId: 's1', revision: 0, currentIndex: 0, isRunning: true, updatedAt: '' },
     }))
     const fakeRealtime = { publish, connect, disconnect: vi.fn(), reconnect: vi.fn(), refresh: vi.fn() }
@@ -47,7 +47,7 @@ describe('BandStageService', () => {
     expect(result.state.revision).toBe(1)
     expect(result.event.revision).toBe(1)
     expect(publish).toHaveBeenCalledOnce()
-    expect(publish.mock.calls[0][0].type).toBe('stage.next')
+    expect(publish.mock.calls[0]?.[0]?.type).toBe('stage.next')
   })
 
   it('does not enqueue stage commands in the generic sync queue', async () => {
@@ -55,7 +55,7 @@ describe('BandStageService', () => {
     const service = new BandStageService({ client, realtimeFactory: () => ({
       publish: vi.fn(async () => undefined),
       connect: vi.fn(async () => ({
-        session: { id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live', createdAt: '', startedAt: '', updatedAt: '' },
+        session: { id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live', createdAt: '', updatedAt: '' },
         state: { sessionId: 's1', revision: 0, currentIndex: 0, isRunning: true, updatedAt: '' },
       })),
       disconnect: vi.fn(async () => undefined),
