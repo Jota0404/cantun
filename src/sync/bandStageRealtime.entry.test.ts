@@ -45,7 +45,7 @@ function makeChannel() {
     subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
       subscribeHandler = handler
       queueMicrotask(() => subscribeHandler?.('SUBSCRIBED'))
-      return Promise.resolve('SUBSCRIBED')
+      return value
     }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
