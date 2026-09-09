@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { toSharedExecutionState } from './sharedExecution'
+import type { SharedExecutionState } from './sharedExecution'
 
-const baseState = {
+const baseState: SharedExecutionState = {
   sessionId: 'session-1',
   revision: 4,
   currentIndex: 2,
@@ -10,8 +11,9 @@ const baseState = {
   currentKey: 'G',
   isRunning: false,
   mdAnnotation: 'Entrar direto no refrão',
+  status: 'paused',
   updatedAt: '2026-09-08T22:00:00.000Z',
-} as const
+}
 
 const snapshot = (revision: number, overrides: Partial<typeof baseState> = {}) => ({
   session: {
@@ -23,25 +25,26 @@ const snapshot = (revision: number, overrides: Partial<typeof baseState> = {}) =
 
 describe('shared execution', () => {
   it('maps session and stage state into one execution state', () => {
-    expect(toSharedExecutionState(baseState, 'live')).toMatchObject({
+    expect(toSharedExecutionState(baseState as never, 'live')).toMatchObject({
       sessionId: 'session-1', revision: 4, currentIndex: 2, currentSongId: 'song-3', currentKey: 'G',
       isRunning: false, mdAnnotation: 'Entrar direto no refrão', status: 'paused',
     })
   })
 
   it('derives lifecycle status from authoritative session state', () => {
-    expect(toSharedExecutionState({ ...baseState, isRunning: true }, 'live').status).toBe('running')
-    expect(toSharedExecutionState(baseState, 'lobby').status).toBe('lobby')
-    expect(toSharedExecutionState({ ...baseState, isRunning: true }, 'ended').status).toBe('ended')
+    expect(toSharedExecutionState({ ...baseState, isRunning: true } as never, 'live').status).toBe('running')
+    expect(toSharedExecutionState(baseState as never, 'lobby').status).toBe('lobby')
+    expect(toSharedExecutionState({ ...baseState, isRunning: true } as never, 'ended').status).toBe('ended')
   })
 
   it('does not let an older snapshot overwrite current execution', () => {
     const service = new SharedExecutionService({} as never)
     const listener = vi.fn()
-    service.applySnapshot(snapshot(4))
+    service.applySnapshot(snapshot(4) as never)
     service.subscribe('session-1', listener)
+    listener.mockClear()
 
-    const current = service.applySnapshot(snapshot(3, { currentIndex: 1 }))
+    const current = service.applySnapshot(snapshot(3, { currentIndex: 1 }) as never)
 
     expect(current.revision).toBe(4)
     expect(current.currentIndex).toBe(2)

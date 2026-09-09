@@ -12,26 +12,31 @@ type Client = {
 
 const snapshot = (revision: number) => ({
   session: {
-    id: 's1', bandId: 'b1', setlistId: 'sl1', mdUserId: 'md1', status: 'live' as const,
-    createdAt: '2026-09-08T00:00:00Z', startedAt: '2026-09-08T00:00:01Z', updatedAt: '2026-09-08T00:00:02Z',
+    id: 's1', band_id: 'b1', setlist_id: 'sl1', md_user_id: 'md1', status: 'live' as const,
+    created_at: '2026-09-08T00:00:00Z', started_at: '2026-09-08T00:00:01Z', updated_at: '2026-09-08T00:00:02Z',
   },
   state: {
-    sessionId: 's1', revision, currentIndex: revision, currentSongId: `song-${revision}`,
-    currentKey: 'C', isRunning: true, updatedAt: '2026-09-08T00:00:02Z',
+    session_id: 's1', revision, current_index: revision, current_song_id: `song-${revision}`,
+    current_key: 'C', is_running: true, updated_at: '2026-09-08T00:00:02Z',
   },
 })
 
 function makeChannel() {
-  let callback: ((args: { payload: unknown }) => void) | undefined
+  let callback: ((status: string, error?: Error) => void) | undefined
+  let broadcastHandler: ((args: { payload: unknown }) => void) | undefined
   const value = {
-    on: vi.fn((_kind: string, _config: unknown, handler: (args: { payload: unknown }) => void) => {
-      callback = handler
+    on: vi.fn((kind: string, config: { event: string }, handler: (args: { payload: unknown }) => void) => {
+      if (kind === 'broadcast' && config.event === '*') broadcastHandler = handler
       return value
     }),
-    subscribe: vi.fn(async () => 'SUBSCRIBED'),
+    subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
+      queueMicrotask(() => callback?.('SUBSCRIBED'))
+      callback = handler
+      return Promise.resolve('SUBSCRIBED')
+    }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
-    emit: (payload: unknown) => callback?.({ payload }),
+    emit: (payload: unknown) => broadcastHandler?.({ payload }),
   }
   return value
 }
@@ -79,9 +84,13 @@ describe('BandStageRealtime robustness', () => {
 
   it('reports connection lifecycle states and returns to ERROR when subscription fails', async () => {
     const client = makeClient(4)
-    client.channels.push(makeChannel())
+    const channel = makeChannel()
+    client.channels.push(channel)
     client.channel = vi.fn(() => client.channels[0])
-    client.channels[0].subscribe.mockResolvedValueOnce('CHANNEL_ERROR')
+    channel.subscribe.mockImplementationOnce((handler?: (status: string, error?: Error) => void) => {
+      queueMicrotask(() => handler?.('CHANNEL_ERROR'))
+      return Promise.resolve('CHANNEL_ERROR')
+    })
     const statuses: string[] = []
     const realtime = new BandStageRealtime({
       client: client as unknown as SupabaseClient,

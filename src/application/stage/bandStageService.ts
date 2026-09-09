@@ -6,7 +6,7 @@ import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
 import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 
 export interface BandStageRpcClient {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 type RealtimeCallbacks = {

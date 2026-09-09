@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { BandStageRealtime, createBandStageEvent } from './bandStageRealtime'
 
 function makeChannel() {
   const handlers = new Map<string, (payload: { payload: unknown }) => void>()
+  let subscribeHandler: ((status: string, error?: Error) => void) | undefined
   const channel = {
     on: vi.fn((kind: string, config: { event: string }, handler: (payload: { payload: unknown }) => void) => {
       handlers.set(`${kind}:${config.event}`, handler)
       return channel
     }),
-    subscribe: vi.fn(async () => 'SUBSCRIBED'),
+    subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
+      subscribeHandler = handler
+      queueMicrotask(() => subscribeHandler?.('SUBSCRIBED'))
+      return Promise.resolve('SUBSCRIBED')
+    }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
     track: vi.fn(async () => 'ok'),

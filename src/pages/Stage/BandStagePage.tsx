@@ -11,6 +11,7 @@ import type { BandStageParticipant, BandStageReadiness } from '../../domain/stag
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
+import { isMusicalKey } from '../../domain/music/musicalKey'
 import './BandStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
@@ -48,6 +49,12 @@ export function BandStagePage() {
     setAnnotationDraft(nextExecution.mdAnnotation ?? '')
   }, [execution])
 
+  const handlePresence = useCallback((nextParticipants: BandStageParticipant[]) => {
+    setParticipants(nextParticipants)
+    const ownParticipant = nextParticipants.find((participant) => participant.userId === user?.id)
+    if (ownParticipant) setReadiness(ownParticipant.readiness)
+  }, [user?.id])
+
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -65,7 +72,7 @@ export function BandStagePage() {
             }).catch(() => undefined)
           },
           onStatus: setStatus,
-          onPresence: setParticipants,
+          onPresence: handlePresence,
         })
         if (cancelled) return
         applySnapshot(initial)
@@ -101,18 +108,13 @@ export function BandStagePage() {
       execution.dispose(sessionId)
       void service.disconnect(sessionId)
     }
-  }, [applySnapshot, execution, service, sessionId, user])
+  }, [applySnapshot, execution, handlePresence, service, sessionId, user?.email, user?.id, user?.user_metadata?.display_name, user?.user_metadata?.name])
 
   useEffect(() => execution.subscribe(sessionId, setExecutionState), [execution, sessionId])
 
   useEffect(() => {
     if (snapshot?.session.status === 'ended') void service.disconnect(sessionId)
   }, [service, sessionId, snapshot?.session.status])
-
-  useEffect(() => {
-    const ownParticipant = participants.find((participant) => participant.userId === user?.id)
-    if (ownParticipant) setReadiness(ownParticipant.readiness)
-  }, [participants, user?.id])
 
   async function updateReadiness(next: BandStageReadiness) {
     if (!user?.id || md || next === readiness) return
@@ -161,7 +163,8 @@ export function BandStagePage() {
 
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
-    const key = executionState?.currentKey ?? activeSong.currentKey
+    const rawKey = executionState?.currentKey ?? activeSong.currentKey
+    const key = isMusicalKey(rawKey) ? rawKey : activeSong.currentKey
     const semitones = getSemitoneDistance(activeSong.originalKey, key)
     return transposeSongLyrics(activeSong.lyrics, semitones, key)
   }, [activeSong, executionState?.currentKey])
@@ -216,8 +219,8 @@ export function BandStagePage() {
       {executionState.mdAnnotation && <aside className="band-stage-annotation"><strong>Nota atual da sessão</strong><p>{executionState.mdAnnotation}</p></aside>}
       {error && <p className="band-stage-error" role="alert">{error}</p>}
       <div className="band-stage-layout"><aside className="band-stage-setlist" aria-label="Setlist da sessão"><div className="band-stage-setlist__header"><strong>Setlist</strong><span>{songs.length}</span></div>{songs.map((song, index) => <button key={song.songId} type="button" className={index === activeIndex ? 'is-active' : ''} onClick={() => snapshot.session.status === 'live' ? void command(() => execution.goto(sessionId, index, song.songId)) : undefined} disabled={busy || snapshot.session.status !== 'live'}><span>{index + 1}</span><strong>{song.title}</strong></button>)}</aside><section className="band-stage-content" aria-label={`Letra de ${activeSong.title}`}><div className="band-stage-content__toolbar"><div><button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button><button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button></div><label>Tamanho <input type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label></div><article className={`band-stage-lyrics band-stage-lyrics--${readMode}`}>{displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}{activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}</article></section></div>
-      <section className="band-stage-annotation-editor" aria-label="Anotação do MD"><div><strong>Anotação da sessão</strong><span>{annotationDraft.length}/500</span></div><textarea maxLength={500} value={annotationDraft} onChange={(event) => setAnnotationDraft(event.target.value)} placeholder="Ex.: ponte mais baixa, cortar bateria no refrão…" disabled={snapshot.session.status !== 'live' || busy} /><div><span>Compartilhada com todos os músicos conectados.</span><button type="button" onClick={() => void saveAnnotation()} disabled={snapshot.session.status !== 'live' || busy}>{executionState.mdAnnotation ? 'Atualizar nota' : 'Publicar nota'}</button>{executionState.mdAnnotation && <button type="button" onClick={() => { setAnnotationDraft(''); void saveAnnotation() }} disabled={snapshot.session.status !== 'live' || busy}>Limpar</button>}</div></section>
-      <footer className="band-stage-controls"><button type="button" disabled={busy || activeIndex <= 0 || snapshot.session.status !== 'live'} onClick={() => void command(() => execution.previous(sessionId))}>← Anterior</button>{snapshot.session.status === 'live' ? <button type="button" className="band-stage-controls__primary" disabled={busy} onClick={() => void command(() => executionState.isRunning ? execution.pause(sessionId) : execution.play(sessionId))}>{executionState.isRunning ? 'Pausar' : 'Play'}</button> : <span>{executionState.status === 'ended' ? 'Sessão encerrada' : 'Sessão não está ao vivo'}</span>}<button type="button" disabled={busy || activeIndex >= songs.length - 1 || snapshot.session.status !== 'live'} onClick={() => void command(() => execution.next(sessionId))}>Próxima →</button>{snapshot.session.status === 'live' && <button type="button" disabled={busy} onClick={() => void endSession()}>Encerrar sessão</button>}</footer>
+      <section className="band-stage-annotation-editor" aria-label="Anotação do MD"><div><strong>Anotação da sessão</strong><span>{annotationDraft.length}/500</span></div><textarea maxLength={500} value={annotationDraft} onChange={(event) => setAnnotationDraft(event.target.value)} placeholder="Deixe uma orientação para a banda..." /><button type="button" onClick={() => void saveAnnotation()} disabled={busy || snapshot.session.status !== 'live'}>Salvar anotação</button></section>
+      <footer className="band-stage-controls"><div><button type="button" onClick={() => void command(() => execution.previous(sessionId))} disabled={busy || snapshot.session.status !== 'live'}>← Anterior</button><button type="button" onClick={() => void command(() => execution.next(sessionId))} disabled={busy || snapshot.session.status !== 'live'}>Próxima →</button><button type="button" onClick={() => void command(() => execution.play(sessionId))} disabled={busy || snapshot.session.status !== 'live' || executionState.status === 'running'}>Play</button><button type="button" onClick={() => void command(() => execution.pause(sessionId))} disabled={busy || snapshot.session.status !== 'live' || executionState.status !== 'running'}>Pausar</button></div><div><label>Tom <input aria-label="Tom" value={executionState.currentKey ?? activeSong.currentKey} onChange={(event) => { if (isMusicalKey(event.target.value)) void command(() => execution.setKey(sessionId, event.target.value)) }} disabled={busy || snapshot.session.status !== 'live'} /></label><button type="button" onClick={endSession} disabled={busy || snapshot.session.status !== 'live'}>Encerrar sessão</button></div></footer>
     </main>
   )
 }

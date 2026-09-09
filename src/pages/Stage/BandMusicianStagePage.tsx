@@ -11,6 +11,7 @@ import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
+import { isMusicalKey } from '../../domain/music/musicalKey'
 import './BandMusicianStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
@@ -67,6 +68,7 @@ export function BandMusicianStagePage() {
             displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
             isMd: initial.session.mdUserId === user.id,
+            readiness: 'waiting',
           })
         }
         const roleExperience = await getMyBandStageExperience(initial.session.bandId)
@@ -111,7 +113,8 @@ export function BandMusicianStagePage() {
   const experience = getMusicalRoleStageExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
-    const key = executionState?.currentKey ?? activeSong.currentKey
+    const rawKey = executionState?.currentKey ?? activeSong.currentKey
+    const key = isMusicalKey(rawKey) ? rawKey : activeSong.currentKey
     const semitones = getSemitoneDistance(activeSong.originalKey, key)
     return transposeSongLyrics(activeSong.lyrics, semitones, key)
   }, [activeSong, executionState?.currentKey])

@@ -39,7 +39,7 @@ export function getMusicalRoleStageExperience(role: MusicalRole): MusicalRoleSta
 }
 
 type RpcClient = {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 type StageExperienceRow = {

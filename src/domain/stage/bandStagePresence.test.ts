@@ -33,14 +33,14 @@ describe('bandStagePresence', () => {
         { userId: 'u2', displayName: 'Pedro', musicalRole: 'bass', readiness: 'ready' },
       ],
       b: [
-        { userId: 'u3', displayName: 'Ana', musicalRole: 'voice', readiness: 'ready' },
+        { userId: 'u3', displayName: 'Ana', musicalRole: 'vocals', readiness: 'ready' },
         { userId: 'md1', displayName: 'João', musicalRole: 'keys', readiness: 'waiting' },
       ],
     }, 'md1')
 
     expect(participants).toEqual([
       { userId: 'md1', displayName: 'João', musicalRole: 'keys', isMd: true, readiness: 'waiting' },
-      { userId: 'u3', displayName: 'Ana', musicalRole: 'voice', isMd: false, readiness: 'ready' },
+      { userId: 'u3', displayName: 'Ana', musicalRole: 'vocals', isMd: false, readiness: 'ready' },
       { userId: 'u2', displayName: 'Pedro', musicalRole: 'bass', isMd: false, readiness: 'ready' },
     ])
   })

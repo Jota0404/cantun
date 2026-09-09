@@ -3,22 +3,22 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BandStageRealtime } from './bandStageRealtime'
 
 const snapshot = (status: 'live' | 'ended' = 'live') => ({
-  session: { id:'s1', bandId:'b1', setlistId:'sl1', mdUserId:'md1', status, createdAt:'2026-09-08T00:00:00Z', startedAt:'2026-09-08T00:00:01Z', ...(status === 'ended' ? { endedAt:'2026-09-08T00:00:03Z' } : {}), updatedAt:'2026-09-08T00:00:02Z' },
-  state: { sessionId:'s1', revision:3, currentIndex:0, currentSongId:'song-1', currentKey:'C', isRunning:true, updatedAt:'2026-09-08T00:00:02Z' },
+  session: { id:'s1', band_id:'b1', setlist_id:'sl1', md_user_id:'md1', status, created_at:'2026-09-08T00:00:00Z', started_at:'2026-09-08T00:00:01Z', ...(status === 'ended' ? { ended_at:'2026-09-08T00:00:03Z' } : {}), updated_at:'2026-09-08T00:00:02Z' },
+  state: { session_id:'s1', revision:3, current_index:0, current_song_id:'song-1', current_key:'C', is_running:true, updated_at:'2026-09-08T00:00:02Z' },
 })
 
 function makeChannel() {
-  const handlers = new Map<string, (payload: any) => void>()
-  const state: Record<string, unknown> = {}
+  const handlers = new Map<string, (payload?: unknown) => void>()
+  const state: Record<string, unknown[]> = {}
   const value = {
-    on: vi.fn((kind:string, config:{event:string}, handler:(payload:any)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
-    subscribe: vi.fn(async () => 'SUBSCRIBED'),
+    on: vi.fn((kind:string, config:{event:string}, handler:(payload?: unknown)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
+    subscribe: vi.fn((callback?: (status: string, error?: Error) => void) => { callback?.('SUBSCRIBED'); return value }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
-    track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.({}); return 'ok' }),
-    untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.({}); return 'ok' }),
+    track: vi.fn(async (payload:unknown) => { state.client=[payload]; handlers.get('presence:sync')?.(); return 'ok' }),
+    untrack: vi.fn(async () => { delete state.client; handlers.get('presence:sync')?.(); return 'ok' }),
     presenceState: vi.fn(() => state),
-    emitPresence: (next:Record<string,unknown>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.({}) },
+    emitPresence: (next:Record<string, unknown[]>) => { for (const [key,val] of Object.entries(next)) state[key]=val; handlers.get('presence:sync')?.() },
   }
   return value
 }

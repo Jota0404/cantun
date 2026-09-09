@@ -17,7 +17,7 @@ export type MusicalKey =
   | 'Bb'
   | 'B'
 
-  export const MUSICAL_KEYS: readonly MusicalKey[] = [
+export const MUSICAL_KEYS: readonly MusicalKey[] = [
   'C',
   'C#',
   'Db',
@@ -36,3 +36,6 @@ export type MusicalKey =
   'Bb',
   'B',
 ]
+export function isMusicalKey(value: unknown): value is MusicalKey {
+  return typeof value === 'string' && MUSICAL_KEYS.includes(value as MusicalKey)
+}

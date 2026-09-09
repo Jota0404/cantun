@@ -23,20 +23,20 @@ vi.mock('../../auth/authContext', () => ({
 }))
 
 vi.mock('../../application/stage/bandStageService', () => ({
-  BandStageService: vi.fn().mockImplementation(() => ({
-    connect,
-    disconnect,
-    trackPresence,
-    refresh,
-    play: vi.fn(),
-    pause: vi.fn(),
-    next: vi.fn(),
-    previous: vi.fn(),
-    goto: vi.fn(),
-    setKey: vi.fn(),
-    getSnapshot: vi.fn(),
-    endSession: vi.fn(),
-  })),
+  BandStageService: class {
+    connect = connect
+    disconnect = disconnect
+    trackPresence = trackPresence
+    refresh = refresh
+    play = vi.fn()
+    pause = vi.fn()
+    next = vi.fn()
+    previous = vi.fn()
+    goto = vi.fn()
+    setKey = vi.fn()
+    getSnapshot = vi.fn()
+    endSession = vi.fn()
+  },
 }))
 
 vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
@@ -49,6 +49,7 @@ vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
       currentKey: 'C',
       lyrics: '[C]Primeira música',
       notes: 'Observação',
+      musicalRole: 'vocals',
     },
     {
       songId: 'song-2',
@@ -57,9 +58,18 @@ vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
       originalKey: 'G',
       currentKey: 'G',
       lyrics: '[G]Segunda música',
+      musicalRole: 'vocals',
     },
   ]),
 }))
+
+vi.mock('../../application/stage/musicalRoleStageService', async () => {
+  const actual = await vi.importActual<typeof import('../../application/stage/musicalRoleStageService')>('../../application/stage/musicalRoleStageService')
+  return {
+    ...actual,
+    getMyBandStageExperience: vi.fn(async () => actual.getMusicalRoleStageExperience('vocals')),
+  }
+})
 
 const snapshot = {
   session: {
