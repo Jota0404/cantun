@@ -46,16 +46,21 @@ function makeClient(revision = 7): FakeClient {
 }
 
 function makeChannel() {
-  let callback: ((args: { payload: unknown }) => void) | undefined
+  let callback: ((status: string, error?: Error) => void) | undefined
+  let broadcastHandler: ((args: { payload: unknown }) => void) | undefined
   const value = {
-    on: vi.fn((_kind: string, _config: unknown, handler: (args: { payload: unknown }) => void) => {
-      callback = handler
+    on: vi.fn((kind: string, config: { event: string }, handler: (args: { payload: unknown }) => void) => {
+      if (kind === 'broadcast' && config.event === '*') broadcastHandler = handler
       return value
     }),
-    subscribe: vi.fn(async () => 'SUBSCRIBED'),
+    subscribe: vi.fn((handler?: (status: string, error?: Error) => void) => {
+      callback = handler
+      queueMicrotask(() => callback?.('SUBSCRIBED'))
+      return Promise.resolve('SUBSCRIBED')
+    }),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
-    emit: (payload: unknown) => callback?.({ payload }),
+    emit: (payload: unknown) => broadcastHandler?.({ payload }),
   }
   return value
 }
