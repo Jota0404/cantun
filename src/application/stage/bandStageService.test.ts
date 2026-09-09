@@ -47,7 +47,7 @@ describe('BandStageService', () => {
     expect(result.state.revision).toBe(1)
     expect(result.event.revision).toBe(1)
     expect(publish).toHaveBeenCalledOnce()
-    expect(publish.mock.calls[0]?.[0]?.type).toBe('stage.next')
+    expect(publish).toHaveBeenCalledWith(expect.objectContaining({ type: 'stage.next' }))
   })
 
   it('does not enqueue stage commands in the generic sync queue', async () => {
