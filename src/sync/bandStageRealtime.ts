@@ -255,7 +255,8 @@ export class BandStageRealtime {
             reject(error ?? new Error(`Falha ao assinar sessão de palco: ${status}`))
           }
         })
-      }
+      })
+    }
 
     this.setConnectionStatus('SUBSCRIBED')
     const snapshot = await this.reconciler.reconcile('initial')
