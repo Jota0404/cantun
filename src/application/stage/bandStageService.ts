@@ -49,7 +49,7 @@ export class BandStageService {
     const client = options.client ?? supabase
     if (!client) throw new Error('Supabase não está configurado para o Modo Banda.')
     this.client = client
-    this.realtimeFactory = options.realtimeFactory ?? ((sessionId, realtimeClient, callbacks) => new BandStageRealtime({
+    this.realtimeFactory = options.realtimeFactory ?? ((sessionId, realtimeClient, callbacks, targetSessionId) => new BandStageRealtime({
       client: realtimeClient as never,
       sessionId,
       targetSessionId,
