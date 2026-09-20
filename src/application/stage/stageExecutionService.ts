@@ -5,5 +5,3 @@ import { BandStageService } from './bandStageService'
  * The underlying realtime/runtime bridge remains legacy-compatible by design.
  */
 export class StageExecutionService extends BandStageService {}
-
-export const stageExecutionService = new StageExecutionService()
