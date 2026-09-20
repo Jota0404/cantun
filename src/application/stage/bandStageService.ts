@@ -19,7 +19,7 @@ type RealtimeCallbacks = {
 
 export interface BandStageServiceOptions {
   client?: BandStageRpcClient | null
-  realtimeFactory?: (sessionId: string, client: BandStageRpcClient, callbacks?: RealtimeCallbacks) => BandStageRealtime
+  realtimeFactory?: (sessionId: string, client: BandStageRpcClient, callbacks?: RealtimeCallbacks, targetSessionId?: string) => BandStageRealtime
 }
 
 export interface StageCommandResult {
@@ -52,6 +52,7 @@ export class BandStageService {
     this.realtimeFactory = options.realtimeFactory ?? ((sessionId, realtimeClient, callbacks) => new BandStageRealtime({
       client: realtimeClient as never,
       sessionId,
+      targetSessionId,
       ...callbacks,
     }))
   }
@@ -99,7 +100,8 @@ export class BandStageService {
 
   async connect(sessionId: string, callbacks: RealtimeCallbacks = {}): Promise<BandStageSnapshot> {
     await this.disconnect(sessionId)
-    const realtime = this.realtimeFactory(sessionId, this.client, callbacks)
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const realtime = this.realtimeFactory(sessionId, this.client, callbacks, targetSessionId ?? undefined)
     this.realtimeBySession.set(sessionId, realtime)
     try {
       return await realtime.connect()
