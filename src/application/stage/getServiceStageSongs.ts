@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase'
 import type { MusicalKey } from '../../domain/music/musicalKey'
-import type { MusicalRole } from '../../domain/bands/musicalRole'
+import { toMusicalRole, type MusicalRole } from '../../domain/bands/musicalRole'
 
 export type ServiceStageSong = {
   position: number
@@ -25,6 +25,7 @@ type Row = {
   lyrics: string
   notes: string | null
   bpm: number | null
+  musical_role: string | null
 }
 
 const KEYS: MusicalKey[] = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B']
@@ -51,6 +52,7 @@ export async function getServiceStageSongs(stageSessionId: string): Promise<Serv
     lyrics: row.lyrics ?? '',
     notes: row.notes ?? undefined,
     bpm: row.bpm == null ? undefined : Number(row.bpm),
-    musicalRole: 'other',
+    musicalRole: toMusicalRole(row.musical_role),
+
   }))
 }
