@@ -13,6 +13,8 @@ import type { OrganizationMembership } from '../domain/organizations/organizatio
 import type { Team } from '../domain/teams/team'
 import type { TeamMembership } from '../domain/teams/teamMembership'
 import type { OrganizationSong } from '../domain/organizations/organizationSong'
+import type { Repertoire } from '../domain/repertoires/repertoire'
+import type { RepertoireItem } from '../domain/repertoires/repertoireItem'
 import type { SyncQueueItem } from '../sync/syncEngine'
 import type { BandSyncQueueItem } from '../sync/bandSyncEngine'
 
@@ -33,6 +35,8 @@ export class SalmodiaDatabase extends Dexie {
   teams!: Table<Team, string>
   teamMemberships!: Table<TeamMembership, string>
   organizationSongs!: Table<OrganizationSong, string>
+  repertoires!: Table<Repertoire, string>
+  repertoireItems!: Table<RepertoireItem, string>
 
   constructor() {
     super('SalmodiaDatabase')
@@ -93,6 +97,8 @@ export class SalmodiaDatabase extends Dexie {
       teams: 'id, organizationId, updatedAt',
       teamMemberships: 'id, teamId, userId, [teamId+userId], updatedAt',
       organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt',
+      repertoires: 'id, organizationId, updatedAt',
+      repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
     })
     })
   }
