@@ -100,7 +100,6 @@ export class SalmodiaDatabase extends Dexie {
       repertoires: 'id, organizationId, updatedAt',
       repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
     })
-    })
     this.version(8).stores({
       songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
