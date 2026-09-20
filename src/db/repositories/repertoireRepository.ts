@@ -4,7 +4,10 @@ import { db as defaultDb } from '../database'
 import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
 
 export class RepertoireRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
   async create(value: Repertoire): Promise<void> { await this.db.repertoires.add(value); await queueTargetUpsert('repertoires', value) }
   async getById(id: string): Promise<Repertoire | undefined> { return this.db.repertoires.get(id) }
   async listByOrganizationId(organizationId: string): Promise<Repertoire[]> { return this.db.repertoires.where('organizationId').equals(organizationId).sortBy('updatedAt') }
