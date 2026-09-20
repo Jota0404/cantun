@@ -70,7 +70,7 @@ export function toBandStageSession(row: Record<string, unknown>): BandStageSessi
 
 export function toBandStageState(row: Record<string, unknown>): BandStageState {
   return {
-    sessionId: String(row.session_id),
+    sessionId: String(row.session_id ?? row.stage_session_id),
     revision: Number(row.revision),
     currentIndex: Number(row.current_index),
     currentSongId: row.current_song_id ? String(row.current_song_id) : undefined,
