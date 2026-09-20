@@ -55,6 +55,8 @@ function makeChannel() {
     subscribe: vi.fn(async () => 'SUBSCRIBED'),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
+    track: vi.fn(async () => 'ok'),
+    presenceState: vi.fn(() => ({})),
     emit: (payload: unknown) => callback?.({ payload }),
   }
   return value
