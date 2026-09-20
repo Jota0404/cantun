@@ -132,7 +132,9 @@ export class BandStageReconciler {
         return 'reconciled'
       }
 
-      this.currentRevision = event.revision
+    }
+
+    this.currentRevision = event.revision
     this.seenEventIds.add(event.eventId)
     this.options.onEvent?.(event)
 
