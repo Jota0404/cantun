@@ -101,11 +101,11 @@ Organization
 | BandMember | OrganizationMembership / TeamMembership | Migrate |
 | BandMemberRole | Access Role | Refactor |
 | MusicalRole | Musical Function | Refactor |
-| BandSong | Song | Remove duplicated representation |
+| BandSong | OrganizationSong -> Song | Migrate through mapping; remove duplicated representation |
 | BandSongMemberState | Contextual member/song state | Reevaluate during Service/Stage migration |
-| BandSetlist | Repertoire | Migrate |
+| BandSetlist | Repertoire | Migrate through Organization ownership |
 | BandSetlistSong | RepertoireItem | Migrate |
-| Setlist | Repertoire | Refactor |
+| Setlist | Repertoire | Refactor/migrate after target ownership is stable |
 | SetlistSong | RepertoireItem | Refactor |
 
 ## 5. Explicit boundaries
