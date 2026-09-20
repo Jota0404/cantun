@@ -232,7 +232,7 @@ begin
 
   return jsonb_build_object(
     'session', to_jsonb(v_legacy),
-    'state', to_jsonb(v_state)
+    'state', to_jsonb(v_state) || jsonb_build_object('session_id', v_legacy.id)
   );
 end;
 $$;
