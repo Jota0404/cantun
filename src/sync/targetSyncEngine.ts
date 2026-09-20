@@ -185,7 +185,7 @@ export class TargetSyncEngine {
               if (error) throw error
             }
           } else {
-            const { error } = await this.client.from(table).upsert(toRemoteRow(item.entity, item.payload!), { onConflict: 'id' })
+            const { error } = await this.client.from(table).upsert(toRemoteRow(item.entity, item.payload!) as never, { onConflict: 'id' })
             if (error) throw error
           }
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
