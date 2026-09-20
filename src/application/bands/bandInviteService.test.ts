@@ -93,14 +93,26 @@ describe('bandInviteService', () => {
     revokeInviteMock.mockResolvedValue(undefined)
     updateMemberRoleMock.mockResolvedValue(undefined)
     removeMemberMock.mockResolvedValue(undefined)
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ organization_membership_id: 'om1' }],
+      error: null,
+    })
+
+    const supabaseModule = await import('../../lib/supabase')
+    vi.spyOn(supabaseModule, 'supabase', 'get').mockReturnValue({
+      rpc,
+    } as never)
 
     await revokeBandInvite('i1')
     await updateBandMemberRole('m1', 'editor')
     await removeBandMember('m1')
 
     expect(revokeInviteMock).toHaveBeenCalledWith('i1')
-    expect(updateMemberRoleMock).toHaveBeenCalledWith('m1', 'admin')
-    expect(removeMemberMock).toHaveBeenCalledWith('m1')
+    expect(rpc).toHaveBeenCalledWith('get_band_member_organization_membership', {
+      p_band_member_id: 'm1',
+    })
+    expect(updateMemberRoleMock).toHaveBeenCalledWith('om1', 'admin')
+    expect(removeMemberMock).toHaveBeenCalledWith('om1')
   })
 
   it('lists invite status without persisting invite data locally', async () => {
