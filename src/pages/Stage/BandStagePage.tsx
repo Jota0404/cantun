@@ -4,6 +4,8 @@ import { useAuth } from '../../auth/authContext'
 import { BandStageService } from '../../application/stage/bandStageService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
+import { getTargetStageSessionByLegacyId } from '../../application/stage/getTargetStageSession'
+import { getServiceStageSongs } from '../../application/stage/getServiceStageSongs'
 import { getMyBandStageExperience, getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
@@ -69,7 +71,10 @@ export function BandStagePage() {
         })
         if (cancelled) return
         applySnapshot(initial)
-        const loadedSongs = await getBandStageSessionSetlist(initial.session)
+        const targetSession = await getTargetStageSessionByLegacyId(initial.session.id)
+        const loadedSongs = targetSession
+          ? await getServiceStageSongs(targetSession.id)
+          : await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
         if (user?.id) {
