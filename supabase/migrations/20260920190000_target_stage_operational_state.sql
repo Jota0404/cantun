@@ -273,6 +273,76 @@ $;
 revoke all on function public.get_target_stage_snapshot_by_legacy_id(uuid) from public, anon;
 grant execute on function public.get_target_stage_snapshot_by_legacy_id(uuid) to authenticated;
 
+create or replace function public.target_stage_start(p_stage_session_id uuid)
+returns public.stage_session_states
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_stage public.stage_sessions;
+  v_legacy public.band_stage_sessions;
+  v_state public.band_stage_states;
+begin
+  select ss.* into v_stage
+  from public.stage_sessions ss
+  join public.services svc on svc.id = ss.service_id
+  join public.organization_memberships om on om.organization_id = svc.organization_id and om.user_id = auth.uid()
+  where ss.id = p_stage_session_id;
+  if not found then raise exception 'stage session not found or not authorized'; end if;
+
+  select * into v_legacy from public.start_band_stage_session(v_stage.legacy_band_stage_session_id);
+
+  update public.stage_sessions
+  set status = v_legacy.status,
+      started_at = v_legacy.started_at,
+      ended_at = v_legacy.ended_at,
+      updated_at = now()
+  where id = p_stage_session_id;
+
+  select * into v_state
+  from public.band_stage_states
+  where session_id = v_stage.legacy_band_stage_session_id;
+
+  return public.sync_target_stage_state(p_stage_session_id, v_state);
+end;
+$;
+
+create or replace function public.target_stage_end(p_stage_session_id uuid)
+returns public.stage_session_states
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_stage public.stage_sessions;
+  v_legacy public.band_stage_sessions;
+  v_state public.band_stage_states;
+begin
+  select ss.* into v_stage
+  from public.stage_sessions ss
+  join public.services svc on svc.id = ss.service_id
+  join public.organization_memberships om on om.organization_id = svc.organization_id and om.user_id = auth.uid()
+  where ss.id = p_stage_session_id;
+  if not found then raise exception 'stage session not found or not authorized'; end if;
+
+  select * into v_legacy from public.end_band_stage_session(v_stage.legacy_band_stage_session_id);
+
+  update public.stage_sessions
+  set status = v_legacy.status,
+      started_at = v_legacy.started_at,
+      ended_at = v_legacy.ended_at,
+      updated_at = now()
+  where id = p_stage_session_id;
+
+  select * into v_state
+  from public.band_stage_states
+  where session_id = v_stage.legacy_band_stage_session_id;
+
+  return public.sync_target_stage_state(p_stage_session_id, v_state);
+end;
+$;
+
 create or replace function public.target_stage_play(p_stage_session_id uuid)
 returns public.stage_session_states
 language plpgsql
@@ -482,7 +552,9 @@ revoke all on function public.get_target_stage_snapshot(uuid),
   public.target_stage_set_key(uuid,text),
   public.target_stage_prepare_next(uuid,integer,uuid),
   public.target_stage_clear_prepared(uuid),
-  public.target_stage_set_annotation(uuid,text)
+  public.target_stage_set_annotation(uuid,text),
+  public.target_stage_start(uuid),
+  public.target_stage_end(uuid)
 from public, anon;
 
 grant execute on function public.get_target_stage_snapshot(uuid),
@@ -494,5 +566,7 @@ grant execute on function public.get_target_stage_snapshot(uuid),
   public.target_stage_set_key(uuid,text),
   public.target_stage_prepare_next(uuid,integer,uuid),
   public.target_stage_clear_prepared(uuid),
-  public.target_stage_set_annotation(uuid,text)
+  public.target_stage_set_annotation(uuid,text),
+  public.target_stage_start(uuid),
+  public.target_stage_end(uuid)
 to authenticated;
