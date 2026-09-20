@@ -8,7 +8,7 @@ import { removeSongFromSetlist } from '../../application/repertoires/removeSongF
 import { renameSetlist } from '../../application/repertoires/renameSetlist'
 import { reorderSetlist } from '../../application/repertoires/reorderSetlist'
 import { listSongs } from '../../application/songs/listSongs'
-import { BandStageService } from '../../application/stage/bandStageService'
+import { getLegacyBandSetlistRepertoireContext } from '../../application/organizations/legacyBandRepertoireBridgeService'
 import type { Setlist } from '../../domain/repertoires/setlist'
 import type { SetlistSong } from '../../domain/repertoires/setlistSong'
 import type { Song } from '../../domain/songs/song'
@@ -184,10 +184,9 @@ export function RepertoireDetailPage({
     setStartingStage(true)
 
     try {
-      const service = new BandStageService()
-      const session = await service.createSession(setlist.bandId, setlist.id)
-      await service.startSession(session.id)
-      navigate(`/stage/session/${session.id}`)
+      const context = await getLegacyBandSetlistRepertoireContext(setlist.id)
+      if (!context) throw new Error('Este repertório ainda não possui vínculo com uma organização.')
+      navigate(`/organizations/${context.organizationId}/repertoires/${context.repertoireId}`)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Não foi possível iniciar o Modo Banda.')
     } finally {
