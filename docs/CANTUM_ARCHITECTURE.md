@@ -72,6 +72,10 @@ User
         |
         +-- Repertoires
         |     +-- RepertoireItems -> Song
+        |     |
+        |     +-- Services
+        |           +-- ServiceItems -> Song/Repertoire
+        |           +-- Assignments
         |
         +-- Services
               +-- Order / ServiceItems
