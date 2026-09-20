@@ -57,28 +57,28 @@ export interface BandStageSnapshot {
 export function toBandStageSession(row: Record<string, unknown>): BandStageSession {
   return {
     id: String(row.id),
-    bandId: String(row.band_id),
-    setlistId: String(row.setlist_id),
-    mdUserId: String(row.md_user_id),
+    bandId: String(row.band_id ?? row.bandId),
+    setlistId: String(row.setlist_id ?? row.setlistId),
+    mdUserId: String(row.md_user_id ?? row.mdUserId),
     status: row.status as BandStageSessionStatus,
-    createdAt: String(row.created_at),
-    startedAt: row.started_at ? String(row.started_at) : undefined,
-    endedAt: row.ended_at ? String(row.ended_at) : undefined,
-    updatedAt: String(row.updated_at),
+    createdAt: String(row.created_at ?? row.createdAt),
+    startedAt: row.started_at ?? row.startedAt ? String(row.started_at ?? row.startedAt) : undefined,
+    endedAt: row.ended_at ?? row.endedAt ? String(row.ended_at ?? row.endedAt) : undefined,
+    updatedAt: String(row.updated_at ?? row.updatedAt),
   }
 }
 
 export function toBandStageState(row: Record<string, unknown>): BandStageState {
   return {
-    sessionId: String(row.session_id ?? row.stage_session_id),
+    sessionId: String(row.session_id ?? row.stage_session_id ?? row.sessionId),
     revision: Number(row.revision),
-    currentIndex: Number(row.current_index),
-    currentSongId: row.current_song_id ? String(row.current_song_id) : undefined,
-    currentKey: row.current_key ? String(row.current_key) : undefined,
-    preparedIndex: row.prepared_index === null || row.prepared_index === undefined ? undefined : Number(row.prepared_index),
-    preparedSongId: row.prepared_song_id ? String(row.prepared_song_id) : undefined,
-    isRunning: Boolean(row.is_running),
-    mdAnnotation: row.md_annotation ? String(row.md_annotation) : undefined,
-    updatedAt: String(row.updated_at),
+    currentIndex: Number(row.current_index ?? row.currentIndex),
+    currentSongId: row.current_song_id ?? row.currentSongId ? String(row.current_song_id ?? row.currentSongId) : undefined,
+    currentKey: row.current_key ?? row.currentKey ? String(row.current_key ?? row.currentKey) : undefined,
+    preparedIndex: row.prepared_index === null || row.prepared_index === undefined ? (row.preparedIndex == null ? undefined : Number(row.preparedIndex)) : Number(row.prepared_index),
+    preparedSongId: row.prepared_song_id ?? row.preparedSongId ? String(row.prepared_song_id ?? row.preparedSongId) : undefined,
+    isRunning: Boolean(row.is_running ?? row.isRunning),
+    mdAnnotation: row.md_annotation ?? row.mdAnnotation ? String(row.md_annotation ?? row.mdAnnotation) : undefined,
+    updatedAt: String(row.updated_at ?? row.updatedAt),
   }
 }
