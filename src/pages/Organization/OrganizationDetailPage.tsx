@@ -92,11 +92,11 @@ export function OrganizationDetailPage() {
     </section>
 
     <section><header><h3>Repertórios</h3><button type="button" onClick={() => void createRep()}>Novo repertório</button></header>
-      <div className="organization-list">{repertoires.map((rep) => <article className="organization-item" key={rep.id}><div><strong>{rep.name}</strong><p>{rep.version}ª versão</p></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addRepSong(rep.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
+      <div className="organization-list">{repertoires.map((rep) => <article className="organization-item" key={rep.id}><div><strong>{rep.name}</strong><p>{rep.version}ª versão</p><Link to={`/repertoires/${rep.id}`}>Abrir</Link></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addRepSong(rep.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
     </section>
 
     <section><header><h3>Serviços</h3><button type="button" onClick={() => void createSvc()}>Novo serviço</button></header>
-      <div className="organization-list">{services.map((service) => <article className="organization-item" key={service.id}><div><strong>{service.name}</strong><p>{new Date(service.startsAt).toLocaleString('pt-BR')}</p></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addServiceSong(service.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
+      <div className="organization-list">{services.map((service) => <article className="organization-item" key={service.id}><div><strong>{service.name}</strong><p>{new Date(service.startsAt).toLocaleString('pt-BR')}</p><Link to={`/services/${service.id}`}>Abrir serviço</Link></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addServiceSong(service.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
     </section>
   </section></main>
 }
