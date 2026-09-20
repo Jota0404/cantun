@@ -113,3 +113,26 @@ create index legacy_band_member_mappings_org_idx
 
 create index legacy_band_member_mappings_team_idx
   on private.legacy_band_member_mappings(team_membership_id);
+
+create or replace function public.get_band_organization_context(p_band_id uuid)
+returns table (
+  band_id uuid,
+  organization_id uuid,
+  team_id uuid
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    m.band_id,
+    m.organization_id,
+    m.team_id
+  from private.legacy_band_organization_mappings m
+  where m.band_id = p_band_id
+    and private.is_band_member(p_band_id);
+$$;
+
+revoke all on function public.get_band_organization_context(uuid) from public, anon;
+grant execute on function public.get_band_organization_context(uuid) to authenticated;
