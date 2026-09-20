@@ -11,7 +11,7 @@ function makeClient(revision = 3) {
       }],
       error: null,
     })),
-  } as never
+  }
 }
 
 function options(client = makeClient()): BandStageRealtimeOptions {
