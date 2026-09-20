@@ -6,10 +6,13 @@ import { toSharedExecutionState } from '../../domain/stage/sharedExecution'
 export type SharedExecutionListener = (state: SharedExecutionState) => void
 
 export class SharedExecutionService {
+  private readonly stageService: BandStageService
   private readonly stateBySession = new Map<string, SharedExecutionState>()
   private readonly listenersBySession = new Map<string, Set<SharedExecutionListener>>()
 
-  constructor(private readonly stageService: BandStageService) {}
+  constructor(stageService: BandStageService) {
+    this.stageService = stageService
+  }
 
   get(sessionId: string): SharedExecutionState | undefined {
     return this.stateBySession.get(sessionId)
