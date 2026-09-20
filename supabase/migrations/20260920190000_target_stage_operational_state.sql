@@ -334,7 +334,8 @@ begin
     (
       select lm.band_song_id
       from private.legacy_band_song_mappings lm
-      where lm.organization_id = v_stage.service_id
+      join public.services svc on svc.id = v_stage.service_id
+      where lm.organization_id = svc.organization_id
         and lm.song_id = p_song_id
       limit 1
     )
