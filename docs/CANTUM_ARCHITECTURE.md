@@ -168,3 +168,8 @@ Organization
 ```
 
 Before coding it, audit the current Band persistence, invite flow, application services, UI dependencies, sync queue and Supabase security contracts.
+
+
+### Stage operational state migration (ADR-032)
+
+Stage now has a target operational state owned by `StageSession`: `stage_session_states`. The target state resolves the active and prepared `ServiceItem`/canonical `Song`, while the existing BandStage RPC/realtime runtime remains an internal compatibility projection during migration. Target application commands mirror successful legacy state transitions into the target state; no legacy Stage runtime is deleted at this boundary.
