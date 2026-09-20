@@ -145,7 +145,7 @@ export async function removeOrganizationMember(membershipId: string) {
 
 export function buildOrganizationInviteUrl(token: string) {
   const base = new URL(import.meta.env.BASE_URL, window.location.origin)
-  base.pathname = `${base.pathname.replace(/\\/$/, '')}/organization/invite/${encodeURIComponent(token)}`
+  base.pathname = `${base.pathname.replace(/\/$/, '')}/organization/invite/${encodeURIComponent(token)}`
   base.search = ''
   return base.toString()
 }
