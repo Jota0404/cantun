@@ -68,7 +68,7 @@ export class BandStageService {
 
   async startSession(sessionId: string): Promise<BandStageSession> {
     const targetSessionId = await this.targetSessionId(sessionId)
-    const { data, error } = targetSessionId
+    const { error } = targetSessionId
       ? await this.client.rpc('target_stage_start', { p_stage_session_id: targetSessionId })
       : await this.client.rpc('start_band_stage_session', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
