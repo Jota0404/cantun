@@ -1,10 +1,9 @@
-import { randomUUID } from 'crypto'
 import type { Organization } from '../../domain/organizations/organization'
 import { supabase } from '../../lib/supabase'
 import { db } from '../../db/database'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 
-export async function createOrganization(name: string, id = randomUUID()): Promise<Organization> {
+export async function createOrganization(name: string, id = crypto.randomUUID()): Promise<Organization> {
   if (!supabase) throw new Error('Supabase não está configurado.')
   const now = new Date().toISOString()
   const { data, error } = await supabase.rpc('create_organization', { p_id: id, p_name: name.trim() })
