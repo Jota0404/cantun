@@ -40,7 +40,7 @@ export function ServiceDetailPage() {
     try {
       const stage = await createStageSession(serviceId)
       const started = await startStageSession(stage.id)
-      navigate(`/stage/session/${started.legacyBandStageSessionId}`)
+      navigate(`/stage/service-session/${started.id}`)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível iniciar o palco deste serviço.') }
   }
 
