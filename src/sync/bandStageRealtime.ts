@@ -243,6 +243,18 @@ export class BandStageRealtime {
       this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
         config: { private: true },
       })
+      this.targetChannel.on('presence', { event: 'sync' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
+      this.targetChannel.on('presence', { event: 'join' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
+      this.targetChannel.on('presence', { event: 'leave' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
       this.targetChannel.on(
         'postgres_changes',
         {
@@ -371,12 +383,24 @@ export class BandStageRealtime {
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
-    this.emitPresence()
+    if (this.targetChannel) {
+      const targetResult = await this.targetChannel.track(payload)
+      if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
+      this.emitTargetPresence()
+    } else {
+      this.emitPresence()
+    }
   }
 
   private emitPresence(): void {
     if (this.disposed) return
     const state = this.channel.presenceState() as Record<string, unknown>
+    this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
+  }
+
+  private emitTargetPresence(): void {
+    if (this.disposed || !this.targetChannel) return
+    const state = this.targetChannel.presenceState() as Record<string, unknown>
     this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
   }
 
