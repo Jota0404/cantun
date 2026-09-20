@@ -16,7 +16,10 @@ export class TeamRepository {
 }
 
 export class TeamMembershipRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
   async create(value: TeamMembership) { await this.db.teamMemberships.add(value); await queueTargetUpsert('teamMemberships', value) }
   async getById(id: string) { return this.db.teamMemberships.get(id) }
   async listByTeamId(teamId: string) { return this.db.teamMemberships.where('teamId').equals(teamId).toArray() }
