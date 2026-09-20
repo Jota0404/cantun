@@ -225,6 +225,9 @@ export class BandStageService {
     args: Record<string, unknown>,
     payload: Record<string, unknown>,
   ): Promise<StageCommandResult> {
+    // Capture the authoritative revision before issuing the command. This preserves the
+    // optimistic-concurrency contract of the legacy runtime while target RPCs are bridged.
+    await this.getSnapshot(sessionId)
     const targetSessionId = await this.targetSessionId(sessionId)
     const targetRpcByCommand: Record<Command, string> = {
       play: 'target_stage_play',
