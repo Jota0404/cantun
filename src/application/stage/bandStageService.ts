@@ -3,6 +3,7 @@ import type { BandStageEventType, BandStageSession, BandStageSnapshot, BandStage
 import { toBandStageSession, toBandStageState } from '../../domain/stage/bandStage'
 import { BandStageRealtime, createBandStageEvent } from '../../sync/bandStageRealtime'
 import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
+import { getTargetStageSessionByLegacyId } from './getTargetStageSession'
 import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 
 export interface BandStageRpcClient {
@@ -169,10 +170,16 @@ export class BandStageService {
 
   async setAnnotation(sessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
     const normalized = normalizeBandStageAnnotation(annotation)
-    const { data, error } = await this.client.rpc('band_stage_set_annotation', {
-      p_session_id: sessionId,
-      p_annotation: normalized,
-    })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { data, error } = targetSessionId
+      ? await this.client.rpc('target_stage_set_annotation', {
+          p_stage_session_id: targetSessionId,
+          p_annotation: normalized,
+        })
+      : await this.client.rpc('band_stage_set_annotation', {
+          p_session_id: sessionId,
+          p_annotation: normalized,
+        })
     if (error) throw new Error(error.message)
     const state = toBandStageState(this.singleRow(data))
     const snapshot = await this.getSnapshot(sessionId)
@@ -191,7 +198,10 @@ export class BandStageService {
   }
 
   async getSnapshot(sessionId: string): Promise<BandStageSnapshot> {
-    const { data, error } = await this.client.rpc('get_band_stage_snapshot', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { data, error } = targetSessionId
+      ? await this.client.rpc('get_target_stage_snapshot', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('get_band_stage_snapshot', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
     const row = this.singleRow(data)
     const session = row.session
@@ -208,7 +218,26 @@ export class BandStageService {
     args: Record<string, unknown>,
     payload: Record<string, unknown>,
   ): Promise<StageCommandResult> {
-    const { data, error } = await this.client.rpc(rpcName, { p_session_id: sessionId, ...args })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const targetRpcByCommand: Record<Command, string> = {
+      play: 'target_stage_play',
+      pause: 'target_stage_pause',
+      next: 'target_stage_next',
+      previous: 'target_stage_previous',
+      goto: 'target_stage_goto',
+      setKey: 'target_stage_set_key',
+      prepareNext: 'target_stage_prepare_next',
+      clearPrepared: 'target_stage_clear_prepared',
+    }
+    const targetArgs: Record<string, unknown> = {
+      p_stage_session_id: targetSessionId,
+      ...(command === 'goto' ? { p_index: args.p_index, p_song_id: args.p_song_id } : {}),
+      ...(command === 'setKey' ? { p_key: args.p_key } : {}),
+      ...(command === 'prepareNext' ? { p_index: args.p_index, p_song_id: args.p_song_id } : {}),
+    }
+    const { data, error } = targetSessionId
+      ? await this.client.rpc(targetRpcByCommand[command], targetArgs)
+      : await this.client.rpc(rpcName, { p_session_id: sessionId, ...args })
     if (error) throw new Error(error.message)
     const state = toBandStageState(this.singleRow(data))
     const snapshot = await this.getSnapshot(sessionId)
@@ -224,6 +253,15 @@ export class BandStageService {
     const realtime = this.realtimeBySession.get(sessionId)
     if (realtime) await realtime.publish(event)
     return { state, event }
+  }
+
+  private async targetSessionId(legacySessionId: string): Promise<string | null> {
+    try {
+      const target = await getTargetStageSessionByLegacyId(legacySessionId)
+      return target?.id ?? null
+    } catch {
+      return null
+    }
   }
 
   private async publishLifecycleEvent(session: BandStageSession): Promise<void> {
