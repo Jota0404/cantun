@@ -149,7 +149,13 @@ The following are frozen as the current architectural baseline:
 - Stage capabilities and existing contracts are preserved.
 - Database migrations must be additive/safe; already-applied migrations are not rewritten.
 
-## 8. Next implementation slice
+## 8. Synchronization boundary
+
+Target entities use a dedicated `targetSyncQueue` and `TargetSyncEngine`. The legacy `SyncEngine` and `BandSyncEngine` remain unchanged during migration. Local-first repositories persist target entities to Dexie first and queue Supabase synchronization; Organization creation uses the existing secure creation RPC.
+
+See ADR-026 for the synchronization contract.
+
+## 9. Next implementation slice
 
 The first target vertical slice is:
 
