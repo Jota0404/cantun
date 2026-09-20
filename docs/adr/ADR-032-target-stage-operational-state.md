@@ -65,3 +65,7 @@ The legacy BandStage RPCs and state tables remain internal compatibility infrast
 ## Blueprint alignment
 
 This follows the approved CANTUN product baseline: Service is the operational occurrence, ServiceItem is its ordered musical content, and Stage is the execution experience built on top of that operational model.
+
+### Subsequent implementation
+
+The migration also routes Stage lifecycle operations through target RPCs and mirrors legacy state changes into the target state automatically. Stage read data now resolves the current user's Service Assignment musical function when available, with compatibility fallback to `other`.
