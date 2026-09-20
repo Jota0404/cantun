@@ -8,6 +8,7 @@ import { getTargetStageSessionByLegacyId } from '../../application/stage/getTarg
 import { getServiceStageSongs } from '../../application/stage/getServiceStageSongs'
 import { getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
+import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
@@ -72,6 +73,7 @@ export function BandMusicianStagePage() {
             displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
             isMd: initial.session.mdUserId === user.id,
+            readiness: 'waiting',
           })
         }
         const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
@@ -117,7 +119,7 @@ export function BandMusicianStagePage() {
   const experience = getMusicalRoleStageExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
-    const key = executionState?.currentKey ?? activeSong.currentKey
+    const key = (executionState?.currentKey ?? activeSong.currentKey) as MusicalKey
     const semitones = getSemitoneDistance(activeSong.originalKey, key)
     return transposeSongLyrics(activeSong.lyrics, semitones, key)
   }, [activeSong, executionState?.currentKey])
