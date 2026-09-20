@@ -110,7 +110,7 @@ export class SalmodiaDatabase extends Dexie {
       bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
       bandSetlists: 'id, bandId, createdByUserId, updatedAt',
       bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
-      bandSyncQueue: '++id, userId, entity, updatedAt, [userId+entity], [userId+entity+entityId]',
+      bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
       organizations: 'id, updatedAt',
       organizationMemberships: 'id, organizationId, userId, [organizationId+userId], updatedAt',
       teams: 'id, organizationId, updatedAt',
