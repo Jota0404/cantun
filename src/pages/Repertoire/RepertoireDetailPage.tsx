@@ -253,7 +253,7 @@ export function RepertoireDetailPage({
           disabled={orderedSongs.length === 0 || startingStage}
           onClick={() => void handleStartStage()}
         >
-          {startingStage ? 'Iniciando Modo Banda...' : 'Iniciar Modo Banda'}
+          {startingStage ? 'Abrindo organização...' : 'Abrir na organização'}
         </button>
       </header>
 
