@@ -145,9 +145,23 @@ export class BandStageReconciler {
   }
 
   private async loadSnapshot(): Promise<BandStageSnapshot> {
-    const { data, error } = await this.options.client.rpc('get_band_stage_snapshot', {
-      p_session_id: this.options.sessionId,
+    let data: unknown = null
+    let error: { message?: string } | null = null
+
+    const { data: targetData, error: targetError } = await this.options.client.rpc('get_target_stage_snapshot_by_legacy_id', {
+      p_legacy_session_id: this.options.sessionId,
     })
+
+    if (!targetError && targetData) {
+      data = targetData
+    } else {
+      const legacy = await this.options.client.rpc('get_band_stage_snapshot', {
+        p_session_id: this.options.sessionId,
+      })
+      data = legacy.data
+      error = legacy.error
+    }
+
     if (error) throw error
     if (!data) throw new Error('Snapshot de palco não encontrado.')
 
