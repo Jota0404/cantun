@@ -13,7 +13,8 @@ returns table (
   current_key text,
   lyrics text,
   notes text,
-  bpm integer
+  bpm integer,
+  musical_role text
 )
 language sql
 stable
@@ -29,7 +30,20 @@ as $$
     s.original_key,
     s.lyrics,
     s.notes,
-    s.bpm
+    s.bpm,
+    coalesce(
+      (
+        select a.musical_function
+        from public.assignments a
+        where a.service_id = svc.id
+          and a.user_id = auth.uid()
+          and (a.service_item_id = si.id or a.service_item_id is null)
+          and a.status in ('pending', 'accepted')
+        order by case when a.service_item_id = si.id then 0 else 1 end, a.created_at desc
+        limit 1
+      ),
+      'other'
+    )
   from public.stage_sessions ss
   join public.services svc on svc.id = ss.service_id
   join public.service_items si on si.service_id = svc.id
