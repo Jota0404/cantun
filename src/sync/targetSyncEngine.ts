@@ -136,6 +136,7 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
 
 export class TargetSyncEngine {
   private syncing = false
+  private retryTimer: number | undefined
   constructor(private readonly db: SalmodiaDatabase, private readonly client: SupabaseClient) {}
 
   async queueUpsert(entity: TargetEntityName, payload: TargetEntity): Promise<void> {
@@ -201,6 +202,13 @@ export class TargetSyncEngine {
       }
     } finally {
       this.syncing = false
+    }
+    const remaining = await this.db.targetSyncQueue.count()
+    if (remaining > 0 && this.retryTimer === undefined && navigator.onLine) {
+      this.retryTimer = window.setTimeout(() => {
+        this.retryTimer = undefined
+        void this.sync()
+      }, 10000)
     }
   }
 }
