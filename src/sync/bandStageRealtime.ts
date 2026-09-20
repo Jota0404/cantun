@@ -311,8 +311,12 @@ export class BandStageRealtime {
       this.options.onStatus?.(status)
       this.subscribed = true
       if (this.targetChannel) {
-        const targetStatus = await this.subscribeChannelFor(this.targetChannel)
-        this.options.onStatus?.(`TARGET_${targetStatus}`)
+        try {
+          const targetStatus = await this.subscribeChannelFor(this.targetChannel)
+          this.options.onStatus?.(`TARGET_${targetStatus}`)
+        } catch {
+          this.options.onStatus?.('TARGET_ERROR')
+        }
       }
     }
 
