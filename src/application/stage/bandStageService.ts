@@ -67,29 +67,34 @@ export class BandStageService {
   }
 
   async startSession(sessionId: string): Promise<BandStageSession> {
-    const { data, error } = await this.client.rpc('start_band_stage_session', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { data, error } = targetSessionId
+      ? await this.client.rpc('target_stage_start', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('start_band_stage_session', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
-    const session = toBandStageSession(this.singleRow(data))
-    await this.publishLifecycleEvent(session)
-    return session
+    const snapshot = await this.getSnapshot(sessionId)
+    await this.publishLifecycleEvent(snapshot.session)
+    return snapshot.session
   }
 
   async endSession(sessionId: string): Promise<BandStageSession> {
-    const { data, error } = await this.client.rpc('end_band_stage_session', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { error } = targetSessionId
+      ? await this.client.rpc('target_stage_end', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('end_band_stage_session', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
-    const session = toBandStageSession(this.singleRow(data))
+    const snapshot = await this.getSnapshot(sessionId)
     const realtime = this.realtimeBySession.get(sessionId)
     if (realtime) {
-      const snapshot = await this.getSnapshot(sessionId)
       await realtime.publish(createBandStageEvent({
         type: 'stage.session-ended',
         sessionId,
         revision: snapshot.state.revision,
-        actorUserId: session.mdUserId,
+        actorUserId: snapshot.session.mdUserId,
         payload: snapshot,
       }))
     }
-    return session
+    return snapshot.session
   }
 
   async connect(sessionId: string, callbacks: RealtimeCallbacks = {}): Promise<BandStageSnapshot> {
