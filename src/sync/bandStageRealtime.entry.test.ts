@@ -103,6 +103,31 @@ describe('BandStageRealtime entry/reconnect', () => {
     expect(statuses).toEqual(['SUBSCRIBED'])
   })
 
+  it('mirrors presence to the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+      onPresence: vi.fn(),
+    })
+
+    await realtime.connect()
+    await realtime.trackPresence({
+      userId: 'u1',
+      displayName: 'Músico',
+      musicalRole: 'vocals',
+      isMd: false,
+      readiness: 'ready',
+    })
+
+    expect(client.channels[0].track).toHaveBeenCalledTimes(1)
+    expect(client.channels[1].track).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      readiness: 'ready',
+    }))
+  })
+
   it('reconnects from a clean revision after a dropped connection', async () => {
     const client = makeClient(12)
     const realtime = createRealtime(client)
