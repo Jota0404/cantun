@@ -8,6 +8,10 @@ import type { BandSong } from '../domain/bands/bandSong'
 import type { BandSongMemberState } from '../domain/bands/bandSongMemberState'
 import type { BandSetlist } from '../domain/bands/bandSetlist'
 import type { BandSetlistSong } from '../domain/bands/bandSetlistSong'
+import type { Organization } from '../domain/organizations/organization'
+import type { OrganizationMembership } from '../domain/organizations/organizationMembership'
+import type { Team } from '../domain/teams/team'
+import type { TeamMembership } from '../domain/teams/teamMembership'
 import type { SyncQueueItem } from '../sync/syncEngine'
 import type { BandSyncQueueItem } from '../sync/bandSyncEngine'
 
@@ -23,6 +27,10 @@ export class SalmodiaDatabase extends Dexie {
   bandSetlists!: Table<BandSetlist, string>
   bandSetlistSongs!: Table<BandSetlistSong, string>
   bandSyncQueue!: Table<BandSyncQueueItem, number>
+  organizations!: Table<Organization, string>
+  organizationMemberships!: Table<OrganizationMembership, string>
+  teams!: Table<Team, string>
+  teamMemberships!: Table<TeamMembership, string>
 
   constructor() {
     super('SalmodiaDatabase')
@@ -67,6 +75,21 @@ export class SalmodiaDatabase extends Dexie {
       bandSetlists: 'id, bandId, createdByUserId, updatedAt',
       bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
       bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+    this.version(7).stores({
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
+      setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
+      syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+      bands: 'id, ownerUserId, updatedAt', bandMembers: 'id, bandId, userId, [bandId+userId], updatedAt',
+      bandSongs: 'id, bandId, sourceSongId, [bandId+sourceSongId], updatedAt',
+      bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
+      bandSetlists: 'id, bandId, createdByUserId, updatedAt',
+      bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
+      bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+      organizations: 'id, updatedAt',
+      organizationMemberships: 'id, organizationId, userId, [organizationId+userId], updatedAt',
+      teams: 'id, organizationId, updatedAt',
+      teamMemberships: 'id, teamId, userId, [teamId+userId], updatedAt',
+    })
     })
   }
 }
