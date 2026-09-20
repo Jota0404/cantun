@@ -28,6 +28,7 @@ export interface BandStageRealtimeOptions {
   onStatus?: (status: string) => void
   onConnectionStatus?: (status: BandStageConnectionStatus) => void
   onPresence?: (participants: BandStageParticipant[]) => void
+  targetSessionId?: string
 }
 
 export function bandStageChannelName(sessionId: string): string {
@@ -201,6 +202,7 @@ function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
 
 export class BandStageRealtime {
   private readonly channel: RealtimeChannel
+  private targetChannel: RealtimeChannel | null = null
   private readonly reconciler: BandStageReconciler
   private subscribed = false
   private connecting: Promise<BandStageSnapshot> | null = null
@@ -236,6 +238,25 @@ export class BandStageRealtime {
         void this.refresh().catch(() => undefined)
       })
     })
+
+    if (options.targetSessionId) {
+      this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
+        config: { private: true },
+      })
+      this.targetChannel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'stage_session_states',
+          filter: `stage_session_id=eq.${options.targetSessionId}`,
+        },
+        () => {
+          if (this.disposed) return
+          void this.reconciler.reconcile('event').catch(() => undefined)
+        },
+      )
+    }
   }
 
   get revision(): number {
@@ -261,6 +282,10 @@ export class BandStageRealtime {
   }
 
   private async subscribeChannel(): Promise<string> {
+    return this.subscribeChannelFor(this.channel)
+  }
+
+  private async subscribeChannelFor(channel: RealtimeChannel): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       let settled = false
       const settle = (status: string) => {
@@ -270,7 +295,7 @@ export class BandStageRealtime {
         else reject(new Error(`Falha ao assinar sessão de palco: ${status}`))
       }
 
-      const result = this.channel.subscribe((status) => settle(String(status)))
+      const result = channel.subscribe((status) => settle(String(status)))
       if (typeof result === 'string') settle(result)
       else if (result && typeof (result as unknown as { then?: unknown }).then === 'function') {
         void (result as unknown as Promise<unknown>).then((value) => {
@@ -285,6 +310,10 @@ export class BandStageRealtime {
       const status = await this.subscribeChannel()
       this.options.onStatus?.(status)
       this.subscribed = true
+      if (this.targetChannel) {
+        const targetStatus = await this.subscribeChannelFor(this.targetChannel)
+        this.options.onStatus?.(`TARGET_${targetStatus}`)
+      }
     }
 
     this.setConnectionStatus('SUBSCRIBED')
@@ -314,6 +343,7 @@ export class BandStageRealtime {
 
     if (this.subscribed) {
       const status = await this.channel.unsubscribe()
+      if (this.targetChannel) await this.targetChannel.unsubscribe()
       this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
       this.subscribed = false
     }
@@ -366,6 +396,7 @@ export class BandStageRealtime {
     this.subscribed = false
     this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
+    if (this.targetChannel) await this.targetChannel.unsubscribe()
   }
 
   private setConnectionStatus(status: BandStageConnectionStatus): void {
