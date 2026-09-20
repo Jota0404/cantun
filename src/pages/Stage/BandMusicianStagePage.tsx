@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
-import { BandStageService } from '../../application/stage/bandStageService'
+import { StageExecutionService } from '../../application/stage/stageExecutionService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
-import { getMyBandStageExperience, getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
+import { getTargetStageSessionByLegacyId } from '../../application/stage/getTargetStageSession'
+import { getServiceStageSongs } from '../../application/stage/getServiceStageSongs'
+import { getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
@@ -19,7 +21,7 @@ export function BandMusicianStagePage() {
   const { sessionId = '' } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const service = useMemo(() => new BandStageService(), [])
+  const service = useMemo(() => new StageExecutionService(), [])
   const execution = useMemo(() => new SharedExecutionService(service), [service])
   const [snapshot, setSnapshot] = useState<BandStageSnapshot>()
   const [executionState, setExecutionState] = useState<SharedExecutionState>()
@@ -58,7 +60,10 @@ export function BandMusicianStagePage() {
         })
         if (cancelled) return
         applySnapshot(initial)
-        const loadedSongs = await getBandStageSessionSetlist(initial.session)
+        const targetSession = await getTargetStageSessionByLegacyId(initial.session.id)
+        const loadedSongs = targetSession
+          ? await getServiceStageSongs(targetSession.id)
+          : await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
         if (user?.id) {
@@ -69,9 +74,10 @@ export function BandMusicianStagePage() {
             isMd: initial.session.mdUserId === user.id,
           })
         }
-        const roleExperience = await getMyBandStageExperience(initial.session.bandId)
+        const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
+        const roleExperience = getMusicalRoleStageExperience(nextMusicalRole)
         if (!cancelled) {
-          setMusicalRole(loadedSongs[0]?.musicalRole ?? 'other')
+          setMusicalRole(nextMusicalRole)
           setFontSize(roleExperience.fontSize)
           setReadMode(roleExperience.readMode)
         }
