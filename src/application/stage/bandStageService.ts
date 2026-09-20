@@ -3,7 +3,6 @@ import type { BandStageEventType, BandStageSession, BandStageSnapshot, BandStage
 import { toBandStageSession, toBandStageState } from '../../domain/stage/bandStage'
 import { BandStageRealtime, createBandStageEvent } from '../../sync/bandStageRealtime'
 import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
-import { getTargetStageSessionByLegacyId } from './getTargetStageSession'
 import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 
 export interface BandStageRpcClient {
@@ -44,6 +43,7 @@ export class BandStageService {
   private readonly client: BandStageRpcClient
   private readonly realtimeFactory: NonNullable<BandStageServiceOptions['realtimeFactory']>
   private readonly realtimeBySession = new Map<string, BandStageRealtime>()
+  private readonly targetSessionByLegacySession = new Map<string, string | null>()
 
   constructor(options: BandStageServiceOptions = {}) {
     const client = options.client ?? supabase
@@ -100,7 +100,8 @@ export class BandStageService {
 
   async connect(sessionId: string, callbacks: RealtimeCallbacks = {}): Promise<BandStageSnapshot> {
     await this.disconnect(sessionId)
-    const targetSessionId = await this.targetSessionId(sessionId)
+    const targetSessionId = await this.resolveTargetSessionId(sessionId)
+    this.targetSessionByLegacySession.set(sessionId, targetSessionId)
     const realtime = this.realtimeFactory(sessionId, this.client, callbacks, targetSessionId ?? undefined)
     this.realtimeBySession.set(sessionId, realtime)
     try {
@@ -269,13 +270,28 @@ export class BandStageService {
     return { state, event }
   }
 
-  private async targetSessionId(legacySessionId: string): Promise<string | null> {
+  private async resolveTargetSessionId(legacySessionId: string): Promise<string | null> {
     try {
-      const target = await getTargetStageSessionByLegacyId(legacySessionId)
-      return target?.id ?? null
+      const { data, error } = await this.client.rpc('get_stage_session_by_legacy_id', {
+        p_legacy_session_id: legacySessionId,
+      })
+      if (error) return null
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return null
+      const id = (row as Record<string, unknown>).id
+      return typeof id === 'string' ? id : null
     } catch {
       return null
     }
+  }
+
+  private async targetSessionId(legacySessionId: string): Promise<string | null> {
+    if (this.targetSessionByLegacySession.has(legacySessionId)) {
+      return this.targetSessionByLegacySession.get(legacySessionId) ?? null
+    }
+    const target = await this.resolveTargetSessionId(legacySessionId)
+    this.targetSessionByLegacySession.set(legacySessionId, target)
+    return target
   }
 
   private async publishLifecycleEvent(session: BandStageSession): Promise<void> {
