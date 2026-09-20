@@ -137,7 +137,12 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
 export class TargetSyncEngine {
   private syncing = false
   private retryTimer: number | undefined
-  constructor(private readonly db: SalmodiaDatabase, private readonly client: SupabaseClient) {}
+  private readonly db: SalmodiaDatabase
+  private readonly client: SupabaseClient
+  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+    this.db = db
+    this.client = client
+  }
 
   async queueUpsert(entity: TargetEntityName, payload: TargetEntity): Promise<void> {
     await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
