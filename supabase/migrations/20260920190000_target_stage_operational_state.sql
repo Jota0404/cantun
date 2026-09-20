@@ -173,15 +173,12 @@ declare
   r record;
 begin
   for r in
-    select ss.id as stage_session_id, bs.*
+    select ss.id as stage_session_id, bs
     from public.stage_sessions ss
     join public.band_stage_states bs
       on bs.session_id = ss.legacy_band_stage_session_id
   loop
-    perform public.sync_target_stage_state(
-      r.stage_session_id,
-      r::public.band_stage_states
-    );
+    perform public.sync_target_stage_state(r.stage_session_id, r.bs);
   end loop;
 end;
 $$;
@@ -224,15 +221,13 @@ begin
   where stage_session_id = p_stage_session_id;
 
   if v_state.stage_session_id is null then
-    select *
-      into v_state
-    from public.band_stage_states
-    where session_id = v_stage.legacy_band_stage_session_id;
-
-    if v_state.stage_session_id is not null then
-      -- no-op fallback; the target state will be materialized by a later write
-      null;
-    end if;
+    select public.sync_target_stage_state(
+      v_stage.id,
+      bs
+    )
+    into v_state
+    from public.band_stage_states bs
+    where bs.session_id = v_stage.legacy_band_stage_session_id;
   end if;
 
   return jsonb_build_object(
@@ -336,7 +331,13 @@ begin
   select * into v_state from public.band_stage_goto(
     v_stage.legacy_band_stage_session_id,
     p_index,
-    p_song_id
+    (
+      select lm.band_song_id
+      from private.legacy_band_song_mappings lm
+      where lm.organization_id = v_stage.service_id
+        and lm.song_id = p_song_id
+      limit 1
+    )
   );
   return public.sync_target_stage_state(p_stage_session_id, v_state);
 end;
@@ -380,7 +381,18 @@ begin
   join public.organization_memberships om on om.organization_id=svc.organization_id and om.user_id=auth.uid()
   where ss.id=p_stage_session_id;
   if not found then raise exception 'stage session not found or not authorized'; end if;
-  select * into v_state from public.band_stage_prepare_next(v_stage.legacy_band_stage_session_id, p_index, p_song_id);
+  select * into v_state from public.band_stage_prepare_next(
+    v_stage.legacy_band_stage_session_id,
+    p_index,
+    (
+      select lm.band_song_id
+      from private.legacy_band_song_mappings lm
+      join public.services svc on svc.id = v_stage.service_id
+      where lm.organization_id = svc.organization_id
+        and lm.song_id = p_song_id
+      limit 1
+    )
+  );
   return public.sync_target_stage_state(p_stage_session_id, v_state);
 end;
 $$;
