@@ -162,6 +162,35 @@ create trigger stage_sessions_initialize_target_state
 after insert on public.stage_sessions
 for each row execute function public.initialize_target_stage_state();
 
+create or replace function public.mirror_legacy_stage_state_to_target()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_target_stage_session_id uuid;
+begin
+  select ss.id
+    into v_target_stage_session_id
+  from public.stage_sessions ss
+  where ss.legacy_band_stage_session_id = new.session_id;
+
+  if v_target_stage_session_id is not null then
+    perform public.sync_target_stage_state(v_target_stage_session_id, new);
+  end if;
+
+  return new;
+end;
+$;
+
+drop trigger if exists band_stage_states_target_projection on public.band_stage_states;
+create trigger band_stage_states_target_projection
+after insert or update on public.band_stage_states
+for each row execute function public.mirror_legacy_stage_state_to_target();
+
+revoke all on function public.mirror_legacy_stage_state_to_target() from public, anon, authenticated;
+
 -- Backfill sessions that existed before this migration.
 insert into public.stage_session_states(stage_session_id)
 select ss.id
