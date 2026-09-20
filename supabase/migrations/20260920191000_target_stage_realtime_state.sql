@@ -32,3 +32,23 @@ using (
       and om.user_id = auth.uid()
   )
 );
+
+
+drop policy if exists "Stage target members can send realtime" on realtime.messages;
+
+create policy "Stage target members can send realtime"
+on realtime.messages
+for insert
+to authenticated
+with check (
+  realtime.topic() like 'stage-session:%:state'
+  and exists (
+    select 1
+    from public.stage_sessions ss
+    join public.services s on s.id = ss.service_id
+    join public.organization_memberships om on om.organization_id = s.organization_id
+    where ss.id::text = split_part(realtime.topic(), ':', 2)
+      and om.user_id = auth.uid()
+  )
+  and realtime.messages.extension in ('presence', 'broadcast')
+);
