@@ -104,7 +104,7 @@ export class SalmodiaDatabase extends Dexie {
       organizationMemberships: 'id, organizationId, userId, [organizationId+userId], updatedAt',
       teams: 'id, organizationId, updatedAt',
       teamMemberships: 'id, teamId, userId, [teamId+userId], updatedAt',
-      organizationSongs: 'id, organizationId, songId, [organizationId+songId], [organizationId+songId], updatedAt',
+      organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt',
       repertoires: 'id, organizationId, updatedAt',
       repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
     })
@@ -137,7 +137,7 @@ export class SalmodiaDatabase extends Dexie {
       bandSongs: 'id, bandId, sourceSongId, [bandId+sourceSongId], updatedAt',
       bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
       bandSetlists: 'id, bandId, createdByUserId, updatedAt',
-      bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, updatedAt, [bandSetlistId+bandSongId]',
+      bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
       bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
       organizations: 'id, updatedAt',
       organizationMemberships: 'id, organizationId, userId, [organizationId+userId], updatedAt',
