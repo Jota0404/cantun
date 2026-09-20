@@ -111,7 +111,7 @@ export async function removeBandMember(memberId: string) {
 
 export function buildBandInviteUrl(token: string) {
   const base = new URL(import.meta.env.BASE_URL, window.location.origin)
-  base.pathname = `${base.pathname.replace(/\\/$/, '')}/bands/invite/${encodeURIComponent(token)}`
+  base.pathname = `${base.pathname.replace(/\/$/, '')}/bands/invite/${encodeURIComponent(token)}`
   base.search = ''
   return base.toString()
 }
