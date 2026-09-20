@@ -123,7 +123,9 @@ export class BandStageReconciler {
       return 'ignored'
     }
 
+    let reconciled = false
     if (event.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
+      reconciled = true
       await this.reconcile('revision-gap')
       if (event.revision <= this.currentRevision) {
         this.seenEventIds.add(event.eventId)
@@ -144,7 +146,7 @@ export class BandStageReconciler {
       }
     }
 
-    return 'applied'
+    return reconciled ? 'reconciled' : 'applied'
   }
 
   private async loadSnapshot(): Promise<BandStageSnapshot> {
