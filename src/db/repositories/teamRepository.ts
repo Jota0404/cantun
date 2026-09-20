@@ -4,7 +4,10 @@ import { db as defaultDb, type SalmodiaDatabase } from '../database'
 import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
 
 export class TeamRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
   async create(value: Team) { await this.db.teams.add(value); await queueTargetUpsert('teams', value) }
   async getById(id: string) { return this.db.teams.get(id) }
   async listByOrganizationId(organizationId: string) { return this.db.teams.where('organizationId').equals(organizationId).toArray() }
