@@ -75,6 +75,7 @@ export class SalmodiaDatabase extends Dexie {
       bandSetlists: 'id, bandId, createdByUserId, updatedAt',
       bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
       bandSyncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+    })
     this.version(7).stores({
       songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
