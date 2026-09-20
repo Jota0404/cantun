@@ -15,6 +15,9 @@ import type { TeamMembership } from '../domain/teams/teamMembership'
 import type { OrganizationSong } from '../domain/organizations/organizationSong'
 import type { Repertoire } from '../domain/repertoires/repertoire'
 import type { RepertoireItem } from '../domain/repertoires/repertoireItem'
+import type { Service } from '../domain/services/service'
+import type { ServiceItem } from '../domain/services/serviceItem'
+import type { Assignment } from '../domain/services/assignment'
 import type { SyncQueueItem } from '../sync/syncEngine'
 import type { BandSyncQueueItem } from '../sync/bandSyncEngine'
 
@@ -37,6 +40,9 @@ export class SalmodiaDatabase extends Dexie {
   organizationSongs!: Table<OrganizationSong, string>
   repertoires!: Table<Repertoire, string>
   repertoireItems!: Table<RepertoireItem, string>
+  services!: Table<Service, string>
+  serviceItems!: Table<ServiceItem, string>
+  assignments!: Table<Assignment, string>
 
   constructor() {
     super('SalmodiaDatabase')
@@ -117,6 +123,9 @@ export class SalmodiaDatabase extends Dexie {
       organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt',
       repertoires: 'id, organizationId, updatedAt',
       repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
+      services: 'id, organizationId, startsAt, status, updatedAt',
+      serviceItems: 'id, serviceId, songId, position, updatedAt, [serviceId+position]',
+      assignments: 'id, serviceId, userId, musicalFunction, status, updatedAt, [serviceId+userId]',
     })
   }
 }
