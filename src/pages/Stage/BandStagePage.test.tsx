@@ -22,8 +22,8 @@ vi.mock('../../auth/authContext', () => ({
   }),
 }))
 
-vi.mock('../../application/stage/bandStageService', () => ({
-  BandStageService: vi.fn().mockImplementation(() => ({
+vi.mock('../../application/stage/stageExecutionService', () => ({
+  StageExecutionService: vi.fn().mockImplementation(() => ({
     connect,
     disconnect,
     trackPresence,
@@ -36,7 +36,19 @@ vi.mock('../../application/stage/bandStageService', () => ({
     setKey: vi.fn(),
     getSnapshot: vi.fn(),
     endSession: vi.fn(),
+    setAnnotation: vi.fn(),
   })),
+}))
+
+vi.mock('../../application/stage/getTargetStageSession', () => ({
+  getTargetStageSessionByLegacyId: vi.fn(async () => ({ id: 'stage-1', serviceId: 'service-1', legacyBandStageSessionId: 'session-1', status: 'live', createdAt: '2026-09-08T00:00:00.000Z', updatedAt: '2026-09-08T00:02:00.000Z' })),
+}))
+
+vi.mock('../../application/stage/getServiceStageSongs', () => ({
+  getServiceStageSongs: vi.fn(async () => [
+    { position: 0, songId: 'song-1', title: 'Primeira', artist: 'Artista', originalKey: 'C', currentKey: 'C', lyrics: '[C]Primeira música', notes: 'Observação', musicalRole: 'vocals' },
+    { position: 1, songId: 'song-2', title: 'Segunda', artist: 'Artista', originalKey: 'G', currentKey: 'G', lyrics: '[G]Segunda música', musicalRole: 'vocals' },
+  ]),
 }))
 
 vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
