@@ -65,6 +65,30 @@ function createRealtime(client: FakeClient, onStatus?: (value: string) => void) 
 }
 
 describe('BandStageRealtime entry/reconnect', () => {
+  it('subscribes to target StageSession state when a target session is provided', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+
+    expect(client.channel).toHaveBeenCalledTimes(2)
+    expect(client.channels[1].on).toHaveBeenCalledWith(
+      'postgres_changes',
+      expect.objectContaining({
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'stage_session_states',
+        filter: 'stage_session_id=eq.ts1',
+      }),
+      expect.any(Function),
+    )
+    expect(client.channels[1].subscribe).toHaveBeenCalledTimes(1)
+  })
+
   it('subscribes before fetching the authoritative snapshot', async () => {
     const client = makeClient(7)
     const statuses: string[] = []
