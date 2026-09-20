@@ -241,7 +241,9 @@ export class BandStageService {
       ? await this.client.rpc(targetRpcByCommand[command], targetArgs)
       : await this.client.rpc(rpcName, { p_session_id: sessionId, ...args })
     if (error) throw new Error(error.message)
-    const state = toBandStageState(this.singleRow(data))
+    const rawState = this.singleRow(data)
+    if (targetSessionId) rawState.session_id = sessionId
+    const state = toBandStageState(rawState)
     const snapshot = await this.getSnapshot(sessionId)
     if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
 
