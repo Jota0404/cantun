@@ -14,6 +14,7 @@ import { BandStagePage } from './pages/Stage/BandStagePage'
 import { BandMusicianStagePage } from './pages/Stage/BandMusicianStagePage'
 import { AuthPage } from './pages/Auth/AuthPage'
 import { BandListPage, BandDetailPage, BandInvitePage } from './pages/Band/BandPage'
+import { syncTargetDomain } from './sync/syncService'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -32,6 +33,14 @@ function App() {
   const isAuthRoute = location.pathname === '/auth'
   const isInviteRoute = location.pathname.startsWith('/bands/invite/')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
+
+  useEffect(() => {
+    if (!user) return
+    void syncTargetDomain()
+    const handleOnline = () => { void syncTargetDomain() }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [user])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
