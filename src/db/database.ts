@@ -101,6 +101,24 @@ export class SalmodiaDatabase extends Dexie {
       repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
     })
     })
+    this.version(8).stores({
+      songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
+      setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
+      syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
+      bands: 'id, ownerUserId, updatedAt', bandMembers: 'id, bandId, userId, [bandId+userId], updatedAt',
+      bandSongs: 'id, bandId, sourceSongId, [bandId+sourceSongId], updatedAt',
+      bandSongMemberStates: 'id, bandSongId, userId, [bandSongId+userId], updatedAt',
+      bandSetlists: 'id, bandId, createdByUserId, updatedAt',
+      bandSetlistSongs: 'id, bandSetlistId, bandSongId, position, [bandSetlistId+bandSongId], [bandSetlistId+position], updatedAt',
+      bandSyncQueue: '++id, userId, entity, updatedAt, [userId+entity], [userId+entity+entityId]',
+      organizations: 'id, updatedAt',
+      organizationMemberships: 'id, organizationId, userId, [organizationId+userId], updatedAt',
+      teams: 'id, organizationId, updatedAt',
+      teamMemberships: 'id, teamId, userId, [teamId+userId], updatedAt',
+      organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt',
+      repertoires: 'id, organizationId, updatedAt',
+      repertoireItems: 'id, repertoireId, songId, position, updatedAt, [repertoireId+position], [repertoireId+songId]',
+    })
   }
 }
 
