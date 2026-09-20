@@ -44,7 +44,7 @@ describe('BandStageRealtime presence',()=>{
     const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
     await realtime.connect()
     client.channelRef.emitPresence({a:[{userId:'u1',displayName:'',musicalRole:'invalid'}],b:[{displayName:'missing'}]})
-    expect(onPresence).toHaveBeenLastCalledWith([{userId:'u1',displayName:'Participante',musicalRole:'other',isMd:false}])
+    expect(onPresence).toHaveBeenLastCalledWith([{userId:'u1',displayName:'Participante',musicalRole:'other',isMd:false,readiness:'waiting'}])
   })
   it('retracks after reconnect and ignores presence after teardown',async()=>{
     const client=makeClient(), onPresence=vi.fn(), realtime=new BandStageRealtime({client:client as unknown as SupabaseClient,sessionId:'s1',onPresence})
