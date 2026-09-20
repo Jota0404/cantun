@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { createTeam } from '../../application/teams/teamService'
 import { createOrganization } from '../../application/organizations/organizationService'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 import { teamRepository } from '../../db/repositories/teamRepository'
@@ -31,6 +32,12 @@ export function OrganizationPage() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  async function handleCreateTeam(organizationId: string) {
+    const teamName = window.prompt('Nome da equipe')
+    if (!teamName?.trim()) return
+    try { await createTeam(organizationId, teamName); await load() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a equipe.') }
+  }
 
   async function handleCreate() {
     if (!name.trim()) return
@@ -72,7 +79,7 @@ export function OrganizationPage() {
               <article key={organization.id} className="organization-item">
                 <div>
                   <h3>{organization.name}</h3>
-                  <p>{teams[organization.id]?.length ?? 0} equipe(s)</p>
+                  <p>{teams[organization.id]?.length ?? 0} equipe(s)</p><button type="button" onClick={() => void handleCreateTeam(organization.id)}>Criar equipe</button>
                 </div>
                 <div>
                   <Link to={teams[organization.id]?.[0] ? `/organizations/${organization.id}/teams/${teams[organization.id][0].id}` : `/organizations/${organization.id}`}>
