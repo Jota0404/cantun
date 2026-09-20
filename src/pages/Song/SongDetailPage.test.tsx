@@ -152,7 +152,7 @@ describe('SongDetailPage', () => {
     await waitFor(() => {
       expect(deleteSongMock).toHaveBeenCalledWith('song-1')
     })
-    expect(screen.getByText('Biblioteca atualizada')).toBeInTheDocument()
+    expect(await screen.findByText('Biblioteca atualizada')).toBeInTheDocument()
   })
 
   it('shows an error when deletion fails', async () => {
