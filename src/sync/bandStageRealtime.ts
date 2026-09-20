@@ -75,7 +75,11 @@ export class BandStageReconciler {
   private readonly seenEventIds = new Set<string>()
   private snapshotInFlight: Promise<BandStageSnapshot> | null = null
 
-  constructor(private readonly options: BandStageRealtimeOptions) {}
+  private readonly options: BandStageRealtimeOptions
+
+  constructor(options: BandStageRealtimeOptions) {
+    this.options = options
+  }
 
   get revision(): number {
     return this.currentRevision
@@ -125,9 +129,8 @@ export class BandStageReconciler {
         this.seenEventIds.add(event.eventId)
         return 'reconciled'
       }
-    }
 
-    this.currentRevision = event.revision
+      this.currentRevision = event.revision
     this.seenEventIds.add(event.eventId)
     this.options.onEvent?.(event)
 
@@ -203,7 +206,10 @@ export class BandStageRealtime {
   private presencePayload: BandStagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
-  constructor(private readonly options: BandStageRealtimeOptions) {
+  private readonly options: BandStageRealtimeOptions
+
+  constructor(options: BandStageRealtimeOptions) {
+    this.options = options
     this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
       config: { private: true, broadcast: { self: false, ack: true } },
     })
@@ -250,14 +256,30 @@ export class BandStageRealtime {
     return this.connecting
   }
 
+  private async subscribeChannel(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      let settled = false
+      const settle = (status: string) => {
+        if (settled) return
+        settled = true
+        if (status === 'SUBSCRIBED') resolve(status)
+        else reject(new Error(`Falha ao assinar sessão de palco: ${status}`))
+      }
+
+      const result = this.channel.subscribe((status) => settle(String(status)))
+      if (typeof result === 'string') settle(result)
+      else if (result && typeof (result as unknown as { then?: unknown }).then === 'function') {
+        void (result as unknown as Promise<unknown>).then((value) => {
+          if (typeof value === 'string') settle(value)
+        }).catch(reject)
+      }
+    })
+  }
+
   private async connectInternal(): Promise<BandStageSnapshot> {
     if (!this.subscribed) {
-      const status = await this.channel.subscribe()
+      const status = await this.subscribeChannel()
       this.options.onStatus?.(status)
-      if (status !== 'SUBSCRIBED') {
-        this.subscribed = false
-        throw new Error(`Falha ao assinar sessão de palco: ${status}`)
-      }
       this.subscribed = true
     }
 
