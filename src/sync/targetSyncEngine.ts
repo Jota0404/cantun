@@ -167,6 +167,17 @@ export class TargetSyncEngine {
           if (item.operation === 'delete') {
             const { error } = await this.client.from(table).delete().eq('id', item.entityId)
             if (error) throw error
+          } else if (item.entity === 'organizations') {
+            const row = toRemoteRow(item.entity, item.payload!)
+            const { data: existing, error: readError } = await this.client.from(table).select('id').eq('id', item.entityId).maybeSingle()
+            if (readError) throw readError
+            if (existing) {
+              const { error } = await this.client.from(table).update({ name: row.name, updated_at: row.updated_at }).eq('id', item.entityId)
+              if (error) throw error
+            } else {
+              const { error } = await this.client.rpc('create_organization', { p_id: item.entityId, p_name: row.name })
+              if (error) throw error
+            }
           } else {
             const { error } = await this.client.from(table).upsert(toRemoteRow(item.entity, item.payload!), { onConflict: 'id' })
             if (error) throw error
