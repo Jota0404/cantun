@@ -4,7 +4,7 @@ import { toMusicalRole } from '../../domain/bands/musicalRole'
 import { getLegacyBandOrganizationContext } from '../organizations/legacyBandBridgeService'
 
 type RpcClient = {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 function rows(data: unknown): Record<string, unknown>[] {
