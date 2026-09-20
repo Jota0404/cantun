@@ -178,3 +178,7 @@ Stage now has a target operational state owned by `StageSession`: `stage_session
 ### Target Stage route/application boundary (ADR-033)
 
 The user-facing Stage flow now starts from `Service -> StageSession`. The target route `/stage/service-session/:stageSessionId` resolves the target session and temporarily bridges into the stable legacy realtime/runtime route. `StageExecutionService` is the target-named application facade. This boundary intentionally preserves the legacy runtime until realtime, presence, commands and session identity can become target-native.
+
+### Target Stage realtime boundary (ADR-034)
+
+The next migration slice is target-native Stage transport. `StageSession.id` becomes the canonical realtime identity, `stage_session_states` becomes the authoritative state subscription, and a target Stage channel will progressively replace the legacy broadcast/Presence channel. Legacy realtime remains active until reconnect, revision-gap reconciliation, Presence/readiness, MD controls and musician views are fully covered by the target transport. No legacy Stage infrastructure is removed prematurely.
