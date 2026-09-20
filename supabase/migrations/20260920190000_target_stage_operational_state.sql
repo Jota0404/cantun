@@ -39,6 +39,10 @@ create policy "organization members can read stage session states"
 
 grant select on public.stage_session_states to authenticated;
 
+revoke all on function public.sync_target_stage_state(uuid, public.band_stage_states),
+  public.initialize_target_stage_state()
+from public, anon, authenticated;
+
 create or replace function public.sync_target_stage_state(
   p_stage_session_id uuid,
   p_legacy_state public.band_stage_states
