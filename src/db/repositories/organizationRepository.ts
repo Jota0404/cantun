@@ -16,7 +16,10 @@ export class OrganizationRepository {
 }
 
 export class OrganizationMembershipRepository {
-  constructor(private readonly db: SalmodiaDatabase = defaultDb) {}
+  private readonly db: SalmodiaDatabase
+  constructor(db: SalmodiaDatabase = defaultDb) {
+    this.db = db
+  }
   async create(value: OrganizationMembership) { await this.db.organizationMemberships.add(value); await queueTargetUpsert('organizationMemberships', value) }
   async getById(id: string) { return this.db.organizationMemberships.get(id) }
   async listByOrganizationId(organizationId: string) { return this.db.organizationMemberships.where('organizationId').equals(organizationId).toArray() }
