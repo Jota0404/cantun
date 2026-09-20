@@ -10,7 +10,7 @@ type RpcClient = {
   rpc(
     name: string,
     args: Record<string, unknown>,
-  ): Promise<{ data: unknown; error: { message: string } | null }>
+  ): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 function singleRow(data: unknown): Record<string, unknown> | null {
