@@ -11,7 +11,7 @@ const baseState = {
   isRunning: false,
   mdAnnotation: 'Entrar direto no refrão',
   updatedAt: '2026-09-08T22:00:00.000Z',
-} as const
+}
 
 const snapshot = (revision: number, overrides: Partial<typeof baseState> = {}) => ({
   session: {
