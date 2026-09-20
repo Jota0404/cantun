@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { repertoireRepository, repertoireItemRepository } from '../../db/repositories/repertoireRepository'
+import { repertoireRepository } from '../../db/repositories/repertoireRepository'
+import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
 import { songRepository } from '../../db/repositories/songRepository'
 import { addSongToRepertoire } from '../../application/repertoires/repertoireService'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
