@@ -173,3 +173,8 @@ Before coding it, audit the current Band persistence, invite flow, application s
 ### Stage operational state migration (ADR-032)
 
 Stage now has a target operational state owned by `StageSession`: `stage_session_states`. The target state resolves the active and prepared `ServiceItem`/canonical `Song`, while the existing BandStage RPC/realtime runtime remains an internal compatibility projection during migration. Target application commands mirror successful legacy state transitions into the target state; no legacy Stage runtime is deleted at this boundary.
+
+
+### Target Stage route/application boundary (ADR-033)
+
+The user-facing Stage flow now starts from `Service -> StageSession`. The target route `/stage/service-session/:stageSessionId` resolves the target session and temporarily bridges into the stable legacy realtime/runtime route. `StageExecutionService` is the target-named application facade. This boundary intentionally preserves the legacy runtime until realtime, presence, commands and session identity can become target-native.
