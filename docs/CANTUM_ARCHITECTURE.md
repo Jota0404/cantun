@@ -191,3 +191,8 @@ The primary `/repertoires` and `/repertoires/:repertoireId` routes now consume t
 ## Stage target-entry status
 
 The canonical Stage flow now has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). Legacy Stage routes remain as compatibility paths. The target StageSession identity is preserved at the application boundary; legacy execution remains an internal compatibility runtime until the remaining migration gates are cleared.
+
+
+### Legacy Setlist / standalone Stage boundary (ADR-036)
+
+Legacy `Setlist`/`SetlistSong` persistence and standalone Stage routes remain explicit compatibility infrastructure. They are no longer target-domain entry points and must not receive new target features. Repertoire is not mapped directly to operational Stage; the canonical execution path remains `Organization -> Service -> ServiceItems -> StageSession -> StageSessionState`. Removal is gated on consumer, sync, RPC, test, and offline/online migration validation.
