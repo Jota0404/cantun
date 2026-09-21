@@ -85,6 +85,7 @@ The current implementation now treats the target StageSession channel as the can
 - legacy Presence is retained only as a best-effort compatibility mirror;
 - target Stage broadcast events are published first;
 - legacy broadcast remains a compatibility mirror;
+- if target transport fails at runtime, the legacy transport is used as the fallback;
 - if the target channel cannot be subscribed, the legacy transport remains the fallback;
 - target operational state remains authoritative for reconciliation.
 
