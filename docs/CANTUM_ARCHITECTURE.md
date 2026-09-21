@@ -230,6 +230,11 @@ The local-first migration now explicitly separates canonical target stores from 
 The legacy stores are not deleted or cleared during migration. Removal requires all application, Supabase/RPC, sync, link/session and offline/online validation gates to be complete, with no remaining legacy local records and an empty `bandSyncQueue`. `src/db/legacyDexieCompatibility.ts` exposes this readiness state without performing destructive cleanup.
 
 
+
+### Direct target Stage execution (ADR-041)
+
+`StageExecutionService` now executes canonical Stage commands directly against the target Stage RPC surface using `StageSession.id`. Target snapshot/state normalization remains behind the existing Stage UI contract. The legacy `BandStageService` remains only at the realtime/compatibility boundary for the canonical route and is not used for target command execution. This is an incremental boundary: legacy realtime fallback remains until its dedicated migration gates are cleared.
+
 ### Target Stage offline persistence (ADR-042)
 
 Target Stage now participates in the local-first boundary through dedicated `stageSessions` and `stageSessionStates` Dexie stores. TargetSyncEngine pulls both entities; StageSession is writable/syncable, while StageSessionState remains a remote-authoritative operational projection and is therefore read-only from the local sync queue. Stage session lifecycle results are cached locally so an existing target session can be resolved during temporary connectivity loss.
