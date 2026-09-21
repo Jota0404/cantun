@@ -196,3 +196,8 @@ The canonical Stage flow now has target-keyed entries for both the MD/operator v
 ### Legacy Setlist / standalone Stage boundary (ADR-036)
 
 Legacy `Setlist`/`SetlistSong` persistence and standalone Stage routes remain explicit compatibility infrastructure. They are no longer target-domain entry points and must not receive new target features. Repertoire is not mapped directly to operational Stage; the canonical execution path remains `Organization -> Service -> ServiceItems -> StageSession -> StageSessionState`. Removal is gated on consumer, sync, RPC, test, and offline/online migration validation.
+
+
+### Target Service operational lifecycle (ADR-037)
+
+Service is now the operational preparation aggregate between Organization/Repertoire and Stage: `Organization -> Service -> ServiceItems -> Assignments -> StageSession`. Target application services support Service editing, ordered ServiceItems, Assignment lifecycle, and target Stage entry. ServiceItems reference canonical Songs and may retain an optional originating Repertoire. Legacy Setlist remains outside this flow.
