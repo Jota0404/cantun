@@ -1,24 +1,17 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import type { StageEvent, StageEventType, StageSnapshot } from '../domain/stage/stage'
-import { toStageSession, toStageSessionState } from '../domain/stage/bandStage'
+import { toStageSession, toStageSessionState } from '../domain/stage/stage'
 import type { BandStageParticipant, BandStagePresencePayload } from '../domain/stage/bandStagePresence'
 import { presenceStateToParticipants } from '../domain/stage/bandStagePresence'
 
 const EVENT_TYPES: readonly StageEventType[] = [
-  'stage.snapshot',
-  'stage.play',
-  'stage.pause',
-  'stage.next',
-  'stage.previous',
-  'stage.goto',
-  'stage.set-key',
-  'stage.annotation-updated',
-  'stage.session-ended',
-  'stage.md-changed',
+  'stage.snapshot','stage.play','stage.pause','stage.next','stage.previous',
+  'stage.goto','stage.set-key','stage.prepare-next','stage.clear-prepared',
+  'stage.annotation-updated','stage.session-ended','stage.md-changed',
 ]
 
-type SnapshotReason = 'initial' | 'event' | 'reconnect' | 'revision-gap'
 export type StageConnectionStatus = 'DISCONNECTED' | 'CONNECTING' | 'SUBSCRIBED' | 'RECONNECTING' | 'ERROR'
+type SnapshotReason = 'initial' | 'event' | 'reconnect' | 'revision-gap'
 
 export interface StageRealtimeOptions {
   client: SupabaseClient
@@ -31,14 +24,13 @@ export interface StageRealtimeOptions {
 }
 
 export function stageChannelName(sessionId: string): string {
-  return `band-stage:${sessionId}`
+  return `stage-session:${sessionId}:state`
 }
 
 function isStageEvent(value: unknown): value is StageEvent {
   if (!value || typeof value !== 'object') return false
   const event = value as Partial<StageEvent>
-  return (
-    typeof event.type === 'string' &&
+  return typeof event.type === 'string' &&
     EVENT_TYPES.includes(event.type as StageEventType) &&
     typeof event.sessionId === 'string' &&
     typeof event.revision === 'number' &&
@@ -48,7 +40,6 @@ function isStageEvent(value: unknown): value is StageEvent {
     typeof event.eventId === 'string' &&
     typeof event.sentAt === 'string' &&
     'payload' in event
-  )
 }
 
 export function createStageEvent<T>(input: {
@@ -58,11 +49,7 @@ export function createStageEvent<T>(input: {
   actorUserId: string
   payload: T
 }): StageEvent<T> {
-  return {
-    ...input,
-    eventId: crypto.randomUUID(),
-    sentAt: new Date().toISOString(),
-  }
+  return { ...input, eventId: crypto.randomUUID(), sentAt: new Date().toISOString() }
 }
 
 export async function publishStageEvent(channel: RealtimeChannel, event: StageEvent): Promise<void> {
@@ -70,151 +57,71 @@ export async function publishStageEvent(channel: RealtimeChannel, event: StageEv
   if (result !== 'ok') throw new Error(`Falha ao publicar evento de palco: ${result}`)
 }
 
-export class StageReconciler {
+class StageReconciler {
   private currentRevision = -1
   private readonly seenEventIds = new Set<string>()
   private snapshotInFlight: Promise<StageSnapshot> | null = null
 
-  private readonly options: StageRealtimeOptions
-
-  constructor(options: StageRealtimeOptions) {
-    this.options = options
-  }
-
-  private canonicalSessionId(): string {
-    return this.options.sessionId ?? this.options.sessionId
-  }
-
-  private normalizeSnapshot(snapshot: StageSnapshot): StageSnapshot {
-    const sessionId = this.canonicalSessionId()
-    return {
-      session: { ...snapshot.session, id: sessionId },
-      state: { ...snapshot.state, sessionId },
-    }
-  }
-
-  private normalizeEvent(event: StageEvent): StageEvent {
-    return this.options.targetSessionId && event.sessionId !== this.options.targetSessionId
-      ? { ...event, sessionId: this.options.targetSessionId }
-      : event
-  }
-
-  get revision(): number {
-    return this.currentRevision
-  }
-
-  reset(): void {
-    this.currentRevision = -1
-    this.seenEventIds.clear()
-    this.snapshotInFlight = null
-  }
-
-  async fetchSnapshot(): Promise<StageSnapshot> {
-    if (this.snapshotInFlight) return this.snapshotInFlight
-    this.snapshotInFlight = this.loadSnapshot().finally(() => {
-      this.snapshotInFlight = null
-    })
-    return this.snapshotInFlight
-  }
-
-  async reconcile(reason: SnapshotReason = 'reconnect'): Promise<StageSnapshot> {
-    const snapshot = await this.fetchSnapshot()
-    const normalizedSnapshot = this.normalizeSnapshot(snapshot)
-    if (normalizedSnapshot.session.id !== this.canonicalSessionId()) {
-      throw new Error('Snapshot de palco pertence a outra sessão.')
-    }
-    if (normalizedSnapshot.state.sessionId !== this.canonicalSessionId()) {
-      throw new Error('Estado de palco pertence a outra sessão.')
-    }
-
-    if (snapshot.state.revision >= this.currentRevision) {
-      this.currentRevision = snapshot.state.revision
-      this.options.onSnapshot?.(normalizedSnapshot, reason)
-    }
-    return normalizedSnapshot
-  }
-
-  async acceptEvent(event: StageEvent): Promise<'applied' | 'ignored' | 'reconciled'> {
-    const normalizedEvent = this.normalizeEvent(event)
-    if (normalizedEvent.sessionId !== this.canonicalSessionId()) return 'ignored'
-    if (this.seenEventIds.has(normalizedEvent.eventId)) return 'ignored'
-    if (normalizedEvent.revision <= this.currentRevision) {
-      this.seenEventIds.add(normalizedEvent.eventId)
-      return 'ignored'
-    }
-
-    let reconciled = false
-    if (normalizedEvent.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
-      reconciled = true
-      await this.reconcile('revision-gap')
-      if (normalizedEvent.revision <= this.currentRevision) {
-        this.seenEventIds.add(normalizedEvent.eventId)
-        return 'reconciled'
-      }
-    }
-
-    this.currentRevision = normalizedEvent.revision
-    this.seenEventIds.add(normalizedEvent.eventId)
-    this.options.onEvent?.(normalizedEvent)
-
-    if (normalizedEvent.type === 'stage.snapshot') {
-      const snapshot = parseSnapshotPayload(normalizedEvent.payload, this.canonicalSessionId())
-      if (snapshot && snapshot.session.id === this.canonicalSessionId() && snapshot.state.sessionId === this.canonicalSessionId()) {
-        if (snapshot.state.revision >= this.currentRevision) {
-          this.currentRevision = snapshot.state.revision
-          this.options.onSnapshot?.(snapshot, 'event')
-        }
-      }
-    }
-
-    return reconciled ? 'reconciled' : 'applied'
-  }
+  constructor(private readonly options: StageRealtimeOptions) {}
 
   private async loadSnapshot(): Promise<StageSnapshot> {
     const { data, error } = await this.options.client.rpc('get_target_stage_snapshot', {
-      p_stage_session_id: this.canonicalSessionId(),
+      p_stage_session_id: this.options.sessionId,
     })
     if (error) throw error
-    if (!data) throw new Error('Snapshot de palco não encontrado.')
-
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object') throw new Error('Snapshot de palco inválido.')
-
     const record = row as Record<string, unknown>
-    const session = isRowRecord(record.session) ? record.session : null
-    const state = isRowRecord(record.state) ? record.state : null
-    if (!session || !state) throw new Error('Snapshot de palco incompleto.')
-
+    if (!record.session || !record.state) throw new Error('Snapshot de palco incompleto.')
     return this.normalizeSnapshot({
-      session: toStageSession(session),
-      state: toStageSessionState(state),
+      session: toStageSession(record.session as Record<string, unknown>),
+      state: toStageSessionState(record.state as Record<string, unknown>),
     })
   }
-}
 
-function isRowRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
-}
-
-function parseSnapshotPayload(payload: unknown, canonicalSessionId: string): StageSnapshot | null {
-  if (!payload || typeof payload !== 'object') return null
-  const value = payload as { session?: Record<string, unknown>; state?: Record<string, unknown> }
-  if (!value.session || !value.state) return null
-  try {
-    const snapshot = { session: toStageSession(value.session), state: toStageSessionState(value.state) }
+  private normalizeSnapshot(snapshot: StageSnapshot): StageSnapshot {
     return {
-      session: { ...snapshot.session, id: canonicalSessionId },
-      state: { ...snapshot.state, sessionId: canonicalSessionId },
+      session: { ...snapshot.session, id: this.options.sessionId },
+      state: { ...snapshot.state, stageSessionId: this.options.sessionId },
     }
-  } catch {
-    return null
   }
+
+  async reconcile(reason: SnapshotReason): Promise<StageSnapshot> {
+    if (this.snapshotInFlight) return this.snapshotInFlight
+    this.snapshotInFlight = this.loadSnapshot().finally(() => { this.snapshotInFlight = null })
+    const snapshot = await this.snapshotInFlight
+    if (snapshot.session.id !== this.options.sessionId || snapshot.state.stageSessionId !== this.options.sessionId) {
+      throw new Error('Snapshot de palco pertence a outra sessão.')
+    }
+    if (snapshot.state.revision >= this.currentRevision) {
+      this.currentRevision = snapshot.state.revision
+      this.options.onSnapshot?.(snapshot, reason)
+    }
+    return snapshot
+  }
+
+  async acceptEvent(event: StageEvent): Promise<void> {
+    if (event.sessionId !== this.options.sessionId) return
+    if (this.seenEventIds.has(event.eventId) || event.revision <= this.currentRevision) return
+    if (event.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
+      await this.reconcile('revision-gap')
+      if (event.revision <= this.currentRevision) {
+        this.seenEventIds.add(event.eventId)
+        return
+      }
+    }
+    this.currentRevision = event.revision
+    this.seenEventIds.add(event.eventId)
+    this.options.onEvent?.(event)
+    if (event.type === 'stage.snapshot') await this.reconcile('event')
+  }
+
+  get revision(): number { return this.currentRevision }
+  reset(): void { this.currentRevision = -1; this.seenEventIds.clear(); this.snapshotInFlight = null }
 }
 
 export class StageRealtime {
   private readonly channel: RealtimeChannel
-  private targetChannel: RealtimeChannel | null = null
-  private targetSubscribed = false
   private readonly reconciler: StageReconciler
   private subscribed = false
   private connecting: Promise<StageSnapshot> | null = null
@@ -224,190 +131,72 @@ export class StageRealtime {
   private presencePayload: BandStagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
-  private readonly options: StageRealtimeOptions
-
-  constructor(options: StageRealtimeOptions) {
-    this.options = options
-    this.channel = options.client.channel(`stage-session:${options.sessionId}:state`,
-      { config: { private: true, broadcast: { self: false, ack: true } } },
-    )
+  constructor(private readonly options: StageRealtimeOptions) {
+    this.channel = options.client.channel(stageChannelName(options.sessionId), {
+      config: { private: true, broadcast: { self: false, ack: true } },
+    })
     this.reconciler = new StageReconciler(options)
-    this.channel.on('presence', { event: 'sync' }, () => {
-      if (this.disposed) return
-      this.emitPresence()
-    })
-    this.channel.on('presence', { event: 'join' }, () => {
-      if (this.disposed) return
-      this.emitPresence()
-    })
-    this.channel.on('presence', { event: 'leave' }, () => {
-      if (this.disposed) return
-      this.emitPresence()
-    })
+    this.channel.on('presence', { event: 'sync' }, () => this.emitPresence())
+    this.channel.on('presence', { event: 'join' }, () => this.emitPresence())
+    this.channel.on('presence', { event: 'leave' }, () => this.emitPresence())
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload) || this.disposed) return
-      void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
-        void this.refresh().catch(() => undefined)
-      })
+      void this.reconciler.acceptEvent(payload).catch(() => { void this.refresh().catch(() => undefined) })
     })
-
-    if (options.targetOnly && options.targetSessionId) {
-      this.channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'stage_session_states',
-          filter: `stage_session_id=eq.${options.targetSessionId}`,
-        },
-        () => {
-          if (this.disposed) return
-          void this.reconciler.reconcile('event').catch(() => undefined)
-        },
-      )
-    }
-
-    if (options.targetSessionId && !options.targetOnly) {
-      this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
-        config: { private: true },
-      })
-      this.targetChannel.on('presence', { event: 'sync' }, () => {
-        if (this.disposed) return
-        this.emitTargetPresence()
-      })
-      this.targetChannel.on('presence', { event: 'join' }, () => {
-        if (this.disposed) return
-        this.emitTargetPresence()
-      })
-      this.targetChannel.on('presence', { event: 'leave' }, () => {
-        if (this.disposed) return
-        this.emitTargetPresence()
-      })
-      this.targetChannel.on('broadcast', { event: '*' }, ({ payload }) => {
-        if (!isStageEvent(payload) || this.disposed) return
-        void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
-          void this.refresh().catch(() => undefined)
-        })
-      })
-      this.targetChannel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'stage_session_states',
-          filter: `stage_session_id=eq.${options.targetSessionId}`,
-        },
-        () => {
-          if (this.disposed) return
-          void this.reconciler.reconcile('event').catch(() => undefined)
-        },
-      )
-    }
+    this.channel.on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'stage_session_states',
+      filter: `stage_session_id=eq.${options.sessionId}`,
+    }, () => {
+      if (!this.disposed) void this.reconciler.reconcile('event').catch(() => undefined)
+    })
   }
 
-  private normalizeInboundEvent(event: StageEvent): StageEvent {
-    return this.options.targetSessionId
-      ? { ...event, sessionId: this.options.targetSessionId }
-      : event
-  }
-
-  get revision(): number {
-    return this.reconciler.revision
-  }
-
-  get status(): StageConnectionStatus {
-    return this.connectionStatus
-  }
+  get revision(): number { return this.reconciler.revision }
+  get status(): StageConnectionStatus { return this.connectionStatus }
 
   async connect(): Promise<StageSnapshot> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (this.connecting) return this.connecting
-
     this.setConnectionStatus(this.subscribed ? 'SUBSCRIBED' : 'CONNECTING')
     this.connecting = this.connectInternal().catch((error) => {
-      this.setConnectionStatus('ERROR')
-      throw error
-    }).finally(() => {
-      this.connecting = null
-    })
+      this.setConnectionStatus('ERROR'); throw error
+    }).finally(() => { this.connecting = null })
     return this.connecting
-  }
-
-  private async subscribeChannel(): Promise<string> {
-    return this.subscribeChannelFor(this.channel)
-  }
-
-  private async subscribeChannelFor(channel: RealtimeChannel): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-      let settled = false
-      const settle = (status: string) => {
-        if (settled) return
-        settled = true
-        if (status === 'SUBSCRIBED') resolve(status)
-        else reject(new Error(`Falha ao assinar sessão de palco: ${status}`))
-      }
-
-      const result = channel.subscribe((status) => settle(String(status)))
-      if (typeof result === 'string') settle(result)
-      else if (result && typeof (result as unknown as { then?: unknown }).then === 'function') {
-        void (result as unknown as Promise<unknown>).then((value) => {
-          if (typeof value === 'string') settle(value)
-        }).catch(reject)
-      }
-    })
   }
 
   private async connectInternal(): Promise<StageSnapshot> {
     if (!this.subscribed) {
-      const status = await this.subscribeChannel()
-      this.options.onStatus?.(status)
+      const status = await new Promise<string>((resolve, reject) => {
+        const result = this.channel.subscribe((value) => {
+          const status = String(value)
+          if (status === 'SUBSCRIBED') resolve(status)
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') reject(new Error(`Falha ao assinar sessão de palco: ${status}`))
+        })
+        if (typeof result === 'string' && result === 'SUBSCRIBED') resolve(result)
+      })
       this.subscribed = true
-      if (this.targetChannel) {
-        try {
-          const targetStatus = await this.subscribeChannelFor(this.targetChannel)
-          this.targetSubscribed = true
-          this.options.onStatus?.(`TARGET_${targetStatus}`)
-        } catch {
-          this.targetSubscribed = false
-          this.options.onStatus?.('TARGET_ERROR')
-        }
-      }
+      this.options.onStatus?.(status)
     }
-
     this.setConnectionStatus('SUBSCRIBED')
     const snapshot = await this.reconciler.reconcile('initial')
-    this.lastSnapshotMdUserId = snapshot.session.mdUserId
+    this.lastSnapshotMdUserId = snapshot.session.mdUserId ?? null
     if (this.presencePayload && snapshot.session.status !== 'ended') await this.trackPresenceInternal(this.presencePayload)
-    if (snapshot.session.status === 'ended') await this.channel.untrack().catch(() => undefined)
     return snapshot
   }
 
   async reconnect(): Promise<StageSnapshot> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (this.reconnecting) return this.reconnecting
-
-    this.reconnecting = this.reconnectInternal().catch((error) => {
-      this.setConnectionStatus('ERROR')
-      throw error
-    }).finally(() => {
-      this.reconnecting = null
-    })
-    return this.reconnecting
-  }
-
-  private async reconnectInternal(): Promise<StageSnapshot> {
-    this.setConnectionStatus('RECONNECTING')
-    this.reconciler.reset()
-
-    if (this.subscribed) {
-      const status = await this.channel.unsubscribe()
-      if (this.targetChannel) await this.targetChannel.unsubscribe()
-      this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
+    this.reconnecting = (async () => {
+      this.setConnectionStatus('RECONNECTING')
+      this.reconciler.reset()
+      if (this.subscribed) await this.channel.unsubscribe()
       this.subscribed = false
-      this.targetSubscribed = false
-    }
-
-    return this.connect()
+      return this.connect()
+    })().catch((error) => { this.setConnectionStatus('ERROR'); throw error }).finally(() => { this.reconnecting = null })
+    return this.reconnecting
   }
 
   async refresh(): Promise<StageSnapshot> {
@@ -418,25 +207,11 @@ export class StageRealtime {
   async trackPresence(payload: BandStagePresencePayload): Promise<void> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
-    if (this.lastSnapshotMdUserId === null) throw new Error('Snapshot de palco ainda não foi carregado.')
     this.presencePayload = payload
     await this.trackPresenceInternal(payload)
   }
 
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
-    if (this.targetChannel && this.targetSubscribed) {
-      try {
-        const targetResult = await this.targetChannel.track(payload)
-        if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
-        this.emitTargetPresence()
-        // Legacy Presence remains a compatibility mirror.
-        await this.channel.track(payload).catch(() => undefined)
-        return
-      } catch {
-        // Fall back to legacy transport if the target channel is temporarily unavailable.
-        this.targetSubscribed = false
-      }
-    }
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
     this.emitPresence()
@@ -448,35 +223,10 @@ export class StageRealtime {
     this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
   }
 
-  private emitTargetPresence(): void {
-    if (this.disposed || !this.targetChannel) return
-    const state = this.targetChannel.presenceState() as Record<string, unknown>
-    this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
-  }
-
   async publish(event: StageEvent): Promise<void> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
-    try {
-      if (this.targetChannel && this.targetSubscribed) {
-        try {
-          const targetEvent = this.options.targetSessionId
-            ? { ...event, sessionId: this.options.targetSessionId }
-            : event
-          await publishStageEvent(this.targetChannel, targetEvent)
-          // Keep legacy broadcast as an additive compatibility mirror.
-          await publishStageEvent(this.channel, event).catch(() => undefined)
-          return
-        } catch {
-          // Target transport failed; use the legacy channel as the compatibility fallback.
-          this.targetSubscribed = false
-        }
-      }
-      await publishStageEvent(this.channel, event)
-    } catch (error) {
-      this.setConnectionStatus('ERROR')
-      throw error
-    }
+    await publishStageEvent(this.channel, event)
   }
 
   async disconnect(): Promise<void> {
@@ -486,10 +236,8 @@ export class StageRealtime {
     this.presencePayload = null
     this.lastSnapshotMdUserId = null
     this.subscribed = false
-    this.targetSubscribed = false
     this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
-    if (this.targetChannel) await this.targetChannel.unsubscribe()
   }
 
   private setConnectionStatus(status: StageConnectionStatus): void {
