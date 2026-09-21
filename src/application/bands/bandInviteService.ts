@@ -1,5 +1,15 @@
 import type { BandInvite, BandInviteRole, BandInviteStatus } from '../../domain/bands/bandInvite'
 import type { BandMemberRole } from '../../domain/bands/bandMember'
+import { getLegacyBandOrganizationContext } from '../organizations/legacyBandBridgeService'
+import {
+  acceptOrganizationInvite,
+  createOrganizationInvite,
+  getOrganizationInvite,
+  listOrganizationInvites,
+  revokeOrganizationInvite,
+  updateOrganizationMemberRole,
+  removeOrganizationMember,
+} from '../organizations/organizationInviteService'
 import { supabase } from '../../lib/supabase'
 
 export interface CreatedBandInvite extends BandInvite { token: string }
@@ -10,12 +20,12 @@ function requireSupabase() {
   return supabase
 }
 
-function mapInvite(row: Record<string, unknown>): BandInvite {
+function mapInvite(row: Record<string, unknown>, bandId: string): BandInvite {
   return {
     id: row.id as string,
-    bandId: row.band_id as string,
+    bandId,
     invitedByUserId: row.invited_by_user_id as string,
-    role: row.role as BandInviteRole,
+    role: row.role === 'admin' ? 'editor' : row.role as BandInviteRole,
     inviteeEmail: (row.invitee_email as string | null) ?? undefined,
     createdAt: row.created_at as string,
     expiresAt: row.expires_at as string,
@@ -26,48 +36,79 @@ function mapInvite(row: Record<string, unknown>): BandInvite {
 }
 
 export async function createBandInvite(bandId: string, role: BandInviteRole, inviteeEmail?: string): Promise<CreatedBandInvite> {
-  const { data, error } = await requireSupabase().rpc('create_band_invite', { p_band_id: bandId, p_role: role, p_invitee_email: inviteeEmail?.trim() || null, p_expires_in_hours: 168 })
-  if (error) throw error
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) throw new Error('Convite não foi criado.')
-  return { ...mapInvite(row), token: row.token as string }
+  const context = await getLegacyBandOrganizationContext(bandId)
+  if (!context) throw new Error('Não foi possível localizar a organização da banda.')
+  const created = await createOrganizationInvite(
+    context.organizationId,
+    context.teamId,
+    role === 'editor' ? 'admin' : 'member',
+    inviteeEmail,
+  )
+  return {
+    ...mapInvite(created as unknown as Record<string, unknown>, bandId),
+    token: created.token,
+  }
 }
 
 export async function getBandInvite(token: string): Promise<BandInvitePreview | null> {
-  const { data, error } = await requireSupabase().rpc('get_band_invite', { p_token: token })
-  if (error) throw error
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) return null
-  return { ...mapInvite(row), bandName: row.band_name as string, status: row.status as BandInviteStatus }
+  const invite = await getOrganizationInvite(token)
+  if (!invite) return null
+  const context = await getLegacyBandOrganizationContext(invite.organizationId)
+  if (!context) return null
+  return {
+    ...mapInvite(invite as unknown as Record<string, unknown>, context.bandId),
+    bandName: invite.organizationName,
+    status: invite.status,
+  }
 }
 
 export async function acceptBandInvite(token: string) {
-  const { data, error } = await requireSupabase().rpc('accept_band_invite', { p_token: token })
-  if (error) throw error
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) throw new Error('O convite não pôde ser aceito.')
-  return { bandId: row.band_id as string, bandName: row.band_name as string, role: row.role as BandInviteRole, membershipId: row.membership_id as string, alreadyMember: Boolean(row.already_member) }
+  const result = await acceptOrganizationInvite(token)
+  const context = await getLegacyBandOrganizationContext(result.organizationId)
+  if (!context) throw new Error('Organização aceita, mas a ponte da banda não foi encontrada.')
+  return {
+    bandId: context.bandId,
+    organizationId: context.organizationId,
+    teamId: context.teamId,
+    bandName: result.organizationName,
+    role: (result.role === 'admin' ? 'editor' : 'member') as BandInviteRole,
+    membershipId: result.organizationMembershipId,
+    alreadyMember: result.alreadyOrganizationMember,
+  }
 }
 
 export async function listBandInvites(bandId: string): Promise<Array<BandInvite & { status: BandInviteStatus }>> {
-  const { data, error } = await requireSupabase().from('band_invites').select('*').eq('band_id', bandId).order('created_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []).map((row) => ({ ...mapInvite(row), status: row.revoked_at ? 'revoked' : row.accepted_at ? 'accepted' : new Date(row.expires_at).getTime() <= Date.now() ? 'expired' : 'pending' }))
+  const context = await getLegacyBandOrganizationContext(bandId)
+  if (!context) return []
+  const invites = await listOrganizationInvites(context.organizationId)
+  return invites.map((invite) => ({
+    ...mapInvite(invite as unknown as Record<string, unknown>, bandId),
+    status: invite.status,
+  }))
 }
 
 export async function revokeBandInvite(inviteId: string) {
-  const { error } = await requireSupabase().rpc('revoke_band_invite', { p_invite_id: inviteId })
+  await revokeOrganizationInvite(inviteId)
+}
+
+async function getOrganizationMembershipId(bandMemberId: string) {
+  const { data, error } = await requireSupabase().rpc('get_band_member_organization_membership', {
+    p_band_member_id: bandMemberId,
+  })
   if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('Não foi possível localizar a associação do membro.')
+  return row.organization_membership_id as string
 }
 
 export async function updateBandMemberRole(memberId: string, role: Exclude<BandMemberRole, 'owner'>) {
-  const { error } = await requireSupabase().rpc('update_band_member_role', { p_member_id: memberId, p_role: role })
-  if (error) throw error
+  const membershipId = await getOrganizationMembershipId(memberId)
+  await updateOrganizationMemberRole(membershipId, role === 'editor' ? 'admin' : 'member')
 }
 
 export async function removeBandMember(memberId: string) {
-  const { error } = await requireSupabase().rpc('remove_band_member', { p_member_id: memberId })
-  if (error) throw error
+  const membershipId = await getOrganizationMembershipId(memberId)
+  await removeOrganizationMember(membershipId)
 }
 
 export function buildBandInviteUrl(token: string) {

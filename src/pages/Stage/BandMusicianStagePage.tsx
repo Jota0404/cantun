@@ -4,8 +4,9 @@ import { useAuth } from '../../auth/authContext'
 import { BandStageService } from '../../application/stage/bandStageService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
-import { getMyBandStageExperience, getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
+import { getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
+import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
@@ -14,6 +15,9 @@ import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/tra
 import './BandMusicianStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
+
+type BandMusicianStagePageProps = {
+}
 
 export function BandMusicianStagePage() {
   const { sessionId = '' } = useParams<{ sessionId: string }>()
@@ -67,11 +71,13 @@ export function BandMusicianStagePage() {
             displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
             isMd: initial.session.mdUserId === user.id,
+            readiness: 'waiting',
           })
         }
-        const roleExperience = await getMyBandStageExperience(initial.session.bandId)
+        const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
+        const roleExperience = getMusicalRoleStageExperience(nextMusicalRole)
         if (!cancelled) {
-          setMusicalRole(loadedSongs[0]?.musicalRole ?? 'other')
+          setMusicalRole(nextMusicalRole)
           setFontSize(roleExperience.fontSize)
           setReadMode(roleExperience.readMode)
         }
@@ -111,7 +117,7 @@ export function BandMusicianStagePage() {
   const experience = getMusicalRoleStageExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
-    const key = executionState?.currentKey ?? activeSong.currentKey
+    const key = (executionState?.currentKey ?? activeSong.currentKey) as MusicalKey
     const semitones = getSemitoneDistance(activeSong.originalKey, key)
     return transposeSongLyrics(activeSong.lyrics, semitones, key)
   }, [activeSong, executionState?.currentKey])
@@ -122,7 +128,7 @@ export function BandMusicianStagePage() {
 
   return (
     <main className="band-musician-stage" data-musical-role={musicalRole} style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}>
-      <header className="band-musician-stage__header"><div><Link to="/bands">← Bandas</Link><span className="band-musician-stage__kicker">MODO BANDA · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-musician-stage__session"><span className={`band-musician-stage__status band-musician-stage__status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{status}</span><button type="button" onClick={() => void refresh()}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
+      <header className="band-musician-stage__header"><div><Link to="/organizations">← Organizações</Link><span className="band-musician-stage__kicker">MODO BANDA · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-musician-stage__session"><span className={`band-musician-stage__status band-musician-stage__status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{status}</span><button type="button" onClick={() => void refresh()}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
       <section className="band-musician-stage__presence" aria-label="Estado da execução"><span>Função: {experience.accentLabel}</span><span>Revisão {executionState.revision}</span><span>Execução: {executionState.status === 'running' ? 'ativa' : executionState.status === 'paused' ? 'pausada' : executionState.status === 'lobby' ? 'aguardando início' : 'encerrada'}</span><span>Somente leitura</span></section>
       <BandStagePresencePanel participants={participants} />
       {executionState.mdAnnotation && <aside className="band-musician-stage__annotation"><strong>Nota do MD</strong><p>{executionState.mdAnnotation}</p></aside>}

@@ -31,6 +31,24 @@ const snapshot = (revision: number) => ({
   },
 })
 
+  it('normalizes legacy-compatible events to the target StageSession identity', async () => {
+    const client = makeClient(8)
+    const events: string[] = []
+    const reconciler = new BandStageReconciler({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+      onEvent: (event) => events.push(event.sessionId),
+    })
+
+    await reconciler.reconcile('initial')
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await reconciler.acceptEvent(event)
+
+    expect(events).toEqual(['ts1'])
+    expect(reconciler.revision).toBe(9)
+  })
+
 function makeClient(revision = 7): FakeClient {
   const channels: FakeChannel[] = []
   const rpc = vi.fn(async () => ({
@@ -55,6 +73,8 @@ function makeChannel() {
     subscribe: vi.fn(async () => 'SUBSCRIBED'),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
+    track: vi.fn(async () => 'ok'),
+    presenceState: vi.fn(() => ({})),
     emit: (payload: unknown) => callback?.({ payload }),
   }
   return value
@@ -65,6 +85,51 @@ function createRealtime(client: FakeClient, onStatus?: (value: string) => void) 
 }
 
 describe('BandStageRealtime entry/reconnect', () => {
+  it('subscribes to target StageSession state when a target session is provided', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+
+    expect(client.channel).toHaveBeenCalledTimes(2)
+    expect(client.rpc).toHaveBeenCalledWith('get_target_stage_snapshot', { p_stage_session_id: 'ts1' })
+    expect(client.channels[1].on).toHaveBeenCalledWith(
+      'postgres_changes',
+      expect.objectContaining({
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'stage_session_states',
+        filter: 'stage_session_id=eq.ts1',
+      }),
+      expect.any(Function),
+    )
+    expect(client.channels[1].subscribe).toHaveBeenCalledTimes(1)
+    const snapshot = await realtime.refresh()
+    expect(snapshot.session.id).toBe('ts1')
+    expect(snapshot.state.sessionId).toBe('ts1')
+  })
+
+  it('subscribes to stage events on the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+
+    expect(client.channels[1].on).toHaveBeenCalledWith(
+      'broadcast',
+      { event: '*' },
+      expect.any(Function),
+    )
+  })
+
   it('subscribes before fetching the authoritative snapshot', async () => {
     const client = makeClient(7)
     const statuses: string[] = []
@@ -77,6 +142,86 @@ describe('BandStageRealtime entry/reconnect', () => {
     expect(client.channels[0].subscribe).toHaveBeenCalledTimes(1)
     expect(client.rpc).toHaveBeenCalledTimes(1)
     expect(statuses).toEqual(['SUBSCRIBED'])
+  })
+
+  it('mirrors presence to the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+      onPresence: vi.fn(),
+    })
+
+    await realtime.connect()
+    await realtime.trackPresence({
+      userId: 'u1',
+      displayName: 'Músico',
+      musicalRole: 'vocals',
+      isMd: false,
+      readiness: 'ready',
+    })
+
+    expect(client.channels[0].track).toHaveBeenCalledTimes(1)
+    expect(client.channels[1].track).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1',
+      readiness: 'ready',
+    }))
+  })
+
+  it('falls back to legacy presence when target presence fails', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    client.channels[1].track.mockRejectedValueOnce(new Error('target unavailable'))
+
+    await realtime.trackPresence({
+      userId: 'u1',
+      displayName: 'Músico',
+      musicalRole: 'vocals',
+      isMd: false,
+      readiness: 'ready',
+    })
+
+    expect(client.channels[0].track).toHaveBeenCalled()
+  })
+
+  it('mirrors stage events to the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await realtime.publish(event)
+
+    expect(client.channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
+    expect(client.channels[1].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: expect.objectContaining({ ...event, sessionId: 'ts1' }) }))
+  })
+
+  it('falls back to the legacy transport when target broadcast fails', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    client.channels[1].send.mockRejectedValueOnce(new Error('target unavailable'))
+
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await realtime.publish(event)
+
+    expect(client.channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
   })
 
   it('reconnects from a clean revision after a dropped connection', async () => {

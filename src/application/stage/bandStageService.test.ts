@@ -40,11 +40,11 @@ describe('BandStageService', () => {
     await service.connect('s1')
     const result = await service.next('s1')
 
-    expect(client.calls).toEqual(['get_band_stage_snapshot', 'band_stage_next', 'get_band_stage_snapshot'])
+    expect(client.calls).toEqual(['get_stage_session_by_legacy_id', 'get_band_stage_snapshot', 'band_stage_next', 'get_band_stage_snapshot'])
     expect(result.state.revision).toBe(1)
     expect(result.event.revision).toBe(1)
     expect(publish).toHaveBeenCalledOnce()
-    expect(publish.mock.calls[0][0].type).toBe('stage.next')
+    expect(publish).toHaveBeenCalledWith(expect.objectContaining({ type: 'stage.next' }))
   })
 
   it('does not enqueue stage commands in the generic sync queue', async () => {
@@ -63,6 +63,7 @@ describe('BandStageService', () => {
     await service.connect('s1')
     await service.play('s1')
 
+    expect(client.calls).toContain('get_stage_session_by_legacy_id')
     expect(client.calls).toContain('band_stage_play')
     expect(client.calls).not.toContain('band_sync')
   })

@@ -28,6 +28,8 @@ export interface BandStageRealtimeOptions {
   onStatus?: (status: string) => void
   onConnectionStatus?: (status: BandStageConnectionStatus) => void
   onPresence?: (participants: BandStageParticipant[]) => void
+  targetSessionId?: string
+  targetOnly?: boolean
 }
 
 export function bandStageChannelName(sessionId: string): string {
@@ -75,7 +77,29 @@ export class BandStageReconciler {
   private readonly seenEventIds = new Set<string>()
   private snapshotInFlight: Promise<BandStageSnapshot> | null = null
 
-  constructor(private readonly options: BandStageRealtimeOptions) {}
+  private readonly options: BandStageRealtimeOptions
+
+  constructor(options: BandStageRealtimeOptions) {
+    this.options = options
+  }
+
+  private canonicalSessionId(): string {
+    return this.options.targetSessionId ?? this.options.sessionId
+  }
+
+  private normalizeSnapshot(snapshot: BandStageSnapshot): BandStageSnapshot {
+    const sessionId = this.canonicalSessionId()
+    return {
+      session: { ...snapshot.session, id: sessionId },
+      state: { ...snapshot.state, sessionId },
+    }
+  }
+
+  private normalizeEvent(event: BandStageEvent): BandStageEvent {
+    return this.options.targetSessionId && event.sessionId !== this.options.targetSessionId
+      ? { ...event, sessionId: this.options.targetSessionId }
+      : event
+  }
 
   get revision(): number {
     return this.currentRevision
@@ -97,43 +121,47 @@ export class BandStageReconciler {
 
   async reconcile(reason: SnapshotReason = 'reconnect'): Promise<BandStageSnapshot> {
     const snapshot = await this.fetchSnapshot()
-    if (snapshot.session.id !== this.options.sessionId) {
+    const normalizedSnapshot = this.normalizeSnapshot(snapshot)
+    if (normalizedSnapshot.session.id !== this.canonicalSessionId()) {
       throw new Error('Snapshot de palco pertence a outra sessão.')
     }
-    if (snapshot.state.sessionId !== this.options.sessionId) {
+    if (normalizedSnapshot.state.sessionId !== this.canonicalSessionId()) {
       throw new Error('Estado de palco pertence a outra sessão.')
     }
 
     if (snapshot.state.revision >= this.currentRevision) {
       this.currentRevision = snapshot.state.revision
-      this.options.onSnapshot?.(snapshot, reason)
+      this.options.onSnapshot?.(normalizedSnapshot, reason)
     }
-    return snapshot
+    return normalizedSnapshot
   }
 
   async acceptEvent(event: BandStageEvent): Promise<'applied' | 'ignored' | 'reconciled'> {
-    if (event.sessionId !== this.options.sessionId) return 'ignored'
-    if (this.seenEventIds.has(event.eventId)) return 'ignored'
-    if (event.revision <= this.currentRevision) {
-      this.seenEventIds.add(event.eventId)
+    const normalizedEvent = this.normalizeEvent(event)
+    if (normalizedEvent.sessionId !== this.canonicalSessionId()) return 'ignored'
+    if (this.seenEventIds.has(normalizedEvent.eventId)) return 'ignored'
+    if (normalizedEvent.revision <= this.currentRevision) {
+      this.seenEventIds.add(normalizedEvent.eventId)
       return 'ignored'
     }
 
-    if (event.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
+    let reconciled = false
+    if (normalizedEvent.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
+      reconciled = true
       await this.reconcile('revision-gap')
-      if (event.revision <= this.currentRevision) {
-        this.seenEventIds.add(event.eventId)
+      if (normalizedEvent.revision <= this.currentRevision) {
+        this.seenEventIds.add(normalizedEvent.eventId)
         return 'reconciled'
       }
     }
 
-    this.currentRevision = event.revision
-    this.seenEventIds.add(event.eventId)
-    this.options.onEvent?.(event)
+    this.currentRevision = normalizedEvent.revision
+    this.seenEventIds.add(normalizedEvent.eventId)
+    this.options.onEvent?.(normalizedEvent)
 
-    if (event.type === 'stage.snapshot') {
-      const snapshot = parseSnapshotPayload(event.payload)
-      if (snapshot && snapshot.session.id === this.options.sessionId && snapshot.state.sessionId === this.options.sessionId) {
+    if (normalizedEvent.type === 'stage.snapshot') {
+      const snapshot = parseSnapshotPayload(normalizedEvent.payload, this.canonicalSessionId())
+      if (snapshot && snapshot.session.id === this.canonicalSessionId() && snapshot.state.sessionId === this.canonicalSessionId()) {
         if (snapshot.state.revision >= this.currentRevision) {
           this.currentRevision = snapshot.state.revision
           this.options.onSnapshot?.(snapshot, 'event')
@@ -141,13 +169,30 @@ export class BandStageReconciler {
       }
     }
 
-    return 'applied'
+    return reconciled ? 'reconciled' : 'applied'
   }
 
   private async loadSnapshot(): Promise<BandStageSnapshot> {
-    const { data, error } = await this.options.client.rpc('get_band_stage_snapshot', {
-      p_session_id: this.options.sessionId,
-    })
+    let data: unknown = null
+    let error: { message?: string } | null = null
+
+    const { data: targetData, error: targetError } = await this.options.client.rpc(
+      this.options.targetSessionId ? 'get_target_stage_snapshot' : 'get_target_stage_snapshot_by_legacy_id',
+      this.options.targetSessionId
+        ? { p_stage_session_id: this.options.targetSessionId }
+        : { p_legacy_session_id: this.options.sessionId },
+    )
+
+    if (!targetError && targetData) {
+      data = targetData
+    } else {
+      const legacy = await this.options.client.rpc('get_band_stage_snapshot', {
+        p_session_id: this.options.sessionId,
+      })
+      data = legacy.data
+      error = legacy.error
+    }
+
     if (error) throw error
     if (!data) throw new Error('Snapshot de palco não encontrado.')
 
@@ -159,7 +204,7 @@ export class BandStageReconciler {
     const state = isRowRecord(record.state) ? record.state : null
     if (!session || !state) throw new Error('Snapshot de palco incompleto.')
 
-    return { session: toBandStageSession(session), state: toBandStageState(state) }
+    return this.normalizeSnapshot({ session: toBandStageSession(session), state: toBandStageState(state) })
   }
 }
 
@@ -167,12 +212,16 @@ function isRowRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
+function parseSnapshotPayload(payload: unknown, canonicalSessionId: string): BandStageSnapshot | null {
   if (!payload || typeof payload !== 'object') return null
   const value = payload as { session?: Record<string, unknown>; state?: Record<string, unknown> }
   if (!value.session || !value.state) return null
   try {
-    return { session: toBandStageSession(value.session), state: toBandStageState(value.state) }
+    const snapshot = { session: toBandStageSession(value.session), state: toBandStageState(value.state) }
+    return {
+      session: { ...snapshot.session, id: canonicalSessionId },
+      state: { ...snapshot.state, sessionId: canonicalSessionId },
+    }
   } catch {
     return null
   }
@@ -180,6 +229,8 @@ function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
 
 export class BandStageRealtime {
   private readonly channel: RealtimeChannel
+  private targetChannel: RealtimeChannel | null = null
+  private targetSubscribed = false
   private readonly reconciler: BandStageReconciler
   private subscribed = false
   private connecting: Promise<BandStageSnapshot> | null = null
@@ -189,10 +240,15 @@ export class BandStageRealtime {
   private presencePayload: BandStagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
-  constructor(private readonly options: BandStageRealtimeOptions) {
-    this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
-      config: { private: true, broadcast: { self: false, ack: true } },
-    })
+  private readonly options: BandStageRealtimeOptions
+
+  constructor(options: BandStageRealtimeOptions) {
+    this.options = options
+    const targetOnly = options.targetOnly === true && Boolean(options.targetSessionId)
+    this.channel = options.client.channel(
+      targetOnly ? `stage-session:${options.targetSessionId}:state` : bandStageChannelName(options.sessionId),
+      { config: { private: true, broadcast: { self: false, ack: true } } },
+    )
     this.reconciler = new BandStageReconciler(options)
     this.channel.on('presence', { event: 'sync' }, () => {
       if (this.disposed) return
@@ -208,10 +264,69 @@ export class BandStageRealtime {
     })
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload) || this.disposed) return
-      void this.reconciler.acceptEvent(payload).catch(() => {
+      void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
         void this.refresh().catch(() => undefined)
       })
     })
+
+    if (options.targetOnly && options.targetSessionId) {
+      this.channel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'stage_session_states',
+          filter: `stage_session_id=eq.${options.targetSessionId}`,
+        },
+        () => {
+          if (this.disposed) return
+          void this.reconciler.reconcile('event').catch(() => undefined)
+        },
+      )
+    }
+
+    if (options.targetSessionId && !options.targetOnly) {
+      this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
+        config: { private: true },
+      })
+      this.targetChannel.on('presence', { event: 'sync' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
+      this.targetChannel.on('presence', { event: 'join' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
+      this.targetChannel.on('presence', { event: 'leave' }, () => {
+        if (this.disposed) return
+        this.emitTargetPresence()
+      })
+      this.targetChannel.on('broadcast', { event: '*' }, ({ payload }) => {
+        if (!isStageEvent(payload) || this.disposed) return
+        void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
+          void this.refresh().catch(() => undefined)
+        })
+      })
+      this.targetChannel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'stage_session_states',
+          filter: `stage_session_id=eq.${options.targetSessionId}`,
+        },
+        () => {
+          if (this.disposed) return
+          void this.reconciler.reconcile('event').catch(() => undefined)
+        },
+      )
+    }
+  }
+
+  private normalizeInboundEvent(event: BandStageEvent): BandStageEvent {
+    return this.options.targetSessionId
+      ? { ...event, sessionId: this.options.targetSessionId }
+      : event
   }
 
   get revision(): number {
@@ -236,15 +351,45 @@ export class BandStageRealtime {
     return this.connecting
   }
 
+  private async subscribeChannel(): Promise<string> {
+    return this.subscribeChannelFor(this.channel)
+  }
+
+  private async subscribeChannelFor(channel: RealtimeChannel): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      let settled = false
+      const settle = (status: string) => {
+        if (settled) return
+        settled = true
+        if (status === 'SUBSCRIBED') resolve(status)
+        else reject(new Error(`Falha ao assinar sessão de palco: ${status}`))
+      }
+
+      const result = channel.subscribe((status) => settle(String(status)))
+      if (typeof result === 'string') settle(result)
+      else if (result && typeof (result as unknown as { then?: unknown }).then === 'function') {
+        void (result as unknown as Promise<unknown>).then((value) => {
+          if (typeof value === 'string') settle(value)
+        }).catch(reject)
+      }
+    })
+  }
+
   private async connectInternal(): Promise<BandStageSnapshot> {
     if (!this.subscribed) {
-      const status = await this.channel.subscribe()
+      const status = await this.subscribeChannel()
       this.options.onStatus?.(status)
-      if (status !== 'SUBSCRIBED') {
-        this.subscribed = false
-        throw new Error(`Falha ao assinar sessão de palco: ${status}`)
-      }
       this.subscribed = true
+      if (this.targetChannel) {
+        try {
+          const targetStatus = await this.subscribeChannelFor(this.targetChannel)
+          this.targetSubscribed = true
+          this.options.onStatus?.(`TARGET_${targetStatus}`)
+        } catch {
+          this.targetSubscribed = false
+          this.options.onStatus?.('TARGET_ERROR')
+        }
+      }
     }
 
     this.setConnectionStatus('SUBSCRIBED')
@@ -274,8 +419,10 @@ export class BandStageRealtime {
 
     if (this.subscribed) {
       const status = await this.channel.unsubscribe()
+      if (this.targetChannel) await this.targetChannel.unsubscribe()
       this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
       this.subscribed = false
+      this.targetSubscribed = false
     }
 
     return this.connect()
@@ -295,6 +442,19 @@ export class BandStageRealtime {
   }
 
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
+    if (this.targetChannel && this.targetSubscribed) {
+      try {
+        const targetResult = await this.targetChannel.track(payload)
+        if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
+        this.emitTargetPresence()
+        // Legacy Presence remains a compatibility mirror.
+        await this.channel.track(payload).catch(() => undefined)
+        return
+      } catch {
+        // Fall back to legacy transport if the target channel is temporarily unavailable.
+        this.targetSubscribed = false
+      }
+    }
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
     this.emitPresence()
@@ -306,10 +466,30 @@ export class BandStageRealtime {
     this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
   }
 
+  private emitTargetPresence(): void {
+    if (this.disposed || !this.targetChannel) return
+    const state = this.targetChannel.presenceState() as Record<string, unknown>
+    this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
+  }
+
   async publish(event: BandStageEvent): Promise<void> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     try {
+      if (this.targetChannel && this.targetSubscribed) {
+        try {
+          const targetEvent = this.options.targetSessionId
+            ? { ...event, sessionId: this.options.targetSessionId }
+            : event
+          await publishBandStageEvent(this.targetChannel, targetEvent)
+          // Keep legacy broadcast as an additive compatibility mirror.
+          await publishBandStageEvent(this.channel, event).catch(() => undefined)
+          return
+        } catch {
+          // Target transport failed; use the legacy channel as the compatibility fallback.
+          this.targetSubscribed = false
+        }
+      }
       await publishBandStageEvent(this.channel, event)
     } catch (error) {
       this.setConnectionStatus('ERROR')
@@ -324,8 +504,10 @@ export class BandStageRealtime {
     this.presencePayload = null
     this.lastSnapshotMdUserId = null
     this.subscribed = false
+    this.targetSubscribed = false
     this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
+    if (this.targetChannel) await this.targetChannel.unsubscribe()
   }
 
   private setConnectionStatus(status: BandStageConnectionStatus): void {

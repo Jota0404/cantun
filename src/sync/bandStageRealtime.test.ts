@@ -11,11 +11,11 @@ function makeClient(revision = 3) {
       }],
       error: null,
     })),
-  } as never
+  }
 }
 
 function options(client = makeClient()): BandStageRealtimeOptions {
-  return { client, sessionId: 's1' }
+  return { client: client as never, sessionId: 's1' }
 }
 
 describe('BandStageReconciler', () => {

@@ -11,7 +11,7 @@ const baseState = {
   isRunning: false,
   mdAnnotation: 'Entrar direto no refrão',
   updatedAt: '2026-09-08T22:00:00.000Z',
-} as const
+}
 
 const snapshot = (revision: number, overrides: Partial<typeof baseState> = {}) => ({
   session: {
@@ -40,6 +40,7 @@ describe('shared execution', () => {
     const listener = vi.fn()
     service.applySnapshot(snapshot(4))
     service.subscribe('session-1', listener)
+    listener.mockClear()
 
     const current = service.applySnapshot(snapshot(3, { currentIndex: 1 }))
 

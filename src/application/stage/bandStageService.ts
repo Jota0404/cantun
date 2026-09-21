@@ -6,7 +6,7 @@ import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
 import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 
 export interface BandStageRpcClient {
-  rpc(name: string, args: Record<string, unknown>): Promise<{ data: unknown; error: { message: string } | null }>
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
 }
 
 type RealtimeCallbacks = {
@@ -18,7 +18,7 @@ type RealtimeCallbacks = {
 
 export interface BandStageServiceOptions {
   client?: BandStageRpcClient | null
-  realtimeFactory?: (sessionId: string, client: BandStageRpcClient, callbacks?: RealtimeCallbacks) => BandStageRealtime
+  realtimeFactory?: (sessionId: string, client: BandStageRpcClient, callbacks?: RealtimeCallbacks, targetSessionId?: string) => BandStageRealtime
 }
 
 export interface StageCommandResult {
@@ -43,14 +43,16 @@ export class BandStageService {
   private readonly client: BandStageRpcClient
   private readonly realtimeFactory: NonNullable<BandStageServiceOptions['realtimeFactory']>
   private readonly realtimeBySession = new Map<string, BandStageRealtime>()
+  private readonly targetSessionByLegacySession = new Map<string, string | null>()
 
   constructor(options: BandStageServiceOptions = {}) {
     const client = options.client ?? supabase
     if (!client) throw new Error('Supabase não está configurado para o Modo Banda.')
     this.client = client
-    this.realtimeFactory = options.realtimeFactory ?? ((sessionId, realtimeClient, callbacks) => new BandStageRealtime({
+    this.realtimeFactory = options.realtimeFactory ?? ((sessionId, realtimeClient, callbacks, targetSessionId) => new BandStageRealtime({
       client: realtimeClient as never,
       sessionId,
+      targetSessionId,
       ...callbacks,
     }))
   }
@@ -66,34 +68,41 @@ export class BandStageService {
   }
 
   async startSession(sessionId: string): Promise<BandStageSession> {
-    const { data, error } = await this.client.rpc('start_band_stage_session', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { error } = targetSessionId
+      ? await this.client.rpc('target_stage_start', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('start_band_stage_session', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
-    const session = toBandStageSession(this.singleRow(data))
-    await this.publishLifecycleEvent(session)
-    return session
+    const snapshot = await this.getSnapshot(sessionId)
+    await this.publishLifecycleEvent(snapshot.session)
+    return snapshot.session
   }
 
   async endSession(sessionId: string): Promise<BandStageSession> {
-    const { data, error } = await this.client.rpc('end_band_stage_session', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { error } = targetSessionId
+      ? await this.client.rpc('target_stage_end', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('end_band_stage_session', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
-    const session = toBandStageSession(this.singleRow(data))
+    const snapshot = await this.getSnapshot(sessionId)
     const realtime = this.realtimeBySession.get(sessionId)
     if (realtime) {
-      const snapshot = await this.getSnapshot(sessionId)
       await realtime.publish(createBandStageEvent({
         type: 'stage.session-ended',
         sessionId,
         revision: snapshot.state.revision,
-        actorUserId: session.mdUserId,
+        actorUserId: snapshot.session.mdUserId,
         payload: snapshot,
       }))
     }
-    return session
+    return snapshot.session
   }
 
   async connect(sessionId: string, callbacks: RealtimeCallbacks = {}): Promise<BandStageSnapshot> {
     await this.disconnect(sessionId)
-    const realtime = this.realtimeFactory(sessionId, this.client, callbacks)
+    const targetSessionId = await this.resolveTargetSessionId(sessionId)
+    this.targetSessionByLegacySession.set(sessionId, targetSessionId)
+    const realtime = this.realtimeFactory(sessionId, this.client, callbacks, targetSessionId ?? undefined)
     this.realtimeBySession.set(sessionId, realtime)
     try {
       return await realtime.connect()
@@ -169,12 +178,20 @@ export class BandStageService {
 
   async setAnnotation(sessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
     const normalized = normalizeBandStageAnnotation(annotation)
-    const { data, error } = await this.client.rpc('band_stage_set_annotation', {
-      p_session_id: sessionId,
-      p_annotation: normalized,
-    })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { data, error } = targetSessionId
+      ? await this.client.rpc('target_stage_set_annotation', {
+          p_stage_session_id: targetSessionId,
+          p_annotation: normalized,
+        })
+      : await this.client.rpc('band_stage_set_annotation', {
+          p_session_id: sessionId,
+          p_annotation: normalized,
+        })
     if (error) throw new Error(error.message)
-    const state = toBandStageState(this.singleRow(data))
+    const rawState = this.singleRow(data)
+    if (targetSessionId) rawState.session_id = sessionId
+    const state = toBandStageState(rawState)
     const snapshot = await this.getSnapshot(sessionId)
     if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação da anotação; reconciliação necessária.')
 
@@ -191,7 +208,10 @@ export class BandStageService {
   }
 
   async getSnapshot(sessionId: string): Promise<BandStageSnapshot> {
-    const { data, error } = await this.client.rpc('get_band_stage_snapshot', { p_session_id: sessionId })
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const { data, error } = targetSessionId
+      ? await this.client.rpc('get_target_stage_snapshot', { p_stage_session_id: targetSessionId })
+      : await this.client.rpc('get_band_stage_snapshot', { p_session_id: sessionId })
     if (error) throw new Error(error.message)
     const row = this.singleRow(data)
     const session = row.session
@@ -208,9 +228,33 @@ export class BandStageService {
     args: Record<string, unknown>,
     payload: Record<string, unknown>,
   ): Promise<StageCommandResult> {
-    const { data, error } = await this.client.rpc(rpcName, { p_session_id: sessionId, ...args })
+    // Capture the authoritative revision before issuing the command. This preserves the
+    // optimistic-concurrency contract of the legacy runtime while target RPCs are bridged.
+    await this.getSnapshot(sessionId)
+    const targetSessionId = await this.targetSessionId(sessionId)
+    const targetRpcByCommand: Record<Command, string> = {
+      play: 'target_stage_play',
+      pause: 'target_stage_pause',
+      next: 'target_stage_next',
+      previous: 'target_stage_previous',
+      goto: 'target_stage_goto',
+      setKey: 'target_stage_set_key',
+      prepareNext: 'target_stage_prepare_next',
+      clearPrepared: 'target_stage_clear_prepared',
+    }
+    const targetArgs: Record<string, unknown> = {
+      p_stage_session_id: targetSessionId,
+      ...(command === 'goto' ? { p_index: args.p_index, p_song_id: args.p_song_id } : {}),
+      ...(command === 'setKey' ? { p_key: args.p_key } : {}),
+      ...(command === 'prepareNext' ? { p_index: args.p_index, p_song_id: args.p_song_id } : {}),
+    }
+    const { data, error } = targetSessionId
+      ? await this.client.rpc(targetRpcByCommand[command], targetArgs)
+      : await this.client.rpc(rpcName, { p_session_id: sessionId, ...args })
     if (error) throw new Error(error.message)
-    const state = toBandStageState(this.singleRow(data))
+    const rawState = this.singleRow(data)
+    if (targetSessionId) rawState.session_id = sessionId
+    const state = toBandStageState(rawState)
     const snapshot = await this.getSnapshot(sessionId)
     if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
 
@@ -224,6 +268,30 @@ export class BandStageService {
     const realtime = this.realtimeBySession.get(sessionId)
     if (realtime) await realtime.publish(event)
     return { state, event }
+  }
+
+  private async resolveTargetSessionId(legacySessionId: string): Promise<string | null> {
+    try {
+      const { data, error } = await this.client.rpc('get_stage_session_by_legacy_id', {
+        p_legacy_session_id: legacySessionId,
+      })
+      if (error) return null
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row || typeof row !== 'object' || Array.isArray(row)) return null
+      const id = (row as Record<string, unknown>).id
+      return typeof id === 'string' ? id : null
+    } catch {
+      return null
+    }
+  }
+
+  private async targetSessionId(legacySessionId: string): Promise<string | null> {
+    if (this.targetSessionByLegacySession.has(legacySessionId)) {
+      return this.targetSessionByLegacySession.get(legacySessionId) ?? null
+    }
+    const target = await this.resolveTargetSessionId(legacySessionId)
+    this.targetSessionByLegacySession.set(legacySessionId, target)
+    return target
   }
 
   private async publishLifecycleEvent(session: BandStageSession): Promise<void> {
