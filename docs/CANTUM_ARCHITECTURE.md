@@ -190,7 +190,7 @@ The primary `/repertoires` and `/repertoires/:repertoireId` routes now consume t
 
 ## Stage target-entry status
 
-The canonical Stage flow has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). Legacy Stage routes remain compatibility paths and are isolated from canonical Stage execution.
+The canonical Stage flow has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). New Stage sessions are native target sessions; the assigned session creator is the MD. Legacy Stage routes remain compatibility paths and are isolated from canonical Stage execution.
 
 
 ### Legacy Setlist / standalone Stage boundary (ADR-036)
