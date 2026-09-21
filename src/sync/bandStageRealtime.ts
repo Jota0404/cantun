@@ -391,8 +391,6 @@ export class BandStageRealtime {
   }
 
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
-    const result = await this.channel.track(payload)
-    if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
     if (this.targetChannel && this.targetSubscribed) {
       const targetResult = await this.targetChannel.track(payload)
       if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
@@ -402,6 +400,8 @@ export class BandStageRealtime {
       await this.channel.track(payload).catch(() => undefined)
       return
     }
+    const result = await this.channel.track(payload)
+    if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
     this.emitPresence()
   }
 
