@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
 import { teamMembershipRepository, teamRepository } from '../../db/repositories/teamRepository'
-import { getMyTeamMusicalFunctions, setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
+import { updateTeam, getMyTeamMusicalFunctions, setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
 import { createOrganizationInvite, buildOrganizationInviteUrl, listOrganizationInvites, revokeOrganizationInvite, updateOrganizationMemberRole, type OrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
 import type { Team } from '../../domain/teams/team'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
@@ -67,7 +67,7 @@ export function TeamPage() {
     const name = window.prompt('Nome da equipe', team.name)
     if (!name?.trim()) return
     try {
-      await teamRepository.update({ ...team, name: name.trim(), updatedAt: new Date().toISOString() })
+      await updateTeam(team, { name: name.trim() })
       await load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível renomear a equipe.') }
   }
