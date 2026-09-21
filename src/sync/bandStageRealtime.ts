@@ -392,13 +392,17 @@ export class BandStageRealtime {
 
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
     if (this.targetChannel && this.targetSubscribed) {
-      const targetResult = await this.targetChannel.track(payload)
-      if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
-      this.emitTargetPresence()
-      // Legacy Presence remains a compatibility mirror and must not be able to
-      // prevent the target transport from becoming authoritative.
-      await this.channel.track(payload).catch(() => undefined)
-      return
+      try {
+        const targetResult = await this.targetChannel.track(payload)
+        if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
+        this.emitTargetPresence()
+        // Legacy Presence remains a compatibility mirror.
+        await this.channel.track(payload).catch(() => undefined)
+        return
+      } catch {
+        // Fall back to legacy transport if the target channel is temporarily unavailable.
+        this.targetSubscribed = false
+      }
     }
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
@@ -422,11 +426,15 @@ export class BandStageRealtime {
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     try {
       if (this.targetChannel && this.targetSubscribed) {
-        await publishBandStageEvent(this.targetChannel, event)
-        // Keep legacy broadcast as an additive compatibility mirror while target
-        // realtime is the canonical transport for migrated sessions.
-        await publishBandStageEvent(this.channel, event)
-        return
+        try {
+          await publishBandStageEvent(this.targetChannel, event)
+          // Keep legacy broadcast as an additive compatibility mirror.
+          await publishBandStageEvent(this.channel, event).catch(() => undefined)
+          return
+        } catch {
+          // Target transport failed; use the legacy channel as the compatibility fallback.
+          this.targetSubscribed = false
+        }
       }
       await publishBandStageEvent(this.channel, event)
     } catch (error) {
