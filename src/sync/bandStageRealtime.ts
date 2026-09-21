@@ -29,6 +29,7 @@ export interface BandStageRealtimeOptions {
   onConnectionStatus?: (status: BandStageConnectionStatus) => void
   onPresence?: (participants: BandStageParticipant[]) => void
   targetSessionId?: string
+  targetOnly?: boolean
 }
 
 export function bandStageChannelName(sessionId: string): string {
@@ -243,9 +244,11 @@ export class BandStageRealtime {
 
   constructor(options: BandStageRealtimeOptions) {
     this.options = options
-    this.channel = options.client.channel(bandStageChannelName(options.sessionId), {
-      config: { private: true, broadcast: { self: false, ack: true } },
-    })
+    const targetOnly = options.targetOnly === true && Boolean(options.targetSessionId)
+    this.channel = options.client.channel(
+      targetOnly ? `stage-session:${options.targetSessionId}:state` : bandStageChannelName(options.sessionId),
+      { config: { private: true, broadcast: { self: false, ack: true } } },
+    )
     this.reconciler = new BandStageReconciler(options)
     this.channel.on('presence', { event: 'sync' }, () => {
       if (this.disposed) return
@@ -266,7 +269,7 @@ export class BandStageRealtime {
       })
     })
 
-    if (options.targetSessionId) {
+    if (options.targetSessionId && !options.targetOnly) {
       this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
         config: { private: true },
       })
