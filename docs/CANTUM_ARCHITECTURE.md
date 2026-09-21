@@ -182,3 +182,7 @@ The user-facing Stage flow now starts from `Service -> StageSession`. The target
 ### Target Stage realtime boundary (ADR-034)
 
 The target-native Stage transport boundary is now implemented. `StageSession.id` is the canonical realtime identity, `stage_session_states` is the authoritative state projection, and the target Stage channel is the primary broadcast/Presence transport with legacy fallback. `StageExecutionService` and `SharedExecutionService` expose target-domain application boundaries without inheriting from the legacy runtime. The legacy Stage runtime remains internal compatibility infrastructure until native target command implementations and all legacy consumers are removed.
+
+### Target Repertoire UI cutover
+
+The primary `/repertoires` and `/repertoires/:repertoireId` routes now consume the target `Repertoire`/`RepertoireItem` model. The organization-scoped route `/organizations/:organizationId/repertoires/:repertoireId` uses the same canonical detail consumer. Legacy Setlist repositories and application services remain only as compatibility infrastructure for remaining legacy Stage/Band consumers; they are not used by the primary Repertoire navigation.
