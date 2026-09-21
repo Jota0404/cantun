@@ -100,8 +100,10 @@ export class StageExecutionService extends BandStageService {
   }
   async startSession(stageSessionId: string): Promise<BandStageSession> {
     return super.startSession(await this.legacySessionId(stageSessionId))
+      .then((session) => ({ ...session, id: stageSessionId }))
   }
   async endSession(stageSessionId: string): Promise<BandStageSession> {
     return super.endSession(await this.legacySessionId(stageSessionId))
+      .then((session) => ({ ...session, id: stageSessionId }))
   }
 }
