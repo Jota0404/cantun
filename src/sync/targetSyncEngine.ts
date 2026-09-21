@@ -126,7 +126,7 @@ function toRemoteRow(entity: TargetEntityName, value: TargetEntity) {
     }
     case 'stageSessions': {
       const v = value as StageSession
-      return { id: v.id, service_id: v.serviceId, legacy_band_stage_session_id: v.legacyBandStageSessionId, status: v.status, created_at: v.createdAt, started_at: v.startedAt ?? null, ended_at: v.endedAt ?? null, updated_at: v.updatedAt }
+      return { id: v.id, service_id: v.serviceId, legacy_band_stage_session_id: v.legacyBandStageSessionId, md_user_id: v.mdUserId ?? null, status: v.status, created_at: v.createdAt, started_at: v.startedAt ?? null, ended_at: v.endedAt ?? null, updated_at: v.updatedAt }
     }
     case 'stageSessionStates': {
       const v = value as StageSessionState
@@ -147,7 +147,7 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'services': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), startsAt: String(row.starts_at), status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), songId: String(row.song_id), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, updatedAt: String(row.updated_at) }
     case 'assignments': return { id: String(row.id), serviceId: String(row.service_id), userId: String(row.user_id), musicalFunction: String(row.musical_function), serviceItemId: row.service_item_id ? String(row.service_item_id) : undefined, status: row.status as Assignment['status'], createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
-    case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), legacyBandStageSessionId: String(row.legacy_band_stage_session_id), status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
+    case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), legacyBandStageSessionId: String(row.legacy_band_stage_session_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
   }
 }
