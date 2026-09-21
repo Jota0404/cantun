@@ -155,11 +155,6 @@ export class SalmodiaDatabase extends Dexie {
       assignments: 'id, serviceId, userId, musicalFunction, status, updatedAt, [serviceId+userId]',
       targetSyncQueue: '++id, entity, entityId, updatedAt, [entity+entityId]',
     })
-  }
-}
-
-export const db = new SalmodiaDatabase()
-
     this.version(10).stores({
       songs: 'id, updatedAt', setlists: 'id, name, updatedAt',
       setlistSongs: 'id, setlistId, songId, position, updatedAt, [setlistId+position], [setlistId+songId]',
@@ -184,3 +179,9 @@ export const db = new SalmodiaDatabase()
       stageSessions: 'id, serviceId, status, updatedAt',
       stageSessionStates: 'stageSessionId, revision, currentIndex, currentSongId, updatedAt',
     })
+
+
+  }
+}
+
+export const db = new SalmodiaDatabase()
