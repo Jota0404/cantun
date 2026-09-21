@@ -56,5 +56,12 @@ export async function removeAssignment(assignmentId: string): Promise<void> {
 }
 
 export async function removeService(serviceId: string): Promise<void> {
+  const [items, assignments] = await Promise.all([
+    serviceItemRepository.listByServiceId(serviceId),
+    assignmentRepository.listByServiceId(serviceId),
+  ])
+
+  for (const item of items) await serviceItemRepository.remove(item.id)
+  for (const assignment of assignments) await assignmentRepository.remove(assignment.id)
   await serviceRepository.remove(serviceId)
 }
