@@ -19,7 +19,6 @@ import { OrganizationPage } from './pages/Organization/OrganizationPage'
 import { OrganizationDetailPage } from './pages/Organization/OrganizationDetailPage'
 import { TeamPage } from './pages/Organization/TeamPage'
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
-import { TargetRepertoireDetailPage } from './pages/Organization/RepertoireDetailPage'
 import { syncTargetDomain } from './sync/syncService'
 import './App.css'
 
@@ -68,7 +67,7 @@ function App() {
       </>}
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
-        <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<TargetRepertoireDetailPage />} />
+        <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/setlist/:setlistId" element={<StagePage />} /><Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/service-session/:stageSessionId" element={<ServiceStageSessionPage />} /><Route path="/stage/session/:sessionId" element={<BandStagePage />} /><Route path="/stage/session/:sessionId/musician" element={<BandMusicianStagePage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />
         <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/bands" element={<BandListPage />} /><Route path="/bands/invite/:token" element={<BandInvitePage />} /><Route path="/bands/:bandId" element={<BandDetailPage />} />
