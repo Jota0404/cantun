@@ -39,7 +39,7 @@ export function RepertoireDetailPage() {
 
   return <main className="repertoire-page">
     <header className="repertoire-page__header">
-      <div><Link to="/repertoires">← Repertórios</Link><h2>{repertoire.name}</h2><p>{items.length} música(s)</p></div>
+      <div><Link to={`/organizations/${repertoire.organizationId}`}>← Organização</Link><h2>{repertoire.name}</h2><p>{items.length} música(s)</p></div>
       <button type="button" onClick={addSong}>Adicionar música</button>
     </header>
     {error && <p className="repertoire-error" role="alert">{error}</p>}
