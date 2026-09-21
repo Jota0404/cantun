@@ -4,8 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { StageExecutionService } from '../../application/stage/stageExecutionService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getServiceStageSongs, type ServiceStageSong } from '../../application/stage/getServiceStageSongs'
-import { getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
-import type { MusicalRole } from '../../domain/bands/musicalRole'
+import { getStageStageMusicalRoleExperience, type StageStageMusicalRole } from '../../application/stage/stageExperience'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { StageSnapshot } from '../../domain/stage/stage'
 import type { BandStageParticipant, BandStageReadiness } from '../../domain/stage/bandStagePresence'
@@ -31,14 +30,14 @@ export function ServiceStagePage() {
   const [status, setStatus] = useState('Conectando…')
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
-  const [musicalRole, setMusicalRole] = useState<MusicalRole>('other')
+  const [musicalRole, setStageMusicalRole] = useState<StageMusicalRole>('other')
   const [annotationDraft, setAnnotationDraft] = useState('')
   const [participants, setParticipants] = useState<BandStageParticipant[]>([])
   const [readiness, setReadiness] = useState<BandStageReadiness>('waiting')
 
   const md = Boolean(user?.id && snapshot?.session.mdUserId === user.id)
   const musicianView = !md
-  const experience = getMusicalRoleStageExperience(musicalRole)
+  const experience = getStageStageMusicalRoleExperience(musicalRole)
   const activeIndex = executionState?.currentIndex ?? 0
   const activeSong = songs[activeIndex]
 
@@ -82,10 +81,10 @@ export function ServiceStagePage() {
             readiness: 'waiting',
           })
         }
-        const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
-        const roleExperience = getMusicalRoleStageExperience(nextMusicalRole)
+        const nextStageMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
+        const roleExperience = getStageStageMusicalRoleExperience(nextStageMusicalRole)
         if (!cancelled) {
-          setMusicalRole(nextMusicalRole)
+          setStageMusicalRole(nextStageMusicalRole)
           setFontSize(roleExperience.fontSize)
           setReadMode(roleExperience.readMode)
         }
