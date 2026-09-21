@@ -221,3 +221,10 @@ No destructive removal of legacy Band persistence was performed in this slice.
 ### Legacy Band route cutover (ADR-038)
 
 Legacy Band list/detail routes are now compatibility redirects into the canonical Organization/Team flow. Existing Band invite URLs remain valid for backward compatibility, but accepted invites land directly on the canonical Team route. Legacy Band persistence, sync, RPCs and Stage runtime remain intact until the migration gates are cleared.
+
+
+### Legacy Dexie coexistence and removal gate (ADR-041)
+
+The local-first migration now explicitly separates canonical target stores from legacy Band compatibility stores. Target writes use the target repositories and `targetSyncQueue`; legacy Band stores remain available for compatibility routes, legacy Stage fallback and existing offline data.
+
+The legacy stores are not deleted or cleared during migration. Removal requires all application, Supabase/RPC, sync, link/session and offline/online validation gates to be complete, with no remaining legacy local records and an empty `bandSyncQueue`. `src/db/legacyDexieCompatibility.ts` exposes this readiness state without performing destructive cleanup.
