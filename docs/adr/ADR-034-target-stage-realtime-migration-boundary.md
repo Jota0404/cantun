@@ -77,3 +77,15 @@ Target StageSession
 with the legacy runtime temporarily acting as a compatibility implementation underneath.
 
 Related ADRs: 023, 025, 030, 031, 032, 033.
+## Implementation status
+
+The current implementation now treats the target StageSession channel as the canonical realtime transport whenever the target subscription is available:
+
+- target Presence/readiness is published first;
+- legacy Presence is retained only as a best-effort compatibility mirror;
+- target Stage broadcast events are published first;
+- legacy broadcast remains a compatibility mirror;
+- if the target channel cannot be subscribed, the legacy transport remains the fallback;
+- target operational state remains authoritative for reconciliation.
+
+This keeps the migration additive while preventing legacy transport failures from blocking migrated Stage sessions.
