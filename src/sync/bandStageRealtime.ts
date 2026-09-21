@@ -203,6 +203,7 @@ function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
 export class BandStageRealtime {
   private readonly channel: RealtimeChannel
   private targetChannel: RealtimeChannel | null = null
+  private targetSubscribed = false
   private readonly reconciler: BandStageReconciler
   private subscribed = false
   private connecting: Promise<BandStageSnapshot> | null = null
@@ -331,8 +332,10 @@ export class BandStageRealtime {
       if (this.targetChannel) {
         try {
           const targetStatus = await this.subscribeChannelFor(this.targetChannel)
+          this.targetSubscribed = true
           this.options.onStatus?.(`TARGET_${targetStatus}`)
         } catch {
+          this.targetSubscribed = false
           this.options.onStatus?.('TARGET_ERROR')
         }
       }
@@ -368,6 +371,7 @@ export class BandStageRealtime {
       if (this.targetChannel) await this.targetChannel.unsubscribe()
       this.options.onStatus?.(`UNSUBSCRIBED:${status}`)
       this.subscribed = false
+      this.targetSubscribed = false
     }
 
     return this.connect()
@@ -389,13 +393,16 @@ export class BandStageRealtime {
   private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
-    if (this.targetChannel) {
+    if (this.targetChannel && this.targetSubscribed) {
       const targetResult = await this.targetChannel.track(payload)
       if (targetResult !== 'ok') throw new Error(`Falha ao publicar presença alvo de palco: ${targetResult}`)
       this.emitTargetPresence()
-    } else {
-      this.emitPresence()
+      // Legacy Presence remains a compatibility mirror and must not be able to
+      // prevent the target transport from becoming authoritative.
+      await this.channel.track(payload).catch(() => undefined)
+      return
     }
+    this.emitPresence()
   }
 
   private emitPresence(): void {
@@ -414,8 +421,14 @@ export class BandStageRealtime {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     try {
+      if (this.targetChannel && this.targetSubscribed) {
+        await publishBandStageEvent(this.targetChannel, event)
+        // Keep legacy broadcast as an additive compatibility mirror while target
+        // realtime is the canonical transport for migrated sessions.
+        await publishBandStageEvent(this.channel, event)
+        return
+      }
       await publishBandStageEvent(this.channel, event)
-      if (this.targetChannel) await publishBandStageEvent(this.targetChannel, event)
     } catch (error) {
       this.setConnectionStatus('ERROR')
       throw error
@@ -429,6 +442,7 @@ export class BandStageRealtime {
     this.presencePayload = null
     this.lastSnapshotMdUserId = null
     this.subscribed = false
+    this.targetSubscribed = false
     this.setConnectionStatus('DISCONNECTED')
     await this.channel.unsubscribe()
     if (this.targetChannel) await this.targetChannel.unsubscribe()
