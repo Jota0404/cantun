@@ -35,8 +35,26 @@ export class StageExecutionService extends BandStageService {
     return session.legacyBandStageSessionId
   }
 
-  async connect(stageSessionId: string, callbacks = {}): Promise<BandStageSnapshot> {
-    return super.connect(await this.legacySessionId(stageSessionId), callbacks).then((snapshot) => this.targetSnapshot(stageSessionId, snapshot))
+  async connect(stageSessionId: string, callbacks: {
+    onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
+    onEvent?: (event: StageCommandResult['event']) => void
+    onStatus?: (status: string) => void
+    onPresence?: Parameters<BandStageService['connect']>[1]['onPresence']
+  } = {}): Promise<BandStageSnapshot> {
+    const targetCallbacks = {
+      ...callbacks,
+      onSnapshot: callbacks.onSnapshot
+        ? (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') =>
+            callbacks.onSnapshot?.(this.targetSnapshot(stageSessionId, snapshot), reason)
+        : undefined,
+      onEvent: callbacks.onEvent
+        ? (event: StageCommandResult['event']) =>
+            callbacks.onEvent?.({ ...event, sessionId: stageSessionId })
+        : undefined,
+    }
+
+    return super.connect(await this.legacySessionId(stageSessionId), targetCallbacks)
+      .then((snapshot) => this.targetSnapshot(stageSessionId, snapshot))
   }
   async trackPresence(stageSessionId: string, payload: BandStagePresencePayload): Promise<void> {
     return super.trackPresence(await this.legacySessionId(stageSessionId), payload)
