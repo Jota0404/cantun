@@ -269,6 +269,22 @@ export class BandStageRealtime {
       })
     })
 
+    if (options.targetOnly && options.targetSessionId) {
+      this.channel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'stage_session_states',
+          filter: `stage_session_id=eq.${options.targetSessionId}`,
+        },
+        () => {
+          if (this.disposed) return
+          void this.reconciler.reconcile('event').catch(() => undefined)
+        },
+      )
+    }
+
     if (options.targetSessionId && !options.targetOnly) {
       this.targetChannel = options.client.channel(`stage-session:${options.targetSessionId}:state`, {
         config: { private: true },
