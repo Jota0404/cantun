@@ -14,7 +14,7 @@ The application must move the user-facing flow toward Organization -> Service ->
 1. The Service detail flow starts and navigates using the target StageSession.id.
 2. `/stage/service-session/:stageSessionId` is the target user-facing entry route.
 3. During migration, that route resolves the target session and bridges to the legacy runtime route internally.
-4. StageExecutionService becomes the target-named application facade for live execution while delegating to the compatibility-aware BandStageService implementation.
+4. StageExecutionService is the target-named application facade for live execution. It delegates to the compatibility-aware BandStageService implementation internally, but target session identity is preserved at the application/realtime boundary.
 5. Stage musical-function presentation is derived from target Service-stage song data; it must not require a legacy Band preference lookup for the active session.
 6. Existing legacy Stage routes remain available as compatibility routes until all external/internal callers use the target route.
 
@@ -29,7 +29,7 @@ The application must move the user-facing flow toward Organization -> Service ->
 
 ### Temporary compatibility
 
-- The target route currently resolves to the legacy runtime route.
+- The target route enters the Stage UI directly; the compatibility runtime is hidden behind StageExecutionService.
 - BandStageService and legacy Stage domain types remain implementation details of the bridge.
 - Legacy routes and realtime channels are not removed at this boundary.
 
