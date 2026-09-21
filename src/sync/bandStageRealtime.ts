@@ -82,6 +82,30 @@ export class BandStageReconciler {
     this.options = options
   }
 
+  private canonicalSessionId(): string {
+    return this.options.targetSessionId ?? this.options.sessionId
+  }
+
+  private normalizeSnapshot(snapshot: BandStageSnapshot): BandStageSnapshot {
+    const sessionId = this.canonicalSessionId()
+    return {
+      session: { ...snapshot.session, id: sessionId },
+      state: { ...snapshot.state, sessionId },
+    }
+  }
+
+  private normalizeEvent(event: BandStageEvent): BandStageEvent {
+    return this.options.targetSessionId && event.sessionId !== this.options.targetSessionId
+      ? { ...event, sessionId: this.options.targetSessionId }
+      : event
+  }
+
+  private normalizeInboundEvent(event: BandStageEvent): BandStageEvent {
+    return this.options.targetSessionId
+      ? { ...event, sessionId: this.options.targetSessionId }
+      : event
+  }
+
   get revision(): number {
     return this.currentRevision
   }
@@ -102,46 +126,47 @@ export class BandStageReconciler {
 
   async reconcile(reason: SnapshotReason = 'reconnect'): Promise<BandStageSnapshot> {
     const snapshot = await this.fetchSnapshot()
-    if (snapshot.session.id !== this.options.sessionId) {
+    const normalizedSnapshot = this.normalizeSnapshot(snapshot)
+    if (normalizedSnapshot.session.id !== this.canonicalSessionId()) {
       throw new Error('Snapshot de palco pertence a outra sessão.')
     }
-    if (snapshot.state.sessionId !== this.options.sessionId) {
+    if (normalizedSnapshot.state.sessionId !== this.canonicalSessionId()) {
       throw new Error('Estado de palco pertence a outra sessão.')
     }
 
     if (snapshot.state.revision >= this.currentRevision) {
       this.currentRevision = snapshot.state.revision
-      this.options.onSnapshot?.(snapshot, reason)
+      this.options.onSnapshot?.(normalizedSnapshot, reason)
     }
     return snapshot
   }
 
   async acceptEvent(event: BandStageEvent): Promise<'applied' | 'ignored' | 'reconciled'> {
-    if (event.sessionId !== this.options.sessionId) return 'ignored'
-    if (this.seenEventIds.has(event.eventId)) return 'ignored'
-    if (event.revision <= this.currentRevision) {
-      this.seenEventIds.add(event.eventId)
+    const normalizedEvent = this.normalizeEvent(event)
+    if (normalizedEvent.sessionId !== this.canonicalSessionId()) return 'ignored'
+    if (this.seenEventIds.has(normalizedEvent.eventId)) return 'ignored'
+    if (normalizedEvent.revision <= this.currentRevision) {
+      this.seenEventIds.add(normalizedEvent.eventId)
       return 'ignored'
     }
 
     let reconciled = false
-    if (event.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
+    if (normalizedEvent.revision > this.currentRevision + 1 && this.currentRevision >= 0) {
       reconciled = true
       await this.reconcile('revision-gap')
-      if (event.revision <= this.currentRevision) {
-        this.seenEventIds.add(event.eventId)
+      if (normalizedEvent.revision <= this.currentRevision) {
+        this.seenEventIds.add(normalizedEvent.eventId)
         return 'reconciled'
       }
-
     }
 
-    this.currentRevision = event.revision
-    this.seenEventIds.add(event.eventId)
-    this.options.onEvent?.(event)
+    this.currentRevision = normalizedEvent.revision
+    this.seenEventIds.add(normalizedEvent.eventId)
+    this.options.onEvent?.(normalizedEvent)
 
-    if (event.type === 'stage.snapshot') {
-      const snapshot = parseSnapshotPayload(event.payload)
-      if (snapshot && snapshot.session.id === this.options.sessionId && snapshot.state.sessionId === this.options.sessionId) {
+    if (normalizedEvent.type === 'stage.snapshot') {
+      const snapshot = parseSnapshotPayload(normalizedEvent.payload, this.canonicalSessionId())
+      if (snapshot && snapshot.session.id === this.canonicalSessionId() && snapshot.state.sessionId === this.canonicalSessionId()) {
         if (snapshot.state.revision >= this.currentRevision) {
           this.currentRevision = snapshot.state.revision
           this.options.onSnapshot?.(snapshot, 'event')
@@ -156,9 +181,12 @@ export class BandStageReconciler {
     let data: unknown = null
     let error: { message?: string } | null = null
 
-    const { data: targetData, error: targetError } = await this.options.client.rpc('get_target_stage_snapshot_by_legacy_id', {
-      p_legacy_session_id: this.options.sessionId,
-    })
+    const { data: targetData, error: targetError } = await this.options.client.rpc(
+      this.options.targetSessionId ? 'get_target_stage_snapshot' : 'get_target_stage_snapshot_by_legacy_id',
+      this.options.targetSessionId
+        ? { p_stage_session_id: this.options.targetSessionId }
+        : { p_legacy_session_id: this.options.sessionId },
+    )
 
     if (!targetError && targetData) {
       data = targetData
@@ -181,7 +209,7 @@ export class BandStageReconciler {
     const state = isRowRecord(record.state) ? record.state : null
     if (!session || !state) throw new Error('Snapshot de palco incompleto.')
 
-    return { session: toBandStageSession(session), state: toBandStageState(state) }
+    return this.normalizeSnapshot({ session: toBandStageSession(session), state: toBandStageState(state) })
   }
 }
 
@@ -189,12 +217,16 @@ function isRowRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function parseSnapshotPayload(payload: unknown): BandStageSnapshot | null {
+function parseSnapshotPayload(payload: unknown, canonicalSessionId: string): BandStageSnapshot | null {
   if (!payload || typeof payload !== 'object') return null
   const value = payload as { session?: Record<string, unknown>; state?: Record<string, unknown> }
   if (!value.session || !value.state) return null
   try {
-    return { session: toBandStageSession(value.session), state: toBandStageState(value.state) }
+    const snapshot = { session: toBandStageSession(value.session), state: toBandStageState(value.state) }
+    return {
+      session: { ...snapshot.session, id: canonicalSessionId },
+      state: { ...snapshot.state, sessionId: canonicalSessionId },
+    }
   } catch {
     return null
   }
@@ -235,7 +267,7 @@ export class BandStageRealtime {
     })
     this.channel.on('broadcast', { event: '*' }, ({ payload }) => {
       if (!isStageEvent(payload) || this.disposed) return
-      void this.reconciler.acceptEvent(payload).catch(() => {
+      void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
         void this.refresh().catch(() => undefined)
       })
     })
@@ -258,7 +290,7 @@ export class BandStageRealtime {
       })
       this.targetChannel.on('broadcast', { event: '*' }, ({ payload }) => {
         if (!isStageEvent(payload) || this.disposed) return
-        void this.reconciler.acceptEvent(payload).catch(() => {
+        void this.reconciler.acceptEvent(this.normalizeInboundEvent(payload)).catch(() => {
           void this.refresh().catch(() => undefined)
         })
       })
@@ -427,7 +459,10 @@ export class BandStageRealtime {
     try {
       if (this.targetChannel && this.targetSubscribed) {
         try {
-          await publishBandStageEvent(this.targetChannel, event)
+          const targetEvent = this.options.targetSessionId
+            ? { ...event, sessionId: this.options.targetSessionId }
+            : event
+          await publishBandStageEvent(this.targetChannel, targetEvent)
           // Keep legacy broadcast as an additive compatibility mirror.
           await publishBandStageEvent(this.channel, event).catch(() => undefined)
           return
