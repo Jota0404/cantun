@@ -147,6 +147,28 @@ describe('BandStageRealtime entry/reconnect', () => {
     }))
   })
 
+  it('falls back to legacy presence when target presence fails', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    client.channels[1].track.mockRejectedValueOnce(new Error('target unavailable'))
+
+    await realtime.trackPresence({
+      userId: 'u1',
+      displayName: 'Músico',
+      musicalRole: 'vocals',
+      isMd: false,
+      readiness: 'ready',
+    })
+
+    expect(client.channels[0].track).toHaveBeenCalled()
+  })
+
   it('mirrors stage events to the target StageSession channel', async () => {
     const client = makeClient(8)
     const realtime = new BandStageRealtime({
