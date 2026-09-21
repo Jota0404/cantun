@@ -100,12 +100,6 @@ export class BandStageReconciler {
       : event
   }
 
-  private normalizeInboundEvent(event: BandStageEvent): BandStageEvent {
-    return this.options.targetSessionId
-      ? { ...event, sessionId: this.options.targetSessionId }
-      : event
-  }
-
   get revision(): number {
     return this.currentRevision
   }
@@ -138,7 +132,7 @@ export class BandStageReconciler {
       this.currentRevision = snapshot.state.revision
       this.options.onSnapshot?.(normalizedSnapshot, reason)
     }
-    return snapshot
+    return normalizedSnapshot
   }
 
   async acceptEvent(event: BandStageEvent): Promise<'applied' | 'ignored' | 'reconciled'> {
@@ -308,6 +302,12 @@ export class BandStageRealtime {
         },
       )
     }
+  }
+
+  private normalizeInboundEvent(event: BandStageEvent): BandStageEvent {
+    return this.options.targetSessionId
+      ? { ...event, sessionId: this.options.targetSessionId }
+      : event
   }
 
   get revision(): number {
