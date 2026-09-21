@@ -1,5 +1,3 @@
-import type { StageSessionState } from './stage'
-
 export type SharedExecutionStatus = 'lobby' | 'running' | 'paused' | 'ended'
 
 export interface SharedExecutionState {
@@ -17,11 +15,11 @@ export interface SharedExecutionState {
 }
 
 export function toSharedExecutionState(
-  state: StageSessionState,
+  state: { stageSessionId?: string; sessionId?: string; revision: number; currentIndex: number; currentSongId?: string; currentKey?: string; preparedIndex?: number; preparedSongId?: string; isRunning: boolean; mdAnnotation?: string; updatedAt: string },
   sessionStatus: 'lobby' | 'live' | 'ended',
 ): SharedExecutionState {
   return {
-    sessionId: state.stageSessionId,
+    sessionId: state.stageSessionId ?? state.sessionId ?? '',
     revision: state.revision,
     currentIndex: state.currentIndex,
     currentSongId: state.currentSongId,
