@@ -14,7 +14,7 @@ function map(value: Record<string, unknown>): StageSession {
   return {
     id: String(value.id),
     serviceId: String(value.service_id),
-    legacyBandStageSessionId: String(value.legacy_band_stage_session_id),
+    legacyBandStageSessionId: value.legacy_band_stage_session_id ? String(value.legacy_band_stage_session_id) : undefined,
     mdUserId: value.md_user_id ? String(value.md_user_id) : undefined,
     status: value.status as StageSession['status'],
     createdAt: String(value.created_at),
@@ -30,7 +30,7 @@ function client() {
 }
 
 export async function createStageSession(serviceId: string, id = crypto.randomUUID()): Promise<StageSession> {
-  const { data, error } = await client().rpc('create_service_stage_session', { p_service_id: serviceId, p_session_id: id })
+  const { data, error } = await client().rpc('create_target_stage_session', { p_service_id: serviceId, p_session_id: id })
   if (error) throw error
   const session = map(row(data))
   await stageSessionRepository.put(session)
