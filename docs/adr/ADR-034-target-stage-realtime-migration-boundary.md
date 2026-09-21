@@ -97,3 +97,10 @@ The current implementation now treats the target StageSession channel as the can
 - reconnect and revision-gap reconciliation use the target snapshot path.
 
 The remaining compatibility layer is intentionally internal: the legacy runtime still provides the underlying command implementation and remains available as a runtime fallback. The target Stage UI no longer needs to translate target session identity back into a legacy route.
+
+
+## Target musician entry slice — complete
+
+The musician-facing Stage entry now has a canonical target route at `/stage/service-session/:stageSessionId/musician`. The page accepts the target `StageSession.id` directly and loads its musical material through `getServiceStageSongs`. The legacy `/stage/session/:sessionId/musician` route remains available as a compatibility entry point during migration.
+
+This slice removes the musician UI's need to resolve a target StageSession from a legacy session ID. The compatibility runtime and legacy route remain intentionally preserved.
