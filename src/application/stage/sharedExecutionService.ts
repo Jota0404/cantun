@@ -1,5 +1,4 @@
-import type { StageCommandResult } from './bandStageService'
-import type { BandStageSnapshot } from '../../domain/stage/bandStage'
+import type { StageCommandResult, StageSnapshot } from '../../domain/stage/stage'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { toSharedExecutionState } from '../../domain/stage/sharedExecution'
 
@@ -12,7 +11,7 @@ export interface SharedExecutionPort {
   setKey(sessionId: string, key: string): Promise<StageCommandResult>
   prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult>
   clearPrepared(sessionId: string): Promise<StageCommandResult>
-  endSession(sessionId: string): Promise<BandStageSnapshot['session']>
+  endSession(sessionId: string): Promise<StageSnapshot['session']>
 }
 
 export type SharedExecutionListener = (state: SharedExecutionState) => void
@@ -30,7 +29,7 @@ export class SharedExecutionService {
     return this.stateBySession.get(sessionId)
   }
 
-  applySnapshot(snapshot: BandStageSnapshot): SharedExecutionState {
+  applySnapshot(snapshot: StageSnapshot): SharedExecutionState {
     const current = this.stateBySession.get(snapshot.session.id)
     const next = toSharedExecutionState(snapshot.state, snapshot.session.status)
 
