@@ -167,7 +167,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_target_stage_session_id uuid;
 begin
@@ -182,7 +182,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists band_stage_states_target_projection on public.band_stage_states;
 create trigger band_stage_states_target_projection
@@ -278,7 +278,7 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_stage_session_id uuid;
 begin
@@ -297,7 +297,7 @@ begin
 
   return public.get_target_stage_snapshot(v_stage_session_id);
 end;
-$;
+$$;
 
 revoke all on function public.get_target_stage_snapshot_by_legacy_id(uuid) from public, anon;
 grant execute on function public.get_target_stage_snapshot_by_legacy_id(uuid) to authenticated;
@@ -307,7 +307,7 @@ returns public.stage_session_states
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_stage public.stage_sessions;
   v_legacy public.band_stage_sessions;
@@ -335,14 +335,14 @@ begin
 
   return public.sync_target_stage_state(p_stage_session_id, v_state);
 end;
-$;
+$$;
 
 create or replace function public.target_stage_end(p_stage_session_id uuid)
 returns public.stage_session_states
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_stage public.stage_sessions;
   v_legacy public.band_stage_sessions;
@@ -370,7 +370,7 @@ begin
 
   return public.sync_target_stage_state(p_stage_session_id, v_state);
 end;
-$;
+$$;
 
 create or replace function public.target_stage_play(p_stage_session_id uuid)
 returns public.stage_session_states
