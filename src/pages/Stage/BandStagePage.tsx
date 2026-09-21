@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
-import { StageExecutionService } from '../../application/stage/stageExecutionService'
+import { BandStageService } from '../../application/stage/bandStageService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
 
@@ -18,12 +18,11 @@ import './BandStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
 
-export function BandStagePage({ targetStageSessionId }: { targetStageSessionId?: string }) {
-  const { sessionId: routeSessionId = '' } = useParams<{ sessionId: string }>()
-  const sessionId = targetStageSessionId ?? routeSessionId
+export function BandStagePage() {
+  const { sessionId = '' } = useParams<{ sessionId: string }>()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const service = useMemo(() => new StageExecutionService(), [])
+  const service = useMemo(() => new BandStageService(), [])
   const execution = useMemo(() => new SharedExecutionService(service), [service])
   const [snapshot, setSnapshot] = useState<BandStageSnapshot>()
   const [executionState, setExecutionState] = useState<SharedExecutionState>()
@@ -73,9 +72,7 @@ export function BandStagePage({ targetStageSessionId }: { targetStageSessionId?:
         })
         if (cancelled) return
         applySnapshot(initial)
-        const loadedSongs = targetStageSessionId
-          ? await getServiceStageSongs(targetStageSessionId)
-          : await getBandStageSessionSetlist(initial.session)
+        const loadedSongs = await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
         if (user?.id) {
