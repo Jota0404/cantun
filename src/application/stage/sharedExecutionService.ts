@@ -1,16 +1,28 @@
-import type { BandStageService, StageCommandResult } from './bandStageService'
+import type { StageCommandResult } from './bandStageService'
 import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { toSharedExecutionState } from '../../domain/stage/sharedExecution'
 
+export interface SharedExecutionPort {
+  play(sessionId: string): Promise<StageCommandResult>
+  pause(sessionId: string): Promise<StageCommandResult>
+  next(sessionId: string): Promise<StageCommandResult>
+  previous(sessionId: string): Promise<StageCommandResult>
+  goto(sessionId: string, index: number, songId?: string): Promise<StageCommandResult>
+  setKey(sessionId: string, key: string): Promise<StageCommandResult>
+  prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult>
+  clearPrepared(sessionId: string): Promise<StageCommandResult>
+  endSession(sessionId: string): Promise<BandStageSnapshot['session']>
+}
+
 export type SharedExecutionListener = (state: SharedExecutionState) => void
 
 export class SharedExecutionService {
-  private readonly stageService: BandStageService
+  private readonly stageService: SharedExecutionPort
   private readonly stateBySession = new Map<string, SharedExecutionState>()
   private readonly listenersBySession = new Map<string, Set<SharedExecutionListener>>()
 
-  constructor(stageService: BandStageService) {
+  constructor(stageService: SharedExecutionPort) {
     this.stageService = stageService
   }
 
@@ -43,37 +55,14 @@ export class SharedExecutionService {
     }
   }
 
-  async play(sessionId: string): Promise<StageCommandResult> {
-    return this.stageService.play(sessionId)
-  }
-
-  async pause(sessionId: string): Promise<StageCommandResult> {
-    return this.stageService.pause(sessionId)
-  }
-
-  async next(sessionId: string): Promise<StageCommandResult> {
-    return this.stageService.next(sessionId)
-  }
-
-  async previous(sessionId: string): Promise<StageCommandResult> {
-    return this.stageService.previous(sessionId)
-  }
-
-  async goto(sessionId: string, index: number, songId?: string): Promise<StageCommandResult> {
-    return this.stageService.goto(sessionId, index, songId)
-  }
-
-  async setKey(sessionId: string, key: string): Promise<StageCommandResult> {
-    return this.stageService.setKey(sessionId, key)
-  }
-
-  async prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult> {
-    return this.stageService.prepareNext(sessionId, index, songId)
-  }
-
-  async clearPrepared(sessionId: string): Promise<StageCommandResult> {
-    return this.stageService.clearPrepared(sessionId)
-  }
+  async play(sessionId: string): Promise<StageCommandResult> { return this.stageService.play(sessionId) }
+  async pause(sessionId: string): Promise<StageCommandResult> { return this.stageService.pause(sessionId) }
+  async next(sessionId: string): Promise<StageCommandResult> { return this.stageService.next(sessionId) }
+  async previous(sessionId: string): Promise<StageCommandResult> { return this.stageService.previous(sessionId) }
+  async goto(sessionId: string, index: number, songId?: string): Promise<StageCommandResult> { return this.stageService.goto(sessionId, index, songId) }
+  async setKey(sessionId: string, key: string): Promise<StageCommandResult> { return this.stageService.setKey(sessionId, key) }
+  async prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult> { return this.stageService.prepareNext(sessionId, index, songId) }
+  async clearPrepared(sessionId: string): Promise<StageCommandResult> { return this.stageService.clearPrepared(sessionId) }
 
   async end(sessionId: string): Promise<void> {
     await this.stageService.endSession(sessionId)
