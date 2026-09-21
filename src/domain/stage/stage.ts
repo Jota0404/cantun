@@ -42,7 +42,7 @@ export function toStageSession(row: Record<string, unknown>): StageSession {
   return {
     id: String(row.id),
     serviceId: String(row.service_id ?? row.serviceId),
-    legacyBandStageSessionId: String(row.legacy_band_stage_session_id ?? row.legacyBandStageSessionId ?? ''),
+    legacyBandStageSessionId: row.legacy_band_stage_session_id ?? row.legacyBandStageSessionId ? String(row.legacy_band_stage_session_id ?? row.legacyBandStageSessionId) : undefined,
     mdUserId: row.md_user_id ?? row.mdUserId ? String(row.md_user_id ?? row.mdUserId) : undefined,
     status: row.status as StageSessionStatus,
     createdAt: String(row.created_at ?? row.createdAt),
