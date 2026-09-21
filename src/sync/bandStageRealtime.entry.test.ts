@@ -163,6 +163,23 @@ describe('BandStageRealtime entry/reconnect', () => {
     expect(client.channels[1].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
   })
 
+  it('falls back to the legacy transport when target broadcast fails', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    client.channels[1].send.mockRejectedValueOnce(new Error('target unavailable'))
+
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await realtime.publish(event)
+
+    expect(client.channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
+  })
+
   it('reconnects from a clean revision after a dropped connection', async () => {
     const client = makeClient(12)
     const realtime = createRealtime(client)
