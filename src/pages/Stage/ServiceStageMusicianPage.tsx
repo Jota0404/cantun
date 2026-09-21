@@ -12,7 +12,7 @@ import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
-import './ServiceStageMusicianPage.css'
+import './BandMusicianStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
 
