@@ -216,3 +216,8 @@ The canonical Organization/Team path is now operational in the application:
 - Legacy Band list/detail/invite routes remain compatibility infrastructure and are no longer part of primary navigation.
 
 No destructive removal of legacy Band persistence was performed in this slice.
+
+
+### Legacy Band route cutover (ADR-038)
+
+Legacy Band list/detail routes are now compatibility redirects into the canonical Organization/Team flow. Existing Band invite URLs remain valid for backward compatibility, but accepted invites land directly on the canonical Team route. Legacy Band persistence, sync, RPCs and Stage runtime remain intact until the migration gates are cleared.
