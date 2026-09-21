@@ -181,7 +181,7 @@ The user-facing Stage flow now starts from `Service -> StageSession`. The target
 
 ### Target Stage realtime boundary (ADR-034)
 
-The target-native Stage transport boundary is now implemented. `StageSession.id` is the canonical realtime identity, `stage_session_states` is the authoritative state projection, and the target Stage channel is the primary broadcast/Presence transport with legacy fallback. `StageExecutionService` and `SharedExecutionService` expose target-domain application boundaries without inheriting from the legacy runtime. The legacy Stage runtime remains internal compatibility infrastructure until native target command implementations and all legacy consumers are removed.
+The target-native Stage transport is canonical. `StageSession.id` is the realtime identity, `stage_session_states` is authoritative, and `stage-session:<id>:state` is the only realtime transport used by canonical Stage. Legacy transport remains only for explicit legacy routes.
 
 ### Target Repertoire UI cutover
 
@@ -190,7 +190,7 @@ The primary `/repertoires` and `/repertoires/:repertoireId` routes now consume t
 
 ## Stage target-entry status
 
-The canonical Stage flow now has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). Legacy Stage routes remain as compatibility paths. The target StageSession identity is preserved at the application boundary; legacy execution remains an internal compatibility runtime until the remaining migration gates are cleared.
+The canonical Stage flow has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). Legacy Stage routes remain compatibility paths and are isolated from canonical Stage execution.
 
 
 ### Legacy Setlist / standalone Stage boundary (ADR-036)
@@ -233,12 +233,12 @@ The legacy stores are not deleted or cleared during migration. Removal requires 
 
 ### Direct target Stage execution (ADR-041)
 
-`StageExecutionService` now executes canonical Stage commands directly against the target Stage RPC surface using `StageSession.id`. Target snapshot/state normalization remains behind the existing Stage UI contract. The legacy `BandStageService` remains only at the realtime/compatibility boundary for the canonical route and is not used for target command execution. This is an incremental boundary: legacy realtime fallback remains until its dedicated migration gates are cleared.
+`StageExecutionService` executes canonical Stage commands directly against native target RPCs using `StageSession.id`. Canonical Stage has no runtime dependency on `BandStageService` or `BandStageRealtime`.
 
 
 ### Target Stage realtime cutover (ADR-043)
 
-The canonical `StageExecutionService` now owns target-only realtime sessions directly through `BandStageRealtime`. Canonical Stage uses `StageSession.id`, the `stage-session:<id>:state` channel, target snapshot reconciliation, and target command RPCs. The legacy `band-stage:<legacySessionId>` transport remains available only for legacy routes and compatibility consumers; it is no longer part of canonical Stage execution.
+Canonical Stage uses `StageRealtime`, `StageSession.id`, the `stage-session:<id>:state` channel, target snapshot reconciliation, and native target command RPCs. The legacy `band-stage:<legacySessionId>` transport remains available only for legacy routes.
 
 ### Target Stage offline persistence (ADR-042)
 
