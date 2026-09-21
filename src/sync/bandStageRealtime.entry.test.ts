@@ -91,6 +91,23 @@ describe('BandStageRealtime entry/reconnect', () => {
     expect(client.channels[1].subscribe).toHaveBeenCalledTimes(1)
   })
 
+  it('subscribes to stage events on the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+
+    expect(client.channels[1].on).toHaveBeenCalledWith(
+      'broadcast',
+      { event: '*' },
+      expect.any(Function),
+    )
+  })
+
   it('subscribes before fetching the authoritative snapshot', async () => {
     const client = makeClient(7)
     const statuses: string[] = []
@@ -128,6 +145,22 @@ describe('BandStageRealtime entry/reconnect', () => {
       userId: 'u1',
       readiness: 'ready',
     }))
+  })
+
+  it('mirrors stage events to the target StageSession channel', async () => {
+    const client = makeClient(8)
+    const realtime = new BandStageRealtime({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+    })
+
+    await realtime.connect()
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await realtime.publish(event)
+
+    expect(client.channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
+    expect(client.channels[1].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
   })
 
   it('reconnects from a clean revision after a dropped connection', async () => {
