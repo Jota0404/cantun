@@ -52,14 +52,6 @@ export class StageExecutionService {
     }
   }
 
-  private targetCommand(stageSessionId: string, result: StageCommandResult): StageCommandResult {
-    return {
-      ...result,
-      state: { ...result.state, sessionId: stageSessionId },
-      event: { ...result.event, sessionId: stageSessionId },
-    }
-  }
-
   private async legacySessionId(stageSessionId: string): Promise<string> {
     const cached = this.legacyByTarget.get(stageSessionId)
     if (cached) return cached
