@@ -10,10 +10,13 @@ import { createRepertoire, addSongToRepertoire } from '../../application/reperto
 import { addSongToOrganization } from '../../application/organizations/organizationSongService'
 import { createService } from '../../application/services/serviceService'
 import { addSongToService } from '../../application/services/serviceScheduleService'
+import { createTeam } from '../../application/teams/teamService'
+import { teamRepository } from '../../db/repositories/teamRepository'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
 import type { Service } from '../../domain/services/service'
 import type { Song } from '../../domain/songs/song'
+import type { Team } from '../../domain/teams/team'
 import './OrganizationPage.css'
 
 export function OrganizationDetailPage() {
@@ -24,27 +27,37 @@ export function OrganizationDetailPage() {
   const [organizationSongIds, setOrganizationSongIds] = useState<Set<string>>(new Set())
   const [repertoires, setRepertoires] = useState<Repertoire[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
       const org = await organizationRepository.getById(organizationId)
       if (!org) { setError('Organização não encontrada.'); return }
-      const [allSongs, ownedSongs, reps, currentServices] = await Promise.all([
+      const [allSongs, ownedSongs, reps, currentServices, currentTeams] = await Promise.all([
         songRepository.list(),
         organizationSongRepository.listByOrganizationId(organizationId),
         repertoireRepository.listByOrganizationId(organizationId),
         serviceRepository.listByOrganizationId(organizationId),
+        teamRepository.listByOrganizationId(organizationId),
       ])
       setOrganization(org)
       setSongs(allSongs)
       setOrganizationSongIds(new Set(ownedSongs.map((item) => item.songId)))
       setRepertoires(reps)
       setServices(currentServices)
+      setTeams(currentTeams)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a organização.') }
   }, [organizationId])
 
   useEffect(() => { void load() }, [load])
+
+  async function createTeamForOrganization() {
+    const name = window.prompt('Nome da equipe')
+    if (!name?.trim()) return
+    try { await createTeam(organizationId, name); await load() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a equipe.') }
+  }
 
   async function createRep() {
     if (!user) return
@@ -86,6 +99,11 @@ export function OrganizationDetailPage() {
   return <main className="organization-page"><section className="organization-card">
     <header><Link to="/organizations">← Organizações</Link><span>ORGANIZAÇÃO</span><h2>{organization.name}</h2><p>Biblioteca, repertórios e serviços.</p></header>
     {error && <p role="alert" className="organization-error">{error}</p>}
+
+    <section><header><h3>Equipes</h3><button type="button" onClick={() => void createTeamForOrganization()}>Nova equipe</button></header>
+      <div className="organization-list">{teams.map((team) => <article className="organization-item" key={team.id}><div><strong>{team.name}</strong><p>Equipe operacional</p></div><Link to={`/organizations/${organizationId}/teams/${team.id}`}>Abrir equipe</Link></article>)}</div>
+      {teams.length === 0 && <p>Nenhuma equipe cadastrada.</p>}
+    </section>
 
     <section><h3>Biblioteca da organização</h3><p>{organizationSongIds.size} música(s) vinculada(s).</p>
       <div className="organization-list">{songs.map((song) => <article className="organization-item" key={song.id}><div><strong>{song.title}</strong>{song.artist && <p>{song.artist}</p>}</div>{organizationSongIds.has(song.id) ? <span>Vinculada</span> : <button type="button" onClick={() => void addOrgSong(song.id)}>Adicionar</button>}</article>)}</div>
