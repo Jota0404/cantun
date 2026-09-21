@@ -1,4 +1,8 @@
-export type StageSessionStatus = 'lobby' | 'live' | 'ended'
+import type { StageSession, StageSessionStatus } from './stageSession'
+import type { StageSessionState } from './stageSessionState'
+import { toStageSessionState } from './stageSessionState'
+
+export type { StageSession, StageSessionState, StageSessionStatus }
 
 export type StageEventType =
   | 'stage.snapshot'
@@ -13,33 +17,6 @@ export type StageEventType =
   | 'stage.annotation-updated'
   | 'stage.session-ended'
   | 'stage.md-changed'
-
-export interface StageSession {
-  id: string
-  serviceId: string
-  legacyBandStageSessionId: string
-  mdUserId?: string
-  status: StageSessionStatus
-  createdAt: string
-  startedAt?: string
-  endedAt?: string
-  updatedAt: string
-}
-
-export interface StageSessionState {
-  stageSessionId: string
-  revision: number
-  currentIndex: number
-  currentServiceItemId?: string
-  currentSongId?: string
-  currentKey?: string
-  preparedIndex?: number
-  preparedServiceItemId?: string
-  preparedSongId?: string
-  isRunning: boolean
-  mdAnnotation?: string
-  updatedAt: string
-}
 
 export interface StageEvent<T = unknown> {
   type: StageEventType
@@ -75,22 +52,7 @@ export function toStageSession(row: Record<string, unknown>): StageSession {
   }
 }
 
-export function toStageSessionState(row: Record<string, unknown>): StageSessionState {
-  return {
-    stageSessionId: String(row.stage_session_id ?? row.session_id ?? row.stageSessionId),
-    revision: Number(row.revision),
-    currentIndex: Number(row.current_index ?? row.currentIndex),
-    currentServiceItemId: row.current_service_item_id ?? row.currentServiceItemId ? String(row.current_service_item_id ?? row.currentServiceItemId) : undefined,
-    currentSongId: row.current_song_id ?? row.currentSongId ? String(row.current_song_id ?? row.currentSongId) : undefined,
-    currentKey: row.current_key ?? row.currentKey ? String(row.current_key ?? row.currentKey) : undefined,
-    preparedIndex: row.prepared_index === null || row.prepared_index === undefined ? (row.preparedIndex == null ? undefined : Number(row.preparedIndex)) : Number(row.prepared_index),
-    preparedServiceItemId: row.prepared_service_item_id ?? row.preparedServiceItemId ? String(row.prepared_service_item_id ?? row.preparedServiceItemId) : undefined,
-    preparedSongId: row.prepared_song_id ?? row.preparedSongId ? String(row.prepared_song_id ?? row.preparedSongId) : undefined,
-    isRunning: Boolean(row.is_running ?? row.isRunning),
-    mdAnnotation: row.md_annotation ?? row.mdAnnotation ? String(row.md_annotation ?? row.mdAnnotation) : undefined,
-    updatedAt: String(row.updated_at ?? row.updatedAt),
-  }
-}
+export { toStageSessionState }
 
 export function createStageEvent<T>(input: {
   type: StageEventType
