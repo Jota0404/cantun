@@ -7,7 +7,7 @@ import { getServiceStageSongs, type ServiceStageSong } from '../../application/s
 import { getStageMusicalRoleExperience, type StageMusicalRole } from '../../application/stage/stageExperience'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { StageSnapshot } from '../../domain/stage/stage'
-import type { BandStageParticipant, BandStageReadiness } from '../../domain/stage/bandStagePresence'
+import type { StageParticipant, StageReadiness } from '../../domain/stage/stagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
@@ -32,8 +32,8 @@ export function ServiceStagePage() {
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
   const [musicalRole, setMusicalRole] = useState<StageMusicalRole>('other')
   const [annotationDraft, setAnnotationDraft] = useState('')
-  const [participants, setParticipants] = useState<BandStageParticipant[]>([])
-  const [readiness, setReadiness] = useState<BandStageReadiness>('waiting')
+  const [participants, setParticipants] = useState<StageParticipant[]>([])
+  const [readiness, setReadiness] = useState<StageReadiness>('waiting')
 
   const md = Boolean(user?.id && snapshot?.session.mdUserId === user.id)
   const musicianView = !md
@@ -115,7 +115,7 @@ export function ServiceStagePage() {
     if (ownParticipant) setReadiness(ownParticipant.readiness)
   }, [participants, user?.id])
 
-  async function updateReadiness(next: BandStageReadiness) {
+  async function updateReadiness(next: StageReadiness) {
     if (!user?.id || md || next === readiness) return
     try {
       setReadiness(next)
