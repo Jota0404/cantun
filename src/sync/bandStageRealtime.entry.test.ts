@@ -204,7 +204,7 @@ describe('BandStageRealtime entry/reconnect', () => {
     await realtime.publish(event)
 
     expect(client.channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
-    expect(client.channels[1].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: event }))
+    expect(client.channels[1].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'stage.next', payload: expect.objectContaining({ ...event, sessionId: 'ts1' }) }))
   })
 
   it('falls back to the legacy transport when target broadcast fails', async () => {
