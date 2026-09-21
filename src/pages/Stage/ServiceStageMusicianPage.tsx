@@ -7,7 +7,7 @@ import { getServiceStageSongs, type ServiceStageSong } from '../../application/s
 import { getStageMusicalRoleExperience, type StageMusicalRole } from '../../application/stage/stageExperience'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { StageSnapshot } from '../../domain/stage/stage'
-import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
+import type { StageParticipant } from '../../domain/stage/stagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
@@ -30,7 +30,7 @@ export function ServiceStageMusicianPage() {
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
   const [musicalRole, setMusicalRole] = useState<StageMusicalRole>('other')
-  const [participants, setParticipants] = useState<BandStageParticipant[]>([])
+  const [participants, setParticipants] = useState<StageParticipant[]>([])
 
   const applySnapshot = useCallback((next: StageSnapshot) => {
     setSnapshot(next)
