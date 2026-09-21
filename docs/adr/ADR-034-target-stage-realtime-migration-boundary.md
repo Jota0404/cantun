@@ -87,6 +87,11 @@ The current implementation now treats the target StageSession channel as the can
 - legacy broadcast remains a compatibility mirror;
 - if target transport fails at runtime, the legacy transport is used as the fallback;
 - if the target channel cannot be subscribed, the legacy transport remains the fallback;
-- target operational state remains authoritative for reconciliation.
+- target operational state remains authoritative for reconciliation;
+- StageSession.id is now canonical at the realtime reconciliation boundary;
+- target snapshot reads use get_target_stage_snapshot directly when a target session is available;
+- target snapshots/events are normalized before reaching the application;
+- target broadcast payloads carry the target StageSession.id, while the legacy mirror retains the legacy session id;
+- reconnect and revision-gap reconciliation use the target snapshot path.
 
-This keeps the migration additive while preventing legacy transport failures from blocking migrated Stage sessions.
+The remaining compatibility layer is intentionally internal: the legacy runtime still provides the underlying command implementation and remains available as a runtime fallback. The target Stage UI no longer needs to translate target session identity back into a legacy route.
