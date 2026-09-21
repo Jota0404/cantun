@@ -1,6 +1,6 @@
 import { BandStageService, type StageCommandResult } from './bandStageService'
 import { getStageSession } from './stageSessionService'
-import type { BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
+import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 import type { BandStageSnapshot, BandStageSession } from '../../domain/stage/bandStage'
 
 /**
@@ -39,7 +39,7 @@ export class StageExecutionService extends BandStageService {
     onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
     onEvent?: (event: StageCommandResult['event']) => void
     onStatus?: (status: string) => void
-    onPresence?: Parameters<BandStageService['connect']>[1]['onPresence']
+    onPresence?: (participants: BandStageParticipant[]) => void
   } = {}): Promise<BandStageSnapshot> {
     const targetCallbacks = {
       ...callbacks,
