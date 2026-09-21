@@ -18,7 +18,6 @@ import './BandMusicianStagePage.css'
 type ReadMode = 'scroll' | 'pages'
 
 type BandMusicianStagePageProps = {
-  targetStageSessionId?: string
 }
 
 export function BandMusicianStagePage() {
