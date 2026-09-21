@@ -228,3 +228,8 @@ Legacy Band list/detail routes are now compatibility redirects into the canonica
 The local-first migration now explicitly separates canonical target stores from legacy Band compatibility stores. Target writes use the target repositories and `targetSyncQueue`; legacy Band stores remain available for compatibility routes, legacy Stage fallback and existing offline data.
 
 The legacy stores are not deleted or cleared during migration. Removal requires all application, Supabase/RPC, sync, link/session and offline/online validation gates to be complete, with no remaining legacy local records and an empty `bandSyncQueue`. `src/db/legacyDexieCompatibility.ts` exposes this readiness state without performing destructive cleanup.
+
+
+### Target Stage offline persistence (ADR-042)
+
+Target Stage now participates in the local-first boundary through dedicated `stageSessions` and `stageSessionStates` Dexie stores. TargetSyncEngine pulls both entities; StageSession is writable/syncable, while StageSessionState remains a remote-authoritative operational projection and is therefore read-only from the local sync queue. Stage session lifecycle results are cached locally so an existing target session can be resolved during temporary connectivity loss.
