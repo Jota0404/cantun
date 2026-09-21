@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { StageRealtime } from '../../sync/stageRealtime'
-import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
+import { normalizeStageAnnotation } from '../../domain/stage/stageAnnotation'
 import type { StageParticipant, StagePresencePayload } from '../../domain/stage/stagePresence'
 import type { StageCommandResult, StageEventType, StageSnapshot, StageSession } from '../../domain/stage/stage'
 import { createStageEvent, toStageSession, toStageSessionState } from '../../domain/stage/stage'
@@ -130,7 +130,7 @@ export class StageExecutionService {
   }
 
   async setAnnotation(stageSessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
-    const value = normalizeBandStageAnnotation(annotation)
+    const value = normalizeStageAnnotation(annotation)
     return this.command(stageSessionId, 'target_stage_set_annotation', 'stage.annotation-updated', { p_annotation: value }, { annotation: value })
   }
 
