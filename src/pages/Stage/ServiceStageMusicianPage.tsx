@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { StageExecutionService } from '../../application/stage/stageExecutionService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getServiceStageSongs, type ServiceStageSong } from '../../application/stage/getServiceStageSongs'
-import { getStageStageMusicalRoleExperience, type StageStageMusicalRole } from '../../application/stage/stageExperience'
+import { getStageMusicalRoleExperience, type StageMusicalRole } from '../../application/stage/stageExperience'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { StageSnapshot } from '../../domain/stage/stage'
 import type { BandStageParticipant } from '../../domain/stage/bandStagePresence'
@@ -29,7 +29,7 @@ export function ServiceStageMusicianPage() {
   const [status, setStatus] = useState('Conectando…')
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
-  const [musicalRole, setStageMusicalRole] = useState<StageMusicalRole>('other')
+  const [musicalRole, setMusicalRole] = useState<StageMusicalRole>('other')
   const [participants, setParticipants] = useState<BandStageParticipant[]>([])
 
   const applySnapshot = useCallback((next: StageSnapshot) => {
@@ -70,10 +70,10 @@ export function ServiceStageMusicianPage() {
             readiness: 'waiting',
           })
         }
-        const nextStageMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
-        const roleExperience = getStageStageMusicalRoleExperience(nextStageMusicalRole)
+        const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
+        const roleExperience = getStageMusicalRoleExperience(nextMusicalRole)
         if (!cancelled) {
-          setStageMusicalRole(nextStageMusicalRole)
+          setMusicalRole(nextMusicalRole)
           setFontSize(roleExperience.fontSize)
           setReadMode(roleExperience.readMode)
         }
@@ -110,7 +110,7 @@ export function ServiceStageMusicianPage() {
 
   const activeIndex = executionState?.currentIndex ?? 0
   const activeSong = songs[activeIndex]
-  const experience = getStageStageMusicalRoleExperience(musicalRole)
+  const experience = getStageMusicalRoleExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
     const key = (executionState?.currentKey ?? activeSong.currentKey) as MusicalKey
