@@ -10,6 +10,7 @@ export class RepertoireRepository {
   }
   async create(value: Repertoire): Promise<void> { await this.db.repertoires.add(value); await queueTargetUpsert('repertoires', value) }
   async getById(id: string): Promise<Repertoire | undefined> { return this.db.repertoires.get(id) }
+  async list(): Promise<Repertoire[]> { return this.db.repertoires.orderBy('updatedAt').reverse().toArray() }
   async listByOrganizationId(organizationId: string): Promise<Repertoire[]> { return this.db.repertoires.where('organizationId').equals(organizationId).sortBy('updatedAt') }
   async update(value: Repertoire): Promise<void> { await this.db.repertoires.put(value); await queueTargetUpsert('repertoires', value) }
   async remove(id: string): Promise<void> { await this.db.repertoires.delete(id); await queueTargetDelete('repertoires', id) }
