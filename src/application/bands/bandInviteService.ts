@@ -68,6 +68,8 @@ export async function acceptBandInvite(token: string) {
   if (!context) throw new Error('Organização aceita, mas a ponte da banda não foi encontrada.')
   return {
     bandId: context.bandId,
+    organizationId: context.organizationId,
+    teamId: context.teamId,
     bandName: result.organizationName,
     role: (result.role === 'admin' ? 'editor' : 'member') as BandInviteRole,
     membershipId: result.organizationMembershipId,
