@@ -1,8 +1,8 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js'
 import type { StageEvent, StageEventType, StageSnapshot } from '../domain/stage/stage'
 import { toStageSession, toStageSessionState } from '../domain/stage/stage'
-import type { BandStageParticipant, BandStagePresencePayload } from '../domain/stage/bandStagePresence'
-import { presenceStateToParticipants } from '../domain/stage/bandStagePresence'
+import type { StageParticipant, StagePresencePayload } from '../domain/stage/stagePresence'
+import { presenceStateToStageParticipants } from '../domain/stage/stagePresence'
 
 const EVENT_TYPES: readonly StageEventType[] = [
   'stage.snapshot','stage.play','stage.pause','stage.next','stage.previous',
@@ -20,7 +20,7 @@ export interface StageRealtimeOptions {
   onEvent?: (event: StageEvent) => void
   onStatus?: (status: string) => void
   onConnectionStatus?: (status: StageConnectionStatus) => void
-  onPresence?: (participants: BandStageParticipant[]) => void
+  onPresence?: (participants: StageParticipant[]) => void
 }
 
 export function stageChannelName(sessionId: string): string {
@@ -128,7 +128,7 @@ export class StageRealtime {
   private reconnecting: Promise<StageSnapshot> | null = null
   private disposed = false
   private connectionStatus: StageConnectionStatus = 'DISCONNECTED'
-  private presencePayload: BandStagePresencePayload | null = null
+  private presencePayload: StagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
   constructor(private readonly options: StageRealtimeOptions) {
@@ -204,14 +204,14 @@ export class StageRealtime {
     return this.reconciler.reconcile('reconnect')
   }
 
-  async trackPresence(payload: BandStagePresencePayload): Promise<void> {
+  async trackPresence(payload: StagePresencePayload): Promise<void> {
     if (this.disposed) throw new Error('Sessão de palco já foi encerrada.')
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     this.presencePayload = payload
     await this.trackPresenceInternal(payload)
   }
 
-  private async trackPresenceInternal(payload: BandStagePresencePayload): Promise<void> {
+  private async trackPresenceInternal(payload: StagePresencePayload): Promise<void> {
     const result = await this.channel.track(payload)
     if (result !== 'ok') throw new Error(`Falha ao publicar presença de palco: ${result}`)
     this.emitPresence()
@@ -220,7 +220,7 @@ export class StageRealtime {
   private emitPresence(): void {
     if (this.disposed) return
     const state = this.channel.presenceState() as Record<string, unknown>
-    this.options.onPresence?.(presenceStateToParticipants(state, this.lastSnapshotMdUserId ?? ''))
+    this.options.onPresence?.(presenceStateToStageParticipants(state, this.lastSnapshotMdUserId ?? ''))
   }
 
   async publish(event: StageEvent): Promise<void> {
