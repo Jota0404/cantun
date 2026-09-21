@@ -255,6 +255,12 @@ export class BandStageRealtime {
         if (this.disposed) return
         this.emitTargetPresence()
       })
+      this.targetChannel.on('broadcast', { event: '*' }, ({ payload }) => {
+        if (!isStageEvent(payload) || this.disposed) return
+        void this.reconciler.acceptEvent(payload).catch(() => {
+          void this.refresh().catch(() => undefined)
+        })
+      })
       this.targetChannel.on(
         'postgres_changes',
         {
@@ -409,6 +415,7 @@ export class BandStageRealtime {
     if (!this.subscribed) throw new Error('Canal de palco não está conectado.')
     try {
       await publishBandStageEvent(this.channel, event)
+      if (this.targetChannel) await publishBandStageEvent(this.targetChannel, event)
     } catch (error) {
       this.setConnectionStatus('ERROR')
       throw error
