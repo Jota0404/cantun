@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { BandStageSnapshot } from '../../domain/stage/bandStage'
+import type { BandStageEvent, BandStageSnapshot } from '../../domain/stage/bandStage'
 import { StageExecutionService } from './stageExecutionService'
 
 const legacySnapshot: BandStageSnapshot = {
@@ -73,7 +73,7 @@ describe('StageExecutionService target identity facade', () => {
 
   it('targetizes realtime event session identity before exposing it to the application', async () => {
     let callbacks: {
-      onEvent?: (event: { sessionId: string; [key: string]: unknown }) => void
+      onEvent?: (event: BandStageEvent) => void
     } = {}
 
     const realtime = {
