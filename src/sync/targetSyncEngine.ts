@@ -42,12 +42,27 @@ export type TargetEntity =
   | StageSession
   | StageSessionState
 
+export type TargetWritableEntityName = Exclude<TargetEntityName, 'stageSessionStates'>
+
+export type TargetWritableEntity =
+  | Organization
+  | OrganizationMembership
+  | Team
+  | TeamMembership
+  | OrganizationSong
+  | Repertoire
+  | RepertoireItem
+  | Service
+  | ServiceItem
+  | Assignment
+  | StageSession
+
 export interface TargetSyncQueueItem {
   id?: number
-  entity: TargetEntityName
+  entity: TargetWritableEntityName
   entityId: string
   operation: 'upsert' | 'delete'
-  payload?: TargetEntity
+  payload?: TargetWritableEntity
   updatedAt: string
   attempts: number
 }
@@ -165,13 +180,13 @@ export class TargetSyncEngine {
     this.client = client
   }
 
-  async queueUpsert(entity: TargetEntityName, payload: TargetEntity): Promise<void> {
+  async queueUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity): Promise<void> {
     await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
     await this.db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload, updatedAt: payload.updatedAt, attempts: 0 })
     void this.sync()
   }
 
-  async queueDelete(entity: TargetEntityName, entityId: string, updatedAt = new Date().toISOString()): Promise<void> {
+  async queueDelete(entity: TargetWritableEntityName, entityId: string, updatedAt = new Date().toISOString()): Promise<void> {
     await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
     await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt, attempts: 0 })
     void this.sync()
