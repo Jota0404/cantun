@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { StageRealtime } from '../../sync/stageRealtime'
 import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
-import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
+import type { StageParticipant, StagePresencePayload } from '../../domain/stage/stagePresence'
 import type { StageCommandResult, StageEventType, StageSnapshot, StageSession } from '../../domain/stage/stage'
 import { createStageEvent, toStageSession, toStageSessionState } from '../../domain/stage/stage'
 
@@ -18,7 +18,7 @@ export class StageExecutionService {
     onSnapshot?: (snapshot: StageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
     onEvent?: (event: StageCommandResult['event']) => void
     onStatus?: (status: string) => void
-    onPresence?: (participants: BandStageParticipant[]) => void
+    onPresence?: (participants: StageParticipant[]) => void
   } = {}): StageRealtime {
     const existing = this.realtimeByTarget.get(stageSessionId)
     if (existing) return existing
@@ -59,12 +59,12 @@ export class StageExecutionService {
     onSnapshot?: (snapshot: StageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
     onEvent?: (event: StageCommandResult['event']) => void
     onStatus?: (status: string) => void
-    onPresence?: (participants: BandStageParticipant[]) => void
+    onPresence?: (participants: StageParticipant[]) => void
   } = {}): Promise<StageSnapshot> {
     return this.realtime(stageSessionId, callbacks).connect()
   }
 
-  async trackPresence(stageSessionId: string, payload: BandStagePresencePayload): Promise<void> {
+  async trackPresence(stageSessionId: string, payload: StagePresencePayload): Promise<void> {
     return this.realtime(stageSessionId).trackPresence(payload)
   }
 
