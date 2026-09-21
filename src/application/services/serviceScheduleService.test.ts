@@ -26,7 +26,7 @@ describe('serviceScheduleService', () => {
     const created = await addSongToService('s1', 'song2', undefined, '00000000-0000-4000-8000-000000000002')
 
     expect(created.position).toBe(1)
-    expect(itemRepository.create).toHaveBeenCalledWith(expect.objectContaining({ id: 'i2', position: 1 }))
+    expect(itemRepository.create).toHaveBeenCalledWith(expect.objectContaining({ id: '00000000-0000-4000-8000-000000000002', position: 1 }))
     expect(serviceRepository.update).toHaveBeenCalled()
   })
 
