@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
 import { teamMembershipRepository, teamRepository } from '../../db/repositories/teamRepository'
 import { getMyTeamMusicalFunctions, setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
-import { createOrganizationInvite, buildOrganizationInviteUrl, listOrganizationInvites, revokeOrganizationInvite, updateOrganizationMemberRole, removeOrganizationMember, type OrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
+import { createOrganizationInvite, buildOrganizationInviteUrl, listOrganizationInvites, revokeOrganizationInvite, updateOrganizationMemberRole, type OrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
 import type { Team } from '../../domain/teams/team'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
 import type { OrganizationMembership } from '../../domain/organizations/organizationMembership'
@@ -99,10 +99,10 @@ export function TeamPage() {
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível alterar o acesso.') }
   }
 
-  async function removeOrganizationMembership(membershipId: string) {
-    if (!window.confirm('Remover este membro da organização?')) return
-    try { await removeOrganizationMember(membershipId); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível remover o membro.') }
+  async function removeTeamMember(membershipId: string) {
+    if (!window.confirm('Remover este membro da equipe?')) return
+    try { await teamMembershipRepository.remove(membershipId); await load() }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível remover o membro da equipe.') }
   }
 
   if (loading) return <main className="organization-page"><p>Carregando equipe…</p></main>
@@ -149,7 +149,7 @@ export function TeamPage() {
                         <option value="member">Membro</option>
                         <option value="admin">Administrador</option>
                       </select>
-                      <button type="button" onClick={() => void removeOrganizationMembership(organizationMember.id)}>Remover da organização</button>
+                      <button type="button" onClick={() => void removeTeamMember(member.id)}>Remover da equipe</button>
                     </>
                   )}
                 </li>
