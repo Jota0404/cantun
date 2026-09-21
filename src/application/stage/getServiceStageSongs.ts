@@ -1,5 +1,4 @@
 import type { MusicalKey } from '../../domain/music/musicalKey'
-import { toMusicalRole, type MusicalRole } from '../../domain/bands/musicalRole'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { songRepository } from '../../db/repositories/songRepository'
@@ -16,7 +15,7 @@ export type ServiceStageSong = {
   lyrics: string
   notes?: string
   bpm?: number
-  musicalRole: MusicalRole
+  musicalRole: string
 }
 
 type Row = {
@@ -64,7 +63,7 @@ async function getLocalServiceStageSongs(stageSessionId: string): Promise<Servic
       lyrics: song.lyrics,
       notes: song.notes,
       bpm: song.bpm,
-      musicalRole: toMusicalRole(assignment?.musicalFunction),
+      musicalRole: assignment?.musicalFunction?.trim() || 'other',
     })
   }
   return result
@@ -88,7 +87,7 @@ export async function getServiceStageSongs(stageSessionId: string): Promise<Serv
     lyrics: row.lyrics ?? '',
     notes: row.notes ?? undefined,
     bpm: row.bpm == null ? undefined : Number(row.bpm),
-      musicalRole: toMusicalRole(row.musical_role),
+      musicalRole: row.musical_role?.trim() || 'other',
 
     }))
   } catch (error) {
