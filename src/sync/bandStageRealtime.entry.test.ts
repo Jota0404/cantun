@@ -78,6 +78,7 @@ describe('BandStageRealtime entry/reconnect', () => {
     await realtime.connect()
 
     expect(client.channel).toHaveBeenCalledTimes(2)
+    expect(client.rpc).toHaveBeenCalledWith('get_target_stage_snapshot', { p_stage_session_id: 'ts1' })
     expect(client.channels[1].on).toHaveBeenCalledWith(
       'postgres_changes',
       expect.objectContaining({
@@ -89,6 +90,9 @@ describe('BandStageRealtime entry/reconnect', () => {
       expect.any(Function),
     )
     expect(client.channels[1].subscribe).toHaveBeenCalledTimes(1)
+    const snapshot = await realtime.refresh()
+    expect(snapshot.session.id).toBe('ts1')
+    expect(snapshot.state.sessionId).toBe('ts1')
   })
 
   it('subscribes to stage events on the target StageSession channel', async () => {
