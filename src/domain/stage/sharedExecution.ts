@@ -1,4 +1,4 @@
-import type { BandStageState } from './bandStage'
+import type { StageSessionState } from './stage'
 
 export type SharedExecutionStatus = 'lobby' | 'running' | 'paused' | 'ended'
 
@@ -17,11 +17,11 @@ export interface SharedExecutionState {
 }
 
 export function toSharedExecutionState(
-  state: BandStageState,
+  state: StageSessionState,
   sessionStatus: 'lobby' | 'live' | 'ended',
 ): SharedExecutionState {
   return {
-    sessionId: state.sessionId,
+    sessionId: state.stageSessionId,
     revision: state.revision,
     currentIndex: state.currentIndex,
     currentSongId: state.currentSongId,
