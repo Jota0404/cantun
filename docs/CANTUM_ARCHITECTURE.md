@@ -201,3 +201,18 @@ Legacy `Setlist`/`SetlistSong` persistence and standalone Stage routes remain ex
 ### Target Service operational lifecycle (ADR-037)
 
 Service is now the operational preparation aggregate between Organization/Repertoire and Stage: `Organization -> Service -> ServiceItems -> Assignments -> StageSession`. Target application services support Service editing, ordered ServiceItems, Assignment lifecycle, and target Stage entry. ServiceItems reference canonical Songs and may retain an optional originating Repertoire. Legacy Setlist remains outside this flow.
+
+
+## Target Team operational UI — complete
+
+The canonical Organization/Team path is now operational in the application:
+- Organization detail lists and creates Teams.
+- Team detail is scoped by Organization + Team identity.
+- Team lifecycle uses the target Team application service.
+- Team membership removal is scoped to TeamMembership and does not remove the user from the Organization.
+- Organization-level access roles remain distinct from Team membership.
+- Team musical functions remain many-to-many on the TeamMembership boundary.
+- Team invitations use the target OrganizationInvite API and land directly in the canonical Team route.
+- Legacy Band list/detail/invite routes remain compatibility infrastructure and are no longer part of primary navigation.
+
+No destructive removal of legacy Band persistence was performed in this slice.
