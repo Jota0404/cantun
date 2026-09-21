@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import { toMusicalRole, type MusicalRole } from '../../domain/bands/musicalRole'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
