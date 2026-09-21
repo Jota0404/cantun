@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
-import { StageExecutionService } from '../../application/stage/stageExecutionService'
+import { BandStageService } from '../../application/stage/bandStageService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
 import { getServiceStageSongs } from '../../application/stage/getServiceStageSongs'
@@ -21,12 +21,11 @@ type BandMusicianStagePageProps = {
   targetStageSessionId?: string
 }
 
-export function BandMusicianStagePage({ targetStageSessionId }: BandMusicianStagePageProps) {
-  const { sessionId: routeSessionId = '' } = useParams<{ sessionId: string }>()
-  const sessionId = targetStageSessionId ?? routeSessionId
+export function BandMusicianStagePage() {
+  const { sessionId = '' } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const service = useMemo(() => new StageExecutionService(), [])
+  const service = useMemo(() => new BandStageService(), [])
   const execution = useMemo(() => new SharedExecutionService(service), [service])
   const [snapshot, setSnapshot] = useState<BandStageSnapshot>()
   const [executionState, setExecutionState] = useState<SharedExecutionState>()
@@ -65,9 +64,7 @@ export function BandMusicianStagePage({ targetStageSessionId }: BandMusicianStag
         })
         if (cancelled) return
         applySnapshot(initial)
-        const loadedSongs = targetStageSessionId
-          ? await getServiceStageSongs(targetStageSessionId)
-          : await getBandStageSessionSetlist(initial.session)
+        const loadedSongs = await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
         if (user?.id) {
@@ -100,7 +97,7 @@ export function BandMusicianStagePage({ targetStageSessionId }: BandMusicianStag
       execution.dispose(sessionId)
       void service.disconnect(sessionId)
     }
-  }, [applySnapshot, execution, service, sessionId, targetStageSessionId, user])
+  }, [applySnapshot, execution, service, sessionId, user])
 
   const refresh = useCallback(async () => {
     try {
