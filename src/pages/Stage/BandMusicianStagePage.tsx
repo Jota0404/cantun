@@ -4,7 +4,6 @@ import { useAuth } from '../../auth/authContext'
 import { StageExecutionService } from '../../application/stage/stageExecutionService'
 import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
 import { getBandStageSessionSetlist, type BandStageSetlistItem } from '../../application/stage/getBandStageSessionSetlist'
-import { getTargetStageSessionByLegacyId } from '../../application/stage/getTargetStageSession'
 import { getServiceStageSongs } from '../../application/stage/getServiceStageSongs'
 import { getMusicalRoleStageExperience } from '../../application/stage/musicalRoleStageService'
 import type { MusicalRole } from '../../domain/bands/musicalRole'
@@ -18,8 +17,13 @@ import './BandMusicianStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
 
-export function BandMusicianStagePage() {
-  const { sessionId = '' } = useParams<{ sessionId: string }>()
+type BandMusicianStagePageProps = {
+  targetStageSessionId?: string
+}
+
+export function BandMusicianStagePage({ targetStageSessionId }: BandMusicianStagePageProps) {
+  const { sessionId: routeSessionId = '' } = useParams<{ sessionId: string }>()
+  const sessionId = targetStageSessionId ?? routeSessionId
   const navigate = useNavigate()
   const { user } = useAuth()
   const service = useMemo(() => new StageExecutionService(), [])
@@ -61,9 +65,8 @@ export function BandMusicianStagePage() {
         })
         if (cancelled) return
         applySnapshot(initial)
-        const targetSession = await getTargetStageSessionByLegacyId(initial.session.id)
-        const loadedSongs = targetSession
-          ? await getServiceStageSongs(targetSession.id)
+        const loadedSongs = targetStageSessionId
+          ? await getServiceStageSongs(targetStageSessionId)
           : await getBandStageSessionSetlist(initial.session)
         if (cancelled) return
         setSongs(loadedSongs)
@@ -97,7 +100,7 @@ export function BandMusicianStagePage() {
       execution.dispose(sessionId)
       void service.disconnect(sessionId)
     }
-  }, [applySnapshot, execution, service, sessionId, user])
+  }, [applySnapshot, execution, service, sessionId, targetStageSessionId, user])
 
   const refresh = useCallback(async () => {
     try {
