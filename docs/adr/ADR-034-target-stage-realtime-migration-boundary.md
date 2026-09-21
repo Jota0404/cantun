@@ -79,6 +79,8 @@ with the legacy runtime temporarily acting as a compatibility implementation und
 Related ADRs: 023, 025, 030, 031, 032, 033.
 ## Implementation status
 
+**Target realtime boundary slice: complete.**
+
 The current implementation now treats the target StageSession channel as the canonical realtime transport whenever the target subscription is available:
 
 - target Presence/readiness is published first;
