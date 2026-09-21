@@ -18,8 +18,9 @@ import './BandStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
 
-export function BandStagePage() {
-  const { sessionId = '' } = useParams<{ sessionId: string }>()
+export function BandStagePage({ targetStageSessionId }: { targetStageSessionId?: string }) {
+  const { sessionId: routeSessionId = '' } = useParams<{ sessionId: string }>()
+  const sessionId = targetStageSessionId ?? routeSessionId
   const { user } = useAuth()
   const navigate = useNavigate()
   const service = useMemo(() => new StageExecutionService(), [])
