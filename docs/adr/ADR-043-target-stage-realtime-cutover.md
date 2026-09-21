@@ -1,3 +1,6 @@
+
+> **Superseded:** ADR-044 finalizes the canonical Stage runtime and removes the legacy runtime from target application execution.
+
 # ADR-043 — Target Stage Realtime Cutover
 
 ## Status
