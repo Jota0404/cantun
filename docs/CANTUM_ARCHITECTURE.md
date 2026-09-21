@@ -235,6 +235,11 @@ The legacy stores are not deleted or cleared during migration. Removal requires 
 
 `StageExecutionService` now executes canonical Stage commands directly against the target Stage RPC surface using `StageSession.id`. Target snapshot/state normalization remains behind the existing Stage UI contract. The legacy `BandStageService` remains only at the realtime/compatibility boundary for the canonical route and is not used for target command execution. This is an incremental boundary: legacy realtime fallback remains until its dedicated migration gates are cleared.
 
+
+### Target Stage realtime cutover (ADR-043)
+
+The canonical `StageExecutionService` now owns target-only realtime sessions directly through `BandStageRealtime`. Canonical Stage uses `StageSession.id`, the `stage-session:<id>:state` channel, target snapshot reconciliation, and target command RPCs. The legacy `band-stage:<legacySessionId>` transport remains available only for legacy routes and compatibility consumers; it is no longer part of canonical Stage execution.
+
 ### Target Stage offline persistence (ADR-042)
 
 Target Stage now participates in the local-first boundary through dedicated `stageSessions` and `stageSessionStates` Dexie stores. TargetSyncEngine pulls both entities; StageSession is writable/syncable, while StageSessionState remains a remote-authoritative operational projection and is therefore read-only from the local sync queue. Stage session lifecycle results are cached locally so an existing target session can be resolved during temporary connectivity loss.
