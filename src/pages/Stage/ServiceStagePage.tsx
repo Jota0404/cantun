@@ -146,7 +146,8 @@ export function ServiceStagePage() {
     }
   }
 
-  async function command(action: () => Promise<{ state: BandStageSnapshot['state'] }>) {
+  async function command(action: () => Promise<{ state: StageSnapshot['state']
+ }>) {
     try {
       setBusy(true)
       setError('')
