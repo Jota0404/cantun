@@ -1,4 +1,4 @@
-import { type BandStageServiceOptions, type StageCommandResult } from './bandStageService'
+import type { StageCommandResult } from './bandStageService'
 import { BandStageRealtime } from '../../sync/bandStageRealtime'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
@@ -10,8 +10,8 @@ import type { BandStageSnapshot, BandStageSession } from '../../domain/stage/ban
 /**
  * Target-domain facade for live Stage execution.
  *
- * StageSession.id is the public application identity. The legacy
- * BandStageService is composed internally as a compatibility runtime.
+ * StageSession.id is the canonical application identity. Realtime uses the
+ * target-only transport; legacy BandStage remains outside this facade.
  */
 export class StageExecutionService {
   private readonly realtimeByTarget = new Map<string, BandStageRealtime>()
@@ -21,7 +21,7 @@ export class StageExecutionService {
     return supabase
   }
 
-  private async targetState(stageSessionId: string, data: unknown, eventType: StageCommandResult['event']['type'] = 'stage.snapshot', payload: unknown = {}) : Promise<StageCommandResult> {
+  private async targetState(stageSessionId: string, data: unknown, eventType: StageCommandResult['event']['type'] = 'stage.snapshot', payload: unknown = {}): Promise<StageCommandResult> {
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
     const raw = row as Record<string, unknown>
@@ -142,15 +142,19 @@ export class StageExecutionService {
 
   async startSession(stageSessionId: string): Promise<BandStageSession> {
     const client = await this.targetClient()
-    const { error } = await client.rpc('target_stage_start', { p_stage_session_id: stageSessionId })
+    const { data, error } = await client.rpc('target_stage_start', { p_stage_session_id: stageSessionId })
     if (error) throw new Error(error.message)
+    const result = await this.targetState(stageSessionId, data, 'stage.snapshot')
+    await this.realtimeByTarget.get(stageSessionId)?.publish(result.event).catch(() => undefined)
     return this.getSnapshot(stageSessionId).then((snapshot) => snapshot.session)
   }
 
   async endSession(stageSessionId: string): Promise<BandStageSession> {
     const client = await this.targetClient()
-    const { error } = await client.rpc('target_stage_end', { p_stage_session_id: stageSessionId })
+    const { data, error } = await client.rpc('target_stage_end', { p_stage_session_id: stageSessionId })
     if (error) throw new Error(error.message)
+    const result = await this.targetState(stageSessionId, data, 'stage.session-ended')
+    await this.realtimeByTarget.get(stageSessionId)?.publish(result.event).catch(() => undefined)
     return this.getSnapshot(stageSessionId).then((snapshot) => snapshot.session)
   }
 }
