@@ -186,3 +186,8 @@ The target-native Stage transport boundary is now implemented. `StageSession.id`
 ### Target Repertoire UI cutover
 
 The primary `/repertoires` and `/repertoires/:repertoireId` routes now consume the target `Repertoire`/`RepertoireItem` model. The organization-scoped route `/organizations/:organizationId/repertoires/:repertoireId` uses the same canonical detail consumer. Legacy Setlist repositories and application services remain only as compatibility infrastructure for remaining legacy Stage/Band consumers; they are not used by the primary Repertoire navigation.
+
+
+## Stage target-entry status
+
+The canonical Stage flow now has target-keyed entries for both the MD/operator view (`/stage/service-session/:stageSessionId`) and musician view (`/stage/service-session/:stageSessionId/musician`). Legacy Stage routes remain as compatibility paths. The target StageSession identity is preserved at the application boundary; legacy execution remains an internal compatibility runtime until the remaining migration gates are cleared.
