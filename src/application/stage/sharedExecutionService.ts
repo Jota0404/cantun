@@ -1,4 +1,5 @@
-import type { StageCommandResult, StageSnapshot } from '../../domain/stage/stage'
+import type { StageCommandResult } from './bandStageService'
+import type { BandStageSnapshot } from '../../domain/stage/bandStage'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { toSharedExecutionState } from '../../domain/stage/sharedExecution'
 
@@ -11,7 +12,7 @@ export interface SharedExecutionPort {
   setKey(sessionId: string, key: string): Promise<StageCommandResult>
   prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult>
   clearPrepared(sessionId: string): Promise<StageCommandResult>
-  endSession(sessionId: string): Promise<StageSnapshot['session']>
+  endSession(sessionId: string): Promise<BandStageSnapshot['session']>
 }
 
 export type SharedExecutionListener = (state: SharedExecutionState) => void
@@ -21,21 +22,15 @@ export class SharedExecutionService {
   private readonly stateBySession = new Map<string, SharedExecutionState>()
   private readonly listenersBySession = new Map<string, Set<SharedExecutionListener>>()
 
-  constructor(stageService: SharedExecutionPort) {
-    this.stageService = stageService
-  }
+  constructor(stageService: SharedExecutionPort) { this.stageService = stageService }
 
-  get(sessionId: string): SharedExecutionState | undefined {
-    return this.stateBySession.get(sessionId)
-  }
+  get(sessionId: string): SharedExecutionState | undefined { return this.stateBySession.get(sessionId) }
 
-  applySnapshot(snapshot: StageSnapshot): SharedExecutionState {
+  applySnapshot(snapshot: BandStageSnapshot): SharedExecutionState {
     const current = this.stateBySession.get(snapshot.session.id)
     const next = toSharedExecutionState(snapshot.state, snapshot.session.status)
-
     if (current && next.revision < current.revision) return current
     if (current && next.revision === current.revision && next.updatedAt < current.updatedAt) return current
-
     this.stateBySession.set(snapshot.session.id, next)
     for (const listener of this.listenersBySession.get(snapshot.session.id) ?? []) listener(next)
     return next
@@ -47,7 +42,6 @@ export class SharedExecutionService {
     this.listenersBySession.set(sessionId, listeners)
     const current = this.stateBySession.get(sessionId)
     if (current) listener(current)
-
     return () => {
       listeners.delete(listener)
       if (listeners.size === 0) this.listenersBySession.delete(sessionId)
@@ -62,13 +56,6 @@ export class SharedExecutionService {
   async setKey(sessionId: string, key: string): Promise<StageCommandResult> { return this.stageService.setKey(sessionId, key) }
   async prepareNext(sessionId: string, index: number, songId: string): Promise<StageCommandResult> { return this.stageService.prepareNext(sessionId, index, songId) }
   async clearPrepared(sessionId: string): Promise<StageCommandResult> { return this.stageService.clearPrepared(sessionId) }
-
-  async end(sessionId: string): Promise<void> {
-    await this.stageService.endSession(sessionId)
-  }
-
-  dispose(sessionId: string): void {
-    this.stateBySession.delete(sessionId)
-    this.listenersBySession.delete(sessionId)
-  }
+  async end(sessionId: string): Promise<void> { await this.stageService.endSession(sessionId) }
+  dispose(sessionId: string): void { this.stateBySession.delete(sessionId); this.listenersBySession.delete(sessionId) }
 }
