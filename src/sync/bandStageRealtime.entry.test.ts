@@ -31,6 +31,24 @@ const snapshot = (revision: number) => ({
   },
 })
 
+  it('normalizes legacy-compatible events to the target StageSession identity', async () => {
+    const client = makeClient(8)
+    const events: string[] = []
+    const reconciler = new BandStageReconciler({
+      client: client as unknown as SupabaseClient,
+      sessionId: 's1',
+      targetSessionId: 'ts1',
+      onEvent: (event) => events.push(event.sessionId),
+    })
+
+    await reconciler.reconcile('initial')
+    const event = createBandStageEvent({ type: 'stage.next', sessionId: 's1', revision: 9, actorUserId: 'md1', payload: {} })
+    await reconciler.acceptEvent(event)
+
+    expect(events).toEqual(['ts1'])
+    expect(reconciler.revision).toBe(9)
+  })
+
 function makeClient(revision = 7): FakeClient {
   const channels: FakeChannel[] = []
   const rpc = vi.fn(async () => ({
