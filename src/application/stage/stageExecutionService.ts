@@ -1,8 +1,9 @@
-import { BandStageService, type BandStageServiceOptions, type StageCommandResult } from './bandStageService'
+import { type BandStageServiceOptions, type StageCommandResult } from './bandStageService'
+import { BandStageRealtime } from '../../sync/bandStageRealtime'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { toBandStageSession, toBandStageState } from '../../domain/stage/bandStage'
 import { normalizeBandStageAnnotation } from './bandStageAnnotationService'
-import { getStageSession } from './stageSessionService'
 import type { BandStageParticipant, BandStagePresencePayload } from '../../domain/stage/bandStagePresence'
 import type { BandStageSnapshot, BandStageSession } from '../../domain/stage/bandStage'
 
@@ -13,15 +14,14 @@ import type { BandStageSnapshot, BandStageSession } from '../../domain/stage/ban
  * BandStageService is composed internally as a compatibility runtime.
  */
 export class StageExecutionService {
-  private readonly compatibility: BandStageService
-  private readonly legacyByTarget = new Map<string, string>()
+  private readonly realtimeByTarget = new Map<string, BandStageRealtime>()
 
   private async targetClient() {
     if (!supabase) throw new Error('Supabase não está configurado para o Modo Palco.')
     return supabase
   }
 
-  private async targetState(stageSessionId: string, data: unknown): Promise<StageCommandResult> {
+  private async targetState(stageSessionId: string, data: unknown, eventType: StageCommandResult['event']['type'] = 'stage.snapshot', payload: unknown = {}) : Promise<StageCommandResult> {
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
     const raw = row as Record<string, unknown>
@@ -30,20 +30,30 @@ export class StageExecutionService {
     const snapshot = await this.getSnapshot(stageSessionId)
     if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
     const user = await supabase.auth.getUser()
-    return { state, event: { type: 'stage.snapshot', sessionId: stageSessionId, revision: state.revision, actorUserId: user.data.user?.id ?? '', eventId: crypto.randomUUID(), sentAt: new Date().toISOString(), payload: { state } } }
+    const event = { type: eventType, sessionId: stageSessionId, revision: state.revision, actorUserId: user.data.user?.id ?? '', eventId: crypto.randomUUID(), sentAt: new Date().toISOString(), payload: { ...((payload && typeof payload === 'object') ? payload as Record<string, unknown> : {}), state } }
+    return { state, event }
   }
 
-  private async targetCommand(stageSessionId: string, rpc: string, args: Record<string, unknown> = {}) {
+  private async targetCommand(stageSessionId: string, rpc: string, eventType: StageCommandResult['event']['type'], args: Record<string, unknown> = {}, payload: Record<string, unknown> = {}) {
     const client = await this.targetClient()
     await this.getSnapshot(stageSessionId)
     const { data, error } = await client.rpc(rpc, { p_stage_session_id: stageSessionId, ...args })
     if (error) throw new Error(error.message)
-    return this.targetState(stageSessionId, data)
+    const result = await this.targetState(stageSessionId, data, eventType, payload)
+    await this.realtimeByTarget.get(stageSessionId)?.publish(result.event).catch(() => undefined)
+    return result
   }
 
-  constructor(options: BandStageServiceOptions = {}) {
-    this.compatibility = new BandStageService(options)
+  private realtime(stageSessionId: string, callbacks: { onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void; onEvent?: (event: StageCommandResult['event']) => void; onStatus?: (status: string) => void; onPresence?: (participants: BandStageParticipant[]) => void } = {}) {
+    const existing = this.realtimeByTarget.get(stageSessionId)
+    if (existing) return existing
+    const client = supabase as unknown as SupabaseClient
+    const realtime = new BandStageRealtime({ client, sessionId: stageSessionId, targetSessionId: stageSessionId, targetOnly: true, ...callbacks })
+    this.realtimeByTarget.set(stageSessionId, realtime)
+    return realtime
   }
+
+
 
   private targetSnapshot(stageSessionId: string, snapshot: BandStageSnapshot): BandStageSnapshot {
     return {
@@ -52,53 +62,33 @@ export class StageExecutionService {
     }
   }
 
-  private async legacySessionId(stageSessionId: string): Promise<string> {
-    const cached = this.legacyByTarget.get(stageSessionId)
-    if (cached) return cached
-    const session = await getStageSession(stageSessionId)
-    this.legacyByTarget.set(stageSessionId, session.legacyBandStageSessionId)
-    return session.legacyBandStageSessionId
-  }
-
   async connect(stageSessionId: string, callbacks: {
     onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
     onEvent?: (event: StageCommandResult['event']) => void
     onStatus?: (status: string) => void
     onPresence?: (participants: BandStageParticipant[]) => void
   } = {}): Promise<BandStageSnapshot> {
-    const targetCallbacks = {
-      ...callbacks,
-      onSnapshot: callbacks.onSnapshot
-        ? (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') =>
-            callbacks.onSnapshot?.(this.targetSnapshot(stageSessionId, snapshot), reason)
-        : undefined,
-      onEvent: callbacks.onEvent
-        ? (event: StageCommandResult['event']) =>
-            callbacks.onEvent?.({ ...event, sessionId: stageSessionId })
-        : undefined,
-    }
-
-    return this.compatibility.connect(await this.legacySessionId(stageSessionId), targetCallbacks)
-      .then((snapshot) => this.targetSnapshot(stageSessionId, snapshot))
+    return this.realtime(stageSessionId, callbacks).connect()
   }
 
   async trackPresence(stageSessionId: string, payload: BandStagePresencePayload): Promise<void> {
-    return this.compatibility.trackPresence(await this.legacySessionId(stageSessionId), payload)
+    return this.realtime(stageSessionId).trackPresence(payload)
   }
 
   async reconnect(stageSessionId: string): Promise<BandStageSnapshot> {
-    return this.compatibility.reconnect(await this.legacySessionId(stageSessionId))
-      .then((snapshot) => this.targetSnapshot(stageSessionId, snapshot))
+    return this.realtime(stageSessionId).reconnect()
   }
 
   async refresh(stageSessionId: string): Promise<BandStageSnapshot> {
-    return this.compatibility.refresh(await this.legacySessionId(stageSessionId))
-      .then((snapshot) => this.targetSnapshot(stageSessionId, snapshot))
+    return this.realtime(stageSessionId).refresh()
   }
 
   async disconnect(stageSessionId: string): Promise<void> {
-    return this.compatibility.disconnect(await this.legacySessionId(stageSessionId))
+    const realtime = this.realtimeByTarget.get(stageSessionId)
+    this.realtimeByTarget.delete(stageSessionId)
+    await realtime?.disconnect()
   }
+
 
   async getSnapshot(stageSessionId: string): Promise<BandStageSnapshot> {
     const client = await this.targetClient()
@@ -115,39 +105,39 @@ export class StageExecutionService {
   }
 
   async play(stageSessionId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_play')
+    return this.targetCommand(stageSessionId, 'target_stage_play', 'stage.play', {}, { isRunning: true })
   }
 
   async pause(stageSessionId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_pause')
+    return this.targetCommand(stageSessionId, 'target_stage_pause', 'stage.pause', {}, { isRunning: false })
   }
 
   async next(stageSessionId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_next')
+    return this.targetCommand(stageSessionId, 'target_stage_next', 'stage.next')
   }
 
   async previous(stageSessionId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_previous')
+    return this.targetCommand(stageSessionId, 'target_stage_previous', 'stage.previous')
   }
 
   async goto(stageSessionId: string, index: number, songId?: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_goto', { p_index: index, p_song_id: songId ?? null })
+    return this.targetCommand(stageSessionId, 'target_stage_goto', 'stage.goto', { p_index: index, p_song_id: songId ?? null }, { currentIndex: index, currentSongId: songId })
   }
 
   async setKey(stageSessionId: string, key: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_set_key', { p_key: key })
+    return this.targetCommand(stageSessionId, 'target_stage_set_key', 'stage.set-key', { p_key: key }, { currentKey: key })
   }
 
   async prepareNext(stageSessionId: string, index: number, songId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_prepare_next', { p_index: index, p_song_id: songId })
+    return this.targetCommand(stageSessionId, 'target_stage_prepare_next', 'stage.prepare-next', { p_index: index, p_song_id: songId }, { preparedIndex: index, preparedSongId: songId })
   }
 
   async clearPrepared(stageSessionId: string): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_clear_prepared')
+    return this.targetCommand(stageSessionId, 'target_stage_clear_prepared', 'stage.clear-prepared', {}, { preparedIndex: null, preparedSongId: null })
   }
 
   async setAnnotation(stageSessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
-    return this.targetCommand(stageSessionId, 'target_stage_set_annotation', { p_annotation: normalizeBandStageAnnotation(annotation) })
+    return this.targetCommand(stageSessionId, 'target_stage_set_annotation', 'stage.annotation-updated', { p_annotation: normalizeBandStageAnnotation(annotation) }, { annotation: normalizeBandStageAnnotation(annotation) })
   }
 
   async startSession(stageSessionId: string): Promise<BandStageSession> {
