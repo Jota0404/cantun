@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { StageExecutionService } from '../../application/stage/stageExecutionService'
-import { SharedExecutionService } from '../../application/stage/sharedExecutionService'
+import { TargetSharedExecutionService } from '../../application/stage/targetSharedExecutionService'
 import { getServiceStageSongs, type ServiceStageSong } from '../../application/stage/getServiceStageSongs'
 import { getStageMusicalRoleExperience, type StageMusicalRole } from '../../application/stage/stageExperience'
 import type { MusicalKey } from '../../domain/music/musicalKey'
@@ -20,7 +20,7 @@ export function ServiceStageMusicianPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const service = useMemo(() => new StageExecutionService(), [])
-  const execution = useMemo(() => new SharedExecutionService(service), [service])
+  const execution = useMemo(() => new TargetSharedExecutionService(service), [service])
   const [snapshot, setSnapshot] = useState<StageSnapshot>()
   const [executionState, setExecutionState] = useState<SharedExecutionState>()
   const [songs, setSongs] = useState<ServiceStageSong[]>([])
