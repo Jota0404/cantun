@@ -33,7 +33,7 @@ export function ServiceStageMusicianPage() {
   const [musicalRole, setMusicalRole] = useState<MusicalRole>('other')
   const [participants, setParticipants] = useState<BandStageParticipant[]>([])
 
-  const applySnapshot = useCallback((next: BandStageSnapshot) => {
+  const applySnapshot = useCallback((next: StageSnapshot) => {
     setSnapshot(next)
     setExecutionState(execution.applySnapshot(next))
   }, [execution])
