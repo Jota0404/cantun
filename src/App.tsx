@@ -22,6 +22,7 @@ import { TeamPage } from './pages/Organization/TeamPage'
 import { OrganizationInvitePage } from './pages/Organization/OrganizationInvitePage'
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
+import { PendingLocalChangesError } from './auth/localSession'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -40,6 +41,19 @@ function App() {
   const isAuthRoute = location.pathname === '/auth'
   const isInviteRoute = location.pathname.startsWith('/bands/invite/') || location.pathname.startsWith('/organization/invite/')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
+
+  async function handleSignOut() {
+    try {
+      await signOut()
+    } catch (error) {
+      if (!(error instanceof PendingLocalChangesError)) throw error
+      const discard = window.confirm(
+        `Há ${error.pendingCount} alteração(ões) feitas neste aparelho que ainda não foram sincronizadas. ` +
+        'Se sair agora, elas serão descartadas. Conecte-se à internet para sincronizar antes de sair.\n\nSair mesmo assim?',
+      )
+      if (discard) await signOut({ discardPendingChanges: true })
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -63,7 +77,7 @@ function App() {
       {!isStageMode && !isAuthRoute && !isInviteRoute && <>
         <header className="app-header">
           <div><p className="app-header__eyebrow">MUSIC WORKSPACE</p><h1><Link to="/">CANTUM</Link></h1></div>
-          <div>{user ? <button type="button" onClick={() => void signOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
+          <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
         </header>
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link></nav>
       </>}
