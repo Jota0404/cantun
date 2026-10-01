@@ -38,14 +38,14 @@ export async function createStageSession(serviceId: string, id = crypto.randomUU
 }
 
 export async function startStageSession(stageSessionId: string): Promise<StageSession> {
-  const { data, error } = await client().rpc('start_service_stage_session', { p_stage_session_id: stageSessionId })
+  const { data, error } = await client().rpc('target_stage_start', { p_stage_session_id: stageSessionId })
   if (error) throw error
   await stageSessionStateRepository.put(toStageSessionState(row(data)))
   return getStageSession(stageSessionId)
 }
 
 export async function endStageSession(stageSessionId: string): Promise<StageSession> {
-  const { data, error } = await client().rpc('end_service_stage_session', { p_stage_session_id: stageSessionId })
+  const { data, error } = await client().rpc('target_stage_end', { p_stage_session_id: stageSessionId })
   if (error) throw error
   await stageSessionStateRepository.put(toStageSessionState(row(data)))
   return getStageSession(stageSessionId)
