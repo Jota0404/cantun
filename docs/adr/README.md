@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Gerado em 2026-10-01. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-01. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -51,5 +51,22 @@
 | [ADR-045](ADR-045-legacy-stage-compatibility-boundary.md) | Legacy Stage Isolated to Compatibility Routes | Accepted |
 | [ADR-046](ADR-046-target-stage-execution-direct-boundary.md) | Direct Target Stage Execution Boundary | Accepted |
 | [ADR-047](ADR-047-target-stage-native-execution-finalization.md) | Finalização da transição do Stage para o domínio canônico | Accepted |
+| [ADR-048](ADR-048-local-data-session-isolation.md) | Isolamento de dados locais por sessão | Accepted |
+| [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted |
+| [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted |
 
-Próximo número livre: **ADR-048**
+## Números reservados
+
+Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, mova a linha para a tabela acima.
+
+| ADR | Tema | Bloco |
+|---|---|---|
+| 051 | Papéis em dois níveis e matriz de permissões | B2 |
+| 052 | Service operacional (equipe, estados, itens genéricos) | B3 |
+| 053 | Vagas e atribuições | B4 |
+| 054 | Canal de notificação | B4 |
+| 055 | Design system | B5 |
+| 056 | Materiais e storage | B6 |
+| 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
+
+Próximo número livre: **ADR-058** (051–057 estão reservados).
