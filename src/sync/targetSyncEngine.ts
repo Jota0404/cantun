@@ -236,7 +236,10 @@ export class TargetSyncEngine {
         const table = localTable(this.db, entity)
         for (const row of (data ?? []) as Record<string, unknown>[]) {
           const value = fromRemoteRow(entity, row)
-          const local = await table.get(value.id)
+          const valueId = entity === 'stageSessionStates'
+            ? (value as StageSessionState).stageSessionId
+            : (value as Exclude<TargetEntity, StageSessionState>).id
+          const local = await table.get(valueId)
           if (local && local.updatedAt > value.updatedAt) continue
           await table.put(value as never)
         }
