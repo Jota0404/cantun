@@ -5,8 +5,8 @@ const getUser = vi.fn(async () => ({ data: { user: { id: 'user-1' } } }))
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    rpc,
-    auth: { getUser },
+    rpc: mocks.rpc,
+    auth: { getUser: mocks.getUser },
   },
 }))
 
@@ -48,12 +48,12 @@ function snapshot() {
 
 describe('StageExecutionService', () => {
   it('reads snapshots from the target Stage RPC', async () => {
-    rpc.mockResolvedValueOnce({ data: snapshot(), error: null })
+    mocks.rpc.mockResolvedValueOnce({ data: snapshot(), error: null })
 
     const service = new StageExecutionService()
     const result = await service.getSnapshot('stage-1')
 
-    expect(rpc).toHaveBeenCalledWith('get_target_stage_snapshot', {
+    expect(mocks.rpc).toHaveBeenCalledWith('get_target_stage_snapshot', {
       p_stage_session_id: 'stage-1',
     })
     expect(result.session.id).toBe('stage-1')
@@ -92,7 +92,7 @@ describe('StageExecutionService', () => {
     const service = new StageExecutionService()
     const result = await service.play('stage-1')
 
-    expect(rpc).toHaveBeenCalledWith('target_stage_play', {
+    expect(mocks.rpc).toHaveBeenCalledWith('target_stage_play', {
       p_stage_session_id: 'stage-1',
     })
     expect(result.state.revision).toBe(3)
