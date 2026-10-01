@@ -54,7 +54,7 @@
 | [ADR-048](ADR-048-local-data-session-isolation.md) | Isolamento de dados locais por sessão | Accepted |
 | [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted |
 | [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted |
-| [ADR-051](ADR-051-papeis-dois-niveis-e-permissoes.md) | Papéis em dois níveis e matriz de permissões | Proposed |
+| [ADR-051](ADR-051-papeis-dois-niveis-e-permissoes.md) | Papéis em dois níveis e matriz de permissões | Accepted |
 
 ## Números reservados
 
@@ -69,4 +69,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 | 056 | Materiais e storage | B6 |
 | 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
 
-Próximo número livre: **ADR-058** (052–057 estão reservados; o 051 está `Proposed`).
+Próximo número livre: **ADR-058** (052–057 estão reservados; o 051 está `Accepted`).

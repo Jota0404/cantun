@@ -1,6 +1,6 @@
 # CANTUM — Permissões
 
-> Rascunho · 2026-10-01 · Bloco B2 (VS-01) · Decisão: [ADR-051](adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Proposed)
+> Aceito · 2026-10-01 · Bloco B2 (VS-01) · Decisão: [ADR-051](adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Accepted)
 > Base: Blueprint §5, §49, §50, §53 · ADR-016 (papel de acesso ≠ função musical) · ADR-049 (portabilidade PostgreSQL).
 > Este documento é a **fonte única da matriz de permissões**. A função SQL `app.has_permission` e o espelho `domain/access/permissions.ts` devem refletir exatamente a tabela da seção 3.
 

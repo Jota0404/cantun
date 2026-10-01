@@ -1,8 +1,8 @@
 # ADR-051 — Papéis em dois níveis e matriz de permissões
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Data:** 2026-10-01
-- **Decisor:** Jota (owner) — aceite pendente de revisão
+- **Decisor:** Jota (owner) — aceito em 2026-10-01
 - **Escopo:** Autorização / Organization / Team / biblioteca
 - **Bloco:** B2 (VS-01) · Decisão D2 · Requisitos RF-TEAM-001…004
 - **Relacionados:** ADR-015, ADR-016, ADR-019, ADR-020, ADR-021, ADR-022, ADR-049
@@ -114,7 +114,7 @@ Testes no harness: N15–N18; `update … set role/status` direto como Líder, A
 
 ## Decisão tomada: a música pertence ao usuário (alternativa A)
 
-**Decidido pelo Jota em 2026-10-01.** No B2, a música continua sendo do usuário (`songs.user_id` = criador) e a organização a vincula por `organization_songs` (compatível com o ADR-021). Salvaguardas obrigatórias: (1) criador = `songs.user_id`; (2) edição por terceiros (Owner, Admin, Líder) só em música vinculada a **uma** organização, imposta no PR `feat/team-roles-schema` (#57); (3) a alternativa B (organização dona da música) vira um **ADR no B6**, junto com a política de saída do criador (B8). O comparativo, o impacto em RLS, Dexie e sync (ADR-048) e a justificativa estão em [`docs/specs/VS-01-equipe.md`](../specs/VS-01-equipe.md#decisão-tomada-a-música-pertence-ao-usuário-alternativa-a). O aceite deste ADR ainda depende da sua revisão.
+**Decidido pelo Jota em 2026-10-01.** No B2, a música continua sendo do usuário (`songs.user_id` = criador) e a organização a vincula por `organization_songs` (compatível com o ADR-021). Salvaguardas obrigatórias: (1) criador = `songs.user_id`; (2) edição por terceiros (Owner, Admin, Líder) só em música vinculada a **uma** organização, imposta no PR `feat/team-roles-schema` (#57); (3) a alternativa B (organização dona da música) vira um **ADR no B6**, junto com a política de saída do criador (B8). O comparativo, o impacto em RLS, Dexie e sync (ADR-048) e a justificativa estão em [`docs/specs/VS-01-equipe.md`](../specs/VS-01-equipe.md#decisão-tomada-a-música-pertence-ao-usuário-alternativa-a).
 
 ## Alternativas rejeitadas
 
@@ -137,6 +137,6 @@ Troca e recuperação de Owner; remover e anonimizar vínculos e autoria (`team_
 
 ## Próximos passos
 
-1. Revisão e aceite do owner (`Proposed` → `Accepted`).
+1. ~~Revisão e aceite do owner~~ — aceito em 2026-10-01.
 2. Migration e testes de RLS (`feat/team-roles-schema`).
 3. Domínio, application, Dexie e sync (`feat/team-roles-domain`).

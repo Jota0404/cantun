@@ -1,10 +1,10 @@
 # Feature Spec — VS-01 Equipe: papéis, pessoas e funções
 
-- **Status:** Em revisão
+- **Status:** Aprovada
 - **Bloco:** B2 (`docs/blocks/B2-equipe-vs01.md`)
 - **Fatia vertical:** VS-01
 - **Autor / data:** Claude Code, sob revisão do Jota · 2026-10-01
-- **Decisão associada:** [ADR-051](../adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Proposed) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md)
+- **Decisão associada:** [ADR-051](../adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Accepted) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md)
 
 ## Feature
 Papéis em dois níveis (organização `owner/admin/member`, equipe `leader/member`), status do membro, funções musicais gerenciáveis por Líder e Admin, criação de música e repertório pelo Membro, onboarding guiado e tela de Equipe.
@@ -77,7 +77,7 @@ Rastreio: RF-TEAM-001 → RN-03, RN-09; RF-TEAM-002 → RN-10, RN-11; RF-TEAM-00
 ### Arquitetura
 - Camadas: `domain/access` e `domain/teams` → `application/teams` (`promoteToLeader`, `demoteToMember`, `setMemberStatus`, `setMemberFunctions`; ajuste de `createTeam`: grava a equipe e um vínculo local **otimista** `leader`, sem enfileirá-lo; o Líder real é criado pelo servidor) → UI.
 - Os casos de uso seguem o padrão `fn(input, repository = default)` e retornam `{ success: true, … } | { success: false, errors }`.
-- ADRs: **ADR-051 (novo, Proposed)**; ADR-015/016/020/021/022; ADR-026 (sync); ADR-048; ADR-049 (SQL portável).
+- ADRs: **ADR-051 (novo, Accepted)**; ADR-015/016/020/021/022; ADR-026 (sync); ADR-048; ADR-049 (SQL portável).
 - Nenhum arquivo novo fora da camada de plataforma importa `@supabase/supabase-js`.
 
 ### Dados
@@ -148,7 +148,7 @@ Rastreio: RF-TEAM-001 → RN-03, RN-09; RF-TEAM-002 → RN-10, RN-11; RF-TEAM-00
 ## Issues
 - [ ] Épico #46 — VS-01 / Equipe
 - [ ] #42 — débito `react-hooks/set-state-in-effect` (não bloqueia o B2; só não ampliar a lista de exceções)
-- [ ] #57 — `feat/team-roles-schema`: migration + `app.has_permission` + RLS + testes de harness (**depende do aceite do ADR-051**; o dono da música já está decidido: alternativa A)
+- [ ] #57 — `feat/team-roles-schema`: migration + `app.has_permission` + RLS + testes de harness (ADR-051 aceito; o dono da música já está decidido: alternativa A)
 - [ ] #58 — `feat/team-roles-domain`: domínio + application + Dexie + sync + testes
 - [ ] #59 — `feat/team-onboarding`: onboarding guiado + organização principal
 - [ ] #60 — `feat/team-page`: tela de Equipe

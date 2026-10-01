@@ -1,7 +1,7 @@
 # B2 — Equipe (VS-01)
 
 > Fase 1 · Esforço: 2–3 semanas · Depende de: B0 · Requisitos: RF-TEAM-001…004 · Blueprint §5, §6, §8.1, §32.3, §49, §50, §53
-> Status: **spec em revisão** (PR 1 `docs/vs-01-spec`)
+> Status: **spec aceita** (ADR-051 `Accepted`; PR 1 `docs/vs-01-spec`)
 
 ## Objetivo
 Owner e Admin estruturam a organização e as equipes; o **Líder** coordena a própria equipe; o **Membro** participa, mantém suas funções e confirma presença. Cada pessoa vê claramente seu papel e suas funções.
@@ -19,7 +19,7 @@ Owner e Admin estruturam a organização e as equipes; o **Líder** coordena a p
 
 ### Matriz §49 resolvida (decisões do owner, 2026-10-01)
 
-Detalhe, capacidades nomeadas e casos negativos: [`docs/PERMISSIONS.md`](../PERMISSIONS.md). Decisão: [ADR-051](../adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Proposed). Spec: [`docs/specs/VS-01-equipe.md`](../specs/VS-01-equipe.md).
+Detalhe, capacidades nomeadas e casos negativos: [`docs/PERMISSIONS.md`](../PERMISSIONS.md). Decisão: [ADR-051](../adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Accepted). Spec: [`docs/specs/VS-01-equipe.md`](../specs/VS-01-equipe.md).
 
 | Capacidade | Owner | Admin | Líder (da equipe) | Membro |
 |---|:-:|:-:|:-:|:-:|
