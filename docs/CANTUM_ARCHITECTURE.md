@@ -248,3 +248,7 @@ Target Stage now participates in the local-first boundary through dedicated `sta
 ### Target Stage native execution — finalized (ADR-044)
 
 The canonical Stage execution boundary is now fully target-native. Target session creation no longer creates a legacy BandStage session, and target lifecycle/command RPCs mutate `stage_sessions` and `stage_session_states` directly. Canonical Stage reads snapshots exclusively from target entities and uses target realtime for Broadcast, Presence, and Postgres state reconciliation. `legacy_band_stage_session_id` remains nullable only as historical compatibility metadata; legacy Stage routes and adapters remain outside the canonical runtime and receive no new target features.
+
+### Local data session isolation (ADR-048)
+
+The IndexedDB cache belongs to exactly one user at a time. `src/auth/localSession.ts` records the owner, clears local data when a different user signs in, and on sign-out flushes the sync queues, refuses to proceed while changes are pending (unless the user confirms discarding them) and clears all local stores after the remote sign-out succeeds. Local storage is never an authorization mechanism (Blueprint §50.3).
