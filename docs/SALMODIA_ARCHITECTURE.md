@@ -2,8 +2,10 @@
 
 **Documento:** Pedra Angular da Arquitetura  
 **Versão:** 0.1  
-**Status:** Accepted / Baseline  
+**Status:** Historical — arquitetura do MVP v0.1 (parcialmente superada)  
 **Última atualização:** 2026-08-21
+
+> ⚠️ **Documento histórico.** A arquitetura vigente está em [`CANTUM_ARCHITECTURE.md`](CANTUM_ARCHITECTURE.md) e nos ADRs `Accepted` em [`adr/`](adr/). Este arquivo registra a arquitetura do MVP v0.1; decisões como "sem backend" (ADR-010) foram substituídas (ADR-012 em diante). Regras ainda válidas — camadas, Repository, transposição como domínio, Dexie, PWA — permanecem nos ADRs 001–009. Nome original preservado por força do ADR-011.
 
 ---
 

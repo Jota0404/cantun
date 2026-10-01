@@ -1,41 +1,97 @@
 # CANTUM
 
-Aplicativo offline para músicos de igreja organizarem repertórios, armazenarem suas versões personalizadas de cifras e executarem músicas em um modo de palco otimizado para celular e tablet.
+**Organize · Prepare · Escale · Execute · Conecte**
 
-> Nome atual do projeto/aplicativo. A identidade visual e demais decisões de produto podem ser tratadas separadamente.
+Plataforma para equipes de louvor organizarem pessoas e funções, montarem serviços e escalas, prepararem repertórios e ensaios e executarem as músicas no culto — com um Modo Palco rápido, legível e confiável mesmo sem internet.
+
+> *Mais do que cifras: uma plataforma para organizar, preparar e operar uma equipe de louvor.*
+
+A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/CANTUM_PROJECT_BLUEPRINT.md)**.
 
 ## Status
 
-**MVP v0.1 — implementação concluída e validada.**
+| Fase (Blueprint §33) | Situação |
+|---|---|
+| Fase 0 — Fundação atual | 🟡 Em fechamento: domínio canônico (Organization → Team → Song/Repertoire → Service → Stage) consolidado em `main`; documentação sendo alinhada ao Blueprint |
+| Fase 1 — Operação de equipe | ⏳ Próxima: papéis, membros, serviços, escalas, disponibilidade |
+| Fase 2 — Operação musical integrada | ⏳ |
+| Fase 3 — Execução madura | 🟡 Parte adiantada: Modo Palco compartilhado, presença e readiness já existem |
+| Fase 4 — Eficiência | ⏳ |
+| Fase 5 — Network | ⏳ Futuro, condicionado à validação do core |
 
-O MVP foi validado com testes automatizados, lint, build e validação em dispositivo real/offline.
+O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído e validado em agosto/2026 e permanece como núcleo musical do produto.
 
-## Stack do MVP
+## O que o CANTUM é — e o que não é
 
-- React
-- TypeScript
-- Vite
-- PWA
-- IndexedDB + Dexie
-- React Router
-- Vitest
-- React Testing Library
-- Git + GitHub
+**É:** operação de equipes de louvor — equipe, funções, serviços, escalas, biblioteca musical, repertórios, ensaios e execução. No futuro, uma Network para encontrar músicos externos para **necessidades pontuais de um serviço**.
+
+**Não é:** sistema de gestão de igreja, CRM, ERP, financeiro, rede social, chat/mensageiro, calendário genérico, onboarding de voluntários, devocionais, marketplace de pagamento ou plataforma de recrutamento. Ver Blueprint §3 e §24.
+
+## Stack
+
+| Camada | Tecnologia |
+|---|---|
+| UI | React 19, React Router 7 |
+| Linguagem | TypeScript |
+| Build/PWA | Vite + `vite-plugin-pwa` |
+| Local-first | IndexedDB via Dexie |
+| Remoto | Supabase — Auth, Postgres com RLS, RPCs, Realtime (ADR-012) |
+| Testes | Vitest, Testing Library, `fake-indexeddb` |
+| CI/CD | GitHub Actions → GitHub Pages |
+
+Arquitetura em camadas (Presentation → Application → Domain → Infrastructure) com Repository pattern. O core é **local-first**; a sincronização com Supabase é complementar e a Network será cloud-backed sem contaminar o caminho crítico da execução (Blueprint §16, §47).
+
+## Desenvolvimento local
+
+Pré-requisito: Node.js 24.
+
+```bash
+npm ci
+cp .env.example .env.local   # preencha VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY
+npm run dev
+```
+
+| Comando | Uso |
+|---|---|
+| `npm run dev` | servidor de desenvolvimento |
+| `npm test` | todos os testes (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run build` | type-check (`tsc -b`) + build de produção |
+| `npm run preview` | servir o build localmente |
+
+Sem as variáveis do Supabase o app funciona apenas no modo local.
 
 ## Documentação
 
-- `AI_CONTEXT.md` — contexto operacional e regras para uso com IA.
-- `docs/SALMODIA_PRODUCT.md` — requisitos e escopo do produto.
-- `docs/SALMODIA_ARCHITECTURE.md` — arquitetura e decisões técnicas.
-- `docs/adr/` — decisões arquiteturais individuais e seus motivos.
+| Documento | Papel |
+|---|---|
+| [`docs/CANTUM_PROJECT_BLUEPRINT.md`](docs/CANTUM_PROJECT_BLUEPRINT.md) | **Produto** — visão, fronteira, capacidades, requisitos, roadmap |
+| [`docs/CANTUM_ARCHITECTURE.md`](docs/CANTUM_ARCHITECTURE.md) | **Arquitetura** vigente e migração de domínio |
+| [`docs/adr/`](docs/adr/) | Decisões arquiteturais (ADRs) |
+| [`AI_CONTEXT.md`](AI_CONTEXT.md) / [`CLAUDE.md`](CLAUDE.md) | Regras operacionais para desenvolvimento assistido por IA |
+| `docs/BAND_*.md`, `docs/LEGACY_DEXIE_MIGRATION_GATES.md` | Contratos e gates do runtime legado (compatibilidade) |
+| `docs/TASK_*.md` | Especificações históricas de tarefas |
+| `docs/SALMODIA_*.md` | Documentos **históricos** do MVP v0.1 (nome preservado pelo ADR-011) |
 
-Os nomes dos arquivos documentais históricos `SALMODIA_*` são preservados para não alterar caminhos técnicos sem necessidade.
+Hierarquia de autoridade (Blueprint §0): Blueprint → Arquitetura → ADRs `Accepted` → Feature Specs/Issues → código atual → suposições da IA.
+
+## Fluxo de trabalho
+
+```text
+Issue / Feature Spec → branch → implementação → testes → revisão do diff → PR → merge em main
+```
+
+- Branches: `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `test/*`, `chore/*`.
+- Commits no padrão Conventional Commits.
+- Todo PR precisa de `npm test`, `npm run lint` e `npm run build` verdes (CI).
+- Mudança de produto → Blueprint; mudança arquitetural → novo ADR.
 
 ## Princípios
 
-1. Simplicidade antes de abstração.
-2. Offline-first no MVP.
-3. O Modo Palco é uma experiência crítica do produto.
-4. Claude pode sugerir, mas não altera decisões `Accepted` silenciosamente.
-5. Você mantém o controle sobre Git, commits, testes e integração.
-6. Funcionalidades são construídas em vertical slices.
+1. O serviço é o centro operacional.
+2. O músico deve saber exatamente o que fazer.
+3. O Modo Palco é uma experiência crítica — execução sem distração.
+4. Offline é característica do produto, não detalhe de infraestrutura.
+5. Simplicidade antes de abrangência; nada de feature só porque um concorrente tem.
+6. Privacidade por desenho.
+7. Evolução incremental — sem reescrita big-bang.
