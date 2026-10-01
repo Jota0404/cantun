@@ -11,7 +11,7 @@ function makeChannel() {
   const handlers = new Map<string, (payload: unknown) => void>()
   const state: Record<string, unknown> = {}
   const value = {
-    on: vi.fn((kind:string, config:{event:string}, handler:(payload:any)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
+    on: vi.fn((kind:string, config:{event:string}, handler:(payload:unknown)=>void) => { handlers.set(`${kind}:${config.event}`, handler); return value }),
     subscribe: vi.fn(async () => 'SUBSCRIBED'),
     unsubscribe: vi.fn(async () => 'ok'),
     send: vi.fn(async () => 'ok'),
