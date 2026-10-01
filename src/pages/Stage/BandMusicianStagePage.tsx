@@ -16,9 +16,6 @@ import './BandMusicianStagePage.css'
 
 type ReadMode = 'scroll' | 'pages'
 
-type BandMusicianStagePageProps = {
-}
-
 export function BandMusicianStagePage() {
   const { sessionId = '' } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
