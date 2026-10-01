@@ -52,5 +52,3 @@ export function BandInvitePage() {
   if (!user) return <main className="band-page"><section className="band-card"><h2>Convite para equipe</h2><p>Faça login para visualizar e aceitar este convite.</p><Link to={`/auth?redirect=${encodeURIComponent(`/bands/invite/${token}`)}`}>Entrar</Link></section></main>
   return <main className="band-page"><section className="band-card invite-page"><span>CONVITE</span><h2>{invite?.bandName ?? 'Validando…'}</h2>{invite && <p>Você receberá o papel de <strong>{invite.role}</strong>.</p>}{invite?.inviteeEmail && <p>Destinado a <strong>{invite.inviteeEmail}</strong>.</p>}{invite && invite.status !== 'pending' && <p role="alert">Este convite está {invite.status}.</p>}{error && <p className="band-error" role="alert">{error}</p>}{invite?.status === 'pending' && <div className="invite-actions"><button type="button" disabled={busy} onClick={() => void accept()}>{busy ? 'Aceitando…' : 'Aceitar convite'}</button><button type="button" onClick={() => navigate('/')}>Cancelar</button></div>}</section></main>
 }
-
-export { buildBandInviteUrl }
