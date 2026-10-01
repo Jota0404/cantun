@@ -4,13 +4,13 @@
 >
 > Produto: CANTUM
 >
-> Fonte de verdade de produto: CANTUM Project & Product Blueprint v1.1 — Approved
+> Fonte de verdade de produto: [CANTUM Project & Product Blueprint v1.1](CANTUM_PROJECT_BLUEPRINT.md) — Accepted
 
 ## 1. Authority
 
 A arquitetura deve respeitar a seguinte hierarquia:
 
-1. CANTUM Project & Product Blueprint — produto e UX.
+1. [CANTUM Project & Product Blueprint](CANTUM_PROJECT_BLUEPRINT.md) — produto e UX.
 2. ADRs e documentação arquitetural — decisões técnicas.
 3. Feature specs/issues — escopo de implementação.
 4. Código existente — implementação atual, não autoridade sobre o modelo futuro.

@@ -2,8 +2,10 @@
 
 **Documento:** Pedra Angular do Produto  
 **Versão:** 0.1  
-**Status:** Accepted / Baseline  
+**Status:** Superseded — documento histórico do MVP v0.1  
 **Última atualização:** 2026-08-21
+
+> ⚠️ **Documento histórico.** Desde 2026-10-01 a fonte de verdade de produto é [`CANTUM_PROJECT_BLUEPRINT.md`](CANTUM_PROJECT_BLUEPRINT.md). Este arquivo descreve apenas o MVP offline de cifras (v0.1) e é mantido com o nome original por força do ADR-011. Não use como referência de escopo atual.
 
 ---
 
