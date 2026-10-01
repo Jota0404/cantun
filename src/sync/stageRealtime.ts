@@ -62,7 +62,11 @@ class StageReconciler {
   private readonly seenEventIds = new Set<string>()
   private snapshotInFlight: Promise<StageSnapshot> | null = null
 
-  constructor(private readonly options: StageRealtimeOptions) {}
+  private readonly options: StageRealtimeOptions
+
+  constructor(options: StageRealtimeOptions) {
+    this.options = options
+  }
 
   private async loadSnapshot(): Promise<StageSnapshot> {
     const { data, error } = await this.options.client.rpc('get_target_stage_snapshot', {
@@ -131,7 +135,10 @@ export class StageRealtime {
   private presencePayload: StagePresencePayload | null = null
   private lastSnapshotMdUserId: string | null = null
 
-  constructor(private readonly options: StageRealtimeOptions) {
+  private readonly options: StageRealtimeOptions
+
+  constructor(options: StageRealtimeOptions) {
+    this.options = options
     this.channel = options.client.channel(stageChannelName(options.sessionId), {
       config: { private: true, broadcast: { self: false, ack: true } },
     })
