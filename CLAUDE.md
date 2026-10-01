@@ -50,9 +50,9 @@ Legado (`domain/bands`, `bandSyncEngine`, `syncEngine`, `bandStageRealtime`, rot
 - **Supabase:** migrations novas e aditivas `YYYYMMDDHHMMSS_descricao.sql`; nunca editar migration aplicada. Tabela nova = RLS + políticas na mesma migration. Mutação sensível via RPC `security definer` + `set search_path = ''` + checagem de autorização interna. Mudou contrato de RPC/Realtime → atualizar tipos TS, testes e doc de contrato no mesmo PR.
 - Permissões são verificadas no banco (RLS/RPC); a UI nunca é o mecanismo de segurança (Blueprint NFR-005, §49–50).
 
-## Git (ADR-009)
+## Git (ADR-009, revisado pelo ADR-050)
 
-Branch a partir de `main`, PR para `main`, Conventional Commits. Não fazer merge, push forçado, rebase de branch compartilhada nem apagar branches sem pedido explícito do Jota.
+Branch a partir de `main`, PR para `main`, Conventional Commits. Com aprovação explícita do Jota para cada ação, a IA pode criar branch, commitar, rodar testes, fazer push e abrir PR. Exclusivo do Jota: merge, push forçado em `main`, exclusão de branches, mudança de settings/secrets/variables do GitHub e aplicação de migrations em produção. Nunca rebase de branch compartilhada.
 
 ## Formato da resposta
 

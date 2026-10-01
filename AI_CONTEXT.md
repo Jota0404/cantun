@@ -84,7 +84,8 @@ Prioridade de implementação: correção → aderência ao produto → aderênc
 
 - Branches `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `test/*`, `chore/*` a partir de `main`; PR para `main`.
 - Conventional Commits; um commit = uma unidade lógica.
-- O desenvolvedor mantém o controle (ADR-009): a IA não faz merge, push forçado, rebase de branch compartilhada nem apaga branches sem pedido explícito.
+- O desenvolvedor mantém o controle (ADR-009, revisado pelo ADR-050). Com aprovação explícita do owner, a IA pode criar branch, commitar, rodar testes, fazer push e abrir PR.
+- Exclusivo do owner: merge, push forçado em `main`, exclusão de branches, mudança de settings, secrets e variables do GitHub, e aplicação de migrations em produção. A IA não faz rebase de branch compartilhada.
 
 ## 11. Como responder
 

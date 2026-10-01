@@ -1,5 +1,7 @@
 # ADR-009 — Desenvolvimento assistido por IA com controle humano
 
+> **Amended by ADR-050** — o fluxo operacional de Git/GitHub foi revisado; os princípios de controle humano permanecem.
+
 ## Status
 
 Accepted
