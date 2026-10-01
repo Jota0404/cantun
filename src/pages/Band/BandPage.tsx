@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
-import { getBandInvite, acceptBandInvite, _legacyInviteUrl } from '../../application/bands/bandInviteService'
+import { getBandInvite, acceptBandInvite } from '../../application/bands/bandInviteService'
 import { getLegacyBandOrganizationContext } from '../../application/organizations/legacyBandBridgeService'
 import { syncBands } from '../../sync/bandSyncService'
 import './BandPage.css'
