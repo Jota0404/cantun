@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const rpc = vi.fn()
-const getUser = vi.fn(async () => ({ data: { user: { id: 'user-1' } } }))
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), getUser: vi.fn(async () => ({ data: { user: { id: 'user-1' } } })) }))
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
