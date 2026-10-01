@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 import type { Song } from '../../domain/songs/song'
 import { SongList } from './SongList'
 
@@ -81,5 +82,17 @@ describe('SongList', () => {
     expect(
       screen.getByRole('heading', { name: 'Santo, Santo, Santo' }),
     ).toBeInTheDocument()
+  })
+
+  it('notifies the caller when a song is opened', async () => {
+    const user = userEvent.setup()
+    const onSelectSong = vi.fn()
+    const selectedSong = song()
+
+    render(<SongList songs={[selectedSong]} onSelectSong={onSelectSong} />)
+
+    await user.click(screen.getByRole('button', { name: 'Abrir música' }))
+
+    expect(onSelectSong).toHaveBeenCalledWith(selectedSong)
   })
 })

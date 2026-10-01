@@ -1,4 +1,4 @@
-# Salmodia — Product Specification
+# CANTUM — Product Specification
 
 **Documento:** Pedra Angular do Produto  
 **Versão:** 0.1  
@@ -11,7 +11,7 @@
 
 ### 1.1 Nome do projeto
 
-**Salmodia** — nome provisório.
+**CANTUM** — nome atual do projeto/aplicativo.
 
 A identidade visual e o nome comercial definitivo ainda não foram fechados.
 
@@ -25,7 +25,7 @@ O usuário inicial é o pai do desenvolvedor, mas o produto deve ser concebido d
 
 Aplicativos tradicionais de cifras atendem bem à consulta de músicas, mas não necessariamente ao fluxo de um músico que precisa manter sua própria versão da música, com tom utilizado, BPM, observações e organização específica de repertório.
 
-O Salmodia deve resolver esse problema por meio de três conceitos principais:
+O CANTUM deve resolver esse problema por meio de três conceitos principais:
 
 - **Biblioteca:** todas as músicas cadastradas.
 - **Repertórios:** conjuntos ordenados de músicas preparados para uma ocasião.

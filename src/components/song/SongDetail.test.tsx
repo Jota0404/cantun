@@ -1,0 +1,110 @@
+// @vitest-environment jsdom
+
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import type { Song } from '../../domain/songs/song'
+import { SongDetail } from './SongDetail'
+
+function song(overrides: Partial<Song> = {}): Song {
+  return {
+    id: 'song-1',
+    title: 'Grandioso És Tu',
+    artist: 'Harpa Cristã',
+    originalKey: 'D',
+    currentKey: 'E',
+    lyrics: '[D]Grandioso és [A]Tu',
+    notes: 'Introdução suave',
+    bpm: 90,
+    isFavorite: false,
+    createdAt: '2026-08-20T10:00:00.000Z',
+    updatedAt: '2026-08-22T10:00:00.000Z',
+    ...overrides,
+  }
+}
+
+describe('SongDetail', () => {
+  it('renders the song title and artist', () => {
+    render(<SongDetail song={song()} />)
+    expect(screen.getByRole('heading', { name: 'Grandioso És Tu' })).toBeInTheDocument()
+    expect(screen.getByText('Harpa Cristã')).toBeInTheDocument()
+  })
+
+  it('renders the current key and original key', () => {
+    render(<SongDetail song={song()} />)
+    expect(screen.getByText('Tom atual: E')).toBeInTheDocument()
+    expect(screen.getByText('Tom original: D')).toBeInTheDocument()
+  })
+
+  it('renders the bpm when available', () => {
+    render(<SongDetail song={song({ bpm: 90 })} />)
+    expect(screen.getByText('BPM: 90')).toBeInTheDocument()
+  })
+
+  it('renders transposed chords separately from lyrics', () => {
+    render(<SongDetail song={song()} />)
+    expect(screen.getByText('E')).toHaveClass('song-detail__chord')
+    expect(screen.getByText('B')).toHaveClass('song-detail__chord')
+    expect(screen.getByText('Grandioso és')).toBeInTheDocument()
+    expect(screen.getByText('Tu')).toBeInTheDocument()
+  })
+
+  it('offers transpose controls when provided', async () => {
+    const user = userEvent.setup()
+    const onTranspose = vi.fn()
+    render(<SongDetail song={song()} onTranspose={onTranspose} />)
+    await user.click(screen.getByRole('button', { name: 'Próximo tom' }))
+    await user.click(screen.getByRole('button', { name: 'Tom anterior' }))
+    expect(onTranspose).toHaveBeenNthCalledWith(1, 1)
+    expect(onTranspose).toHaveBeenNthCalledWith(2, -1)
+  })
+
+  it('renders notes when available', () => {
+    render(<SongDetail song={song()} />)
+    expect(screen.getByText('Introdução suave')).toBeInTheDocument()
+  })
+
+  it('shows the favorite indicator for favorite songs', () => {
+    render(<SongDetail song={song({ isFavorite: true })} />)
+    expect(screen.getByLabelText('Música favorita')).toBeInTheDocument()
+  })
+
+  it('offers an edit action when provided', async () => {
+    const user = userEvent.setup()
+    const onEdit = vi.fn()
+    render(<SongDetail song={song()} onEdit={onEdit} />)
+    await user.click(screen.getByRole('button', { name: 'Editar' }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers a stage mode action when provided', async () => {
+    const user = userEvent.setup()
+    const onStage = vi.fn()
+    render(<SongDetail song={song()} onStage={onStage} />)
+    await user.click(screen.getByRole('button', { name: 'Modo Palco' }))
+    expect(onStage).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers an action to add a song to favorites', async () => {
+    const user = userEvent.setup()
+    const onToggleFavorite = vi.fn()
+    render(<SongDetail song={song()} onToggleFavorite={onToggleFavorite} />)
+    const button = screen.getByRole('button', { name: 'Adicionar aos favoritos' })
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    await user.click(button)
+    expect(onToggleFavorite).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers an action to remove a favorite song from favorites', () => {
+    render(<SongDetail song={song({ isFavorite: true })} onToggleFavorite={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Remover dos favoritos' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('offers a delete action when provided', async () => {
+    const user = userEvent.setup()
+    const onDelete = vi.fn()
+    render(<SongDetail song={song()} onDelete={onDelete} />)
+    await user.click(screen.getByRole('button', { name: 'Excluir' }))
+    expect(onDelete).toHaveBeenCalledTimes(1)
+  })
+})

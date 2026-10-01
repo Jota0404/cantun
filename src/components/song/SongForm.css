@@ -1,8 +1,13 @@
 .song-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .song-form__row {
@@ -17,14 +22,14 @@
 .song-form__field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
   text-align: left;
 }
 
 .song-form__field label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-h);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .song-form__field input,
@@ -32,61 +37,63 @@
 .song-form__field textarea {
   box-sizing: border-box;
   width: 100%;
-  font: inherit;
-  padding: 8px 10px;
-  border: 1px solid #d9d5e0;
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-h);
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .song-form__field textarea {
   resize: vertical;
+  line-height: 1.5;
 }
 
 .song-form__field input[aria-invalid='true'],
 .song-form__field select[aria-invalid='true'],
 .song-form__field textarea[aria-invalid='true'] {
-  border-color: #c0392b;
+  border-color: var(--color-danger);
 }
 
 .song-form__error {
   font-size: 13px;
-  color: #c0392b;
+  color: var(--color-danger);
 }
 
 .song-form__success {
-  font-size: 15px;
-  color: #1e7d32;
-  background: #eaf7ec;
-  border-radius: 6px;
-  padding: 10px 12px;
   margin: 0;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--color-success) 20%, var(--color-border));
+  border-radius: var(--radius-md);
+  color: var(--color-success);
+  background: var(--color-success-surface);
 }
 
-.song-form button {
+.song-form button[type='submit'] {
   align-self: flex-start;
-  font: inherit;
-  font-weight: 600;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background: var(--text-h);
-  color: var(--bg);
-  cursor: pointer;
+  min-height: 44px;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
 }
 
-.song-form button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.song-form button[type='submit']:hover:not(:disabled) {
+  border-color: var(--color-primary-strong);
+  background: var(--color-primary-strong);
+  color: #fff;
 }
 
 @media (max-width: 640px) {
+  .song-form {
+    padding: 18px;
+  }
+
   .song-form__row {
     flex-direction: column;
   }
 
-  .song-form button {
+  .song-form button[type='submit'] {
     width: 100%;
   }
 }

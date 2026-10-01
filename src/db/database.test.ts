@@ -69,3 +69,11 @@ describe('SalmodiaDatabase songs table', () => {
     await expect(db.songs.add(song)).rejects.toThrow()
   })
 })
+
+describe('SalmodiaDatabase target Stage tables', () => {
+  it('exposes StageSession and StageSessionState stores', () => {
+    expect(db.stageSessions).toBeDefined()
+    expect(db.stageSessionStates).toBeDefined()
+    expect(db.targetSyncQueue).toBeDefined()
+  })
+})

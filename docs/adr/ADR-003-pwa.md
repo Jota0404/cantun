@@ -10,7 +10,7 @@ O usuário principal utilizará o aplicativo em tablets e celulares. Desejamos u
 
 ## Decisão
 
-O Salmodia será desenvolvido como Progressive Web App.
+O CANTUM será desenvolvido como Progressive Web App.
 
 ## Motivos
 

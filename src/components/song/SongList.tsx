@@ -3,9 +3,10 @@ import './SongList.css'
 
 type SongListProps = {
   songs: Song[]
+  onSelectSong?: (song: Song) => void
 }
 
-export function SongList({ songs }: SongListProps) {
+export function SongList({ songs, onSelectSong }: SongListProps) {
   if (songs.length === 0) {
     return (
       <div className="song-list__empty">
@@ -37,6 +38,12 @@ export function SongList({ songs }: SongListProps) {
             >
               ★
             </span>
+          )}
+
+          {onSelectSong && (
+            <button type="button" onClick={() => onSelectSong(song)}>
+              Abrir música
+            </button>
           )}
         </article>
       ))}

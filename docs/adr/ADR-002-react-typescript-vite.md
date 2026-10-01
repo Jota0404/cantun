@@ -6,7 +6,7 @@ Accepted
 
 ## Contexto
 
-O Salmodia é uma aplicação client-side com interface rica, uso offline e possibilidade de instalação como PWA.
+O CANTUM é uma aplicação client-side com interface rica, uso offline e possibilidade de instalação como PWA.
 
 ## Decisão
 
