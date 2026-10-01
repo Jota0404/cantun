@@ -1,4 +1,4 @@
-import js from '@eslint/js'
+﻿import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
@@ -15,11 +15,24 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
-    rules: {
-      'react-hooks/set-state-in-effect': 'off',
-    },
     languageOptions: {
       globals: globals.browser,
+    },
+  },
+  // TODO(debt): remover — issue #42
+  {
+    files: [
+      'src/pages/Organization/OrganizationDetailPage.tsx',
+      'src/pages/Organization/OrganizationPage.tsx',
+      'src/pages/Organization/ServiceDetailPage.tsx',
+      'src/pages/Organization/TeamPage.tsx',
+      'src/pages/Repertoire/RepertoireDetailPage.tsx',
+      'src/pages/Repertoire/RepertoireListPage.tsx',
+      'src/pages/Stage/BandStagePage.tsx',
+      'src/pages/Stage/ServiceStagePage.tsx',
+    ],
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])
