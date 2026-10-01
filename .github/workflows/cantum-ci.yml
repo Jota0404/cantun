@@ -3,7 +3,7 @@ name: CANTUM CI
 on:
   push:
     branches:
-      - feature/task-x-team-readiness
+      - main
   pull_request:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run tests
         run: npm test

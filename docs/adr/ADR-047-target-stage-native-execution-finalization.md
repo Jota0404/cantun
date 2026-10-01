@@ -1,4 +1,6 @@
-# ADR-044 — Finalização da transição do Stage para o domínio canônico
+# ADR-047 — Finalização da transição do Stage para o domínio canônico
+
+> Renumerado de ADR-044 em 2026-10-01 (numeração duplicada com ADR-044 — Canonical Stage Runtime Final Cutover). Conteúdo inalterado.
 
 - **Status:** Accepted
 - **Date:** 2026-10-01

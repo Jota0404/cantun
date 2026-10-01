@@ -1,4 +1,6 @@
-# ADR-041 — Direct Target Stage Execution Boundary
+# ADR-046 — Direct Target Stage Execution Boundary
+
+> Renumerado de ADR-041 em 2026-10-01 (numeração duplicada com ADR-041 — Legacy Dexie Compatibility Gates). Conteúdo inalterado.
 
 ## Status
 Accepted.
