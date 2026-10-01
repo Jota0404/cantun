@@ -1,6 +1,7 @@
 # B2 — Equipe (VS-01)
 
 > Fase 1 · Esforço: 2–3 semanas · Depende de: B0 · Requisitos: RF-TEAM-001…004 · Blueprint §5, §6, §8.1, §32.3, §49, §50, §53
+> Status: **spec em revisão** (PR 1 `docs/vs-01-spec`)
 
 ## Objetivo
 Owner e Admin estruturam a organização e as equipes; o **Líder** coordena a própria equipe; o **Membro** participa, mantém suas funções e confirma presença. Cada pessoa vê claramente seu papel e suas funções.
@@ -16,17 +17,22 @@ Owner e Admin estruturam a organização e as equipes; o **Líder** coordena a p
 - **D2** (dois níveis). **ADR-051** formaliza papéis + matriz de permissões.
 - Fonte única de permissões: `docs/PERMISSIONS.md` + função SQL `app.has_permission(p_organization_id, p_team_id, p_capability)` + espelho TS `domain/access/permissions.ts`, usado só para UX.
 
-### Matriz §49 resolvida (proposta; ⚠ = confirmar com o owner)
+### Matriz §49 resolvida (decisões do owner, 2026-10-01)
+
+Detalhe, capacidades nomeadas e casos negativos: [`docs/PERMISSIONS.md`](../PERMISSIONS.md). Decisão: [ADR-051](../adr/ADR-051-papeis-dois-niveis-e-permissoes.md) (Proposed). Spec: [`docs/specs/VS-01-equipe.md`](../specs/VS-01-equipe.md).
 
 | Capacidade | Owner | Admin | Líder (da equipe) | Membro |
 |---|:-:|:-:|:-:|:-:|
-| Gerenciar organização (nome, excluir) | ✅ | ⚠ só editar nome | ❌ | ❌ |
-| Gerenciar equipes (criar/renomear/excluir) | ✅ | ✅ | ⚠ renomear a própria | ❌ |
-| Gerenciar pessoas da equipe (adicionar, inativar, promover Líder) | ✅ | ✅ | ✅ na própria, exceto promover Líder | ❌ |
-| Definir funções musicais | ✅ | ✅ | ✅ na própria | ⚠ só as próprias |
-| Criar música / editar biblioteca | ✅ | ✅ | ✅ | ✅ criar · ⚠ editar só as que criou |
+| Gerenciar organização | ✅ editar e excluir | ✅ só editar nome (✔ resolvido) | ❌ | ❌ |
+| Gerenciar equipes | ✅ criar, renomear, excluir | ✅ criar, renomear, excluir | ✅ só renomear a própria; não exclui nem cria (✔ resolvido) | ❌ |
+| Gerenciar pessoas da equipe | ✅ adicionar, inativar, promover Líder | ✅ idem | ✅ adicionar, inativar e reativar **membros não Líderes** da própria equipe; não promove nem rebaixa Líder (✔ resolvido) | ❌ |
+| Definir funções musicais | ✅ qualquer um | ✅ qualquer um | ✅ qualquer membro da própria equipe | ✅ só as próprias (✔ resolvido) |
+| Criar música | ✅ | ✅ | ✅ | ✅ |
+| Editar ou excluir música e repertório | ✅ | ✅ | ✅ como Owner e Admin | ✅ só o que criou (✔ resolvido) |
 | Criar repertório | ✅ | ✅ | ✅ | ✅ |
 | Executar Modo Palco | ✅ | ✅ | ✅ | ✅ |
+
+Regras de `inactive`: membro `inactive` não age nem é editado pelo Líder; Líder `inactive` perde os poderes e só Owner ou Admin o reativam. Pendências conhecidas (Admin muda papel de organização de outros Admins; forma do `pending_invite`) estão no `PERMISSIONS.md` §7 e na spec.
 
 ## Escopo
 

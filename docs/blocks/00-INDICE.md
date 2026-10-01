@@ -9,7 +9,7 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 |---|---|---|---|---|
 | B0 | `B0-fundacao.md` | 0 | — | ▶ próximo |
 | B1 | `B1-portabilidade-postgres.md` | 0 (ADR-049 A) | B0 + dump de produção | aguardando dump |
-| B2 | `B2-equipe-vs01.md` | 1 | B0 | spec no B0 |
+| B2 | `B2-equipe-vs01.md` | 1 | B0 | spec em revisão |
 | B3 | `B3-servico-vs02.md` | 1 | B2 | — |
 | B4 | `B4-escala-vs03.md` | 1 | B3 | — |
 | B5 | `B5-navegacao-design-system.md` | 1 | B0 (paralelo ao B2) | — |
@@ -38,7 +38,7 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 | ADR | Tema | Bloco |
 |---|---|---|
 | 050 | Revisão do ADR-009 (Claude Code com controle humano) | B0 |
-| 051 | Papéis em dois níveis e matriz de permissões | B2 |
+| 051 (Proposed) | Papéis em dois níveis e matriz de permissões | B2 |
 | 052 | Service operacional (equipe, estados, itens genéricos) | B3 |
 | 053 | Vagas e atribuições | B4 |
 | 054 | Canal de notificação | B4 |
