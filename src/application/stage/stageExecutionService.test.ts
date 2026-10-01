@@ -1,113 +1,101 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { BandStageEvent, BandStageSnapshot } from '../../domain/stage/bandStage'
-import { StageExecutionService } from './stageExecutionService'
 
-const legacySnapshot: BandStageSnapshot = {
-  session: {
-    id: 'legacy-session',
-    bandId: 'org-1',
-    setlistId: 'repertoire-1',
-    mdUserId: 'md-1',
-    status: 'live',
-    createdAt: '2026-09-20T00:00:00Z',
-    startedAt: '2026-09-20T00:01:00Z',
-    updatedAt: '2026-09-20T00:02:00Z',
-  },
-  state: {
-    sessionId: 'legacy-session',
-    revision: 4,
-    currentIndex: 1,
-    currentSongId: 'song-1',
-    currentKey: 'C',
-    isRunning: true,
-    updatedAt: '2026-09-20T00:02:00Z',
-  },
-}
+const rpc = vi.fn()
+const getUser = vi.fn(async () => ({ data: { user: { id: 'user-1' } } }))
 
-vi.mock('./stageSessionService', () => ({
-  getStageSession: vi.fn(async () => ({
-    id: 'target-session',
-    serviceId: 'service-1',
-    legacyBandStageSessionId: 'legacy-session',
-    status: 'live',
-    createdAt: '2026-09-20T00:00:00Z',
-    updatedAt: '2026-09-20T00:02:00Z',
-  })),
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    rpc,
+    auth: { getUser },
+  },
 }))
 
-describe('StageExecutionService target identity facade', () => {
-  it('targetizes realtime snapshots before exposing them to the application', async () => {
-    let callbacks: {
-      onSnapshot?: (snapshot: BandStageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
-    } = {}
+vi.mock('../../sync/stageRealtime', () => ({
+  StageRealtime: class {
+    async connect() { return null }
+    async disconnect() {}
+    async trackPresence() {}
+    async reconnect() { return null }
+    async refresh() { return null }
+    async publish() {}
+  },
+}))
 
-    const realtime = {
-      connect: vi.fn(async () => {
-        callbacks.onSnapshot?.(legacySnapshot, 'event')
-        return legacySnapshot
-      }),
-      disconnect: vi.fn(async () => undefined),
-    }
+import { StageExecutionService } from './stageExecutionService'
 
-    const service = new StageExecutionService({
-      client: {
-        rpc: vi.fn(async () => ({ data: null, error: null })),
-      },
-      realtimeFactory: (_sessionId, _client, nextCallbacks) => {
-        callbacks = nextCallbacks ?? {}
-        return realtime as never
-      },
+function snapshot() {
+  return {
+    session: {
+      id: 'stage-1',
+      service_id: 'service-1',
+      md_user_id: 'user-1',
+      status: 'live',
+      created_at: '2026-10-01T12:00:00Z',
+      updated_at: '2026-10-01T12:00:00Z',
+    },
+    state: {
+      stage_session_id: 'stage-1',
+      revision: 2,
+      current_index: 0,
+      current_service_item_id: 'item-1',
+      current_song_id: 'song-1',
+      current_key: 'C',
+      is_running: false,
+      updated_at: '2026-10-01T12:00:00Z',
+    },
+  }
+}
+
+describe('StageExecutionService', () => {
+  it('reads snapshots from the target Stage RPC', async () => {
+    rpc.mockResolvedValueOnce({ data: snapshot(), error: null })
+
+    const service = new StageExecutionService()
+    const result = await service.getSnapshot('stage-1')
+
+    expect(rpc).toHaveBeenCalledWith('get_target_stage_snapshot', {
+      p_stage_session_id: 'stage-1',
     })
-
-    const snapshots: BandStageSnapshot[] = []
-    const result = await service.connect('target-session', {
-      onSnapshot: (snapshot) => snapshots.push(snapshot),
-    })
-
-    expect(result.session.id).toBe('target-session')
-    expect(result.state.sessionId).toBe('target-session')
-    expect(snapshots).toHaveLength(1)
-    expect(snapshots[0].session.id).toBe('target-session')
-    expect(snapshots[0].state.sessionId).toBe('target-session')
+    expect(result.session.id).toBe('stage-1')
+    expect(result.state.stageSessionId).toBe('stage-1')
   })
 
-  it('targetizes realtime event session identity before exposing it to the application', async () => {
-    let callbacks: {
-      onEvent?: (event: BandStageEvent) => void
-    } = {}
+  it('executes commands through target RPCs', async () => {
+    rpc
+      .mockResolvedValueOnce({ data: snapshot(), error: null })
+      .mockResolvedValueOnce({
+        data: {
+          stage_session_id: 'stage-1',
+          revision: 3,
+          current_index: 0,
+          current_service_item_id: 'item-1',
+          current_song_id: 'song-1',
+          current_key: 'C',
+          is_running: true,
+          updated_at: '2026-10-01T12:00:01Z',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ...snapshot(),
+          state: {
+            ...snapshot().state,
+            revision: 3,
+            is_running: true,
+            updated_at: '2026-10-01T12:00:01Z',
+          },
+        },
+        error: null,
+      })
 
-    const realtime = {
-      connect: vi.fn(async () => {
-        callbacks.onEvent?.({
-          type: 'stage.next',
-          sessionId: 'legacy-session',
-          revision: 5,
-          actorUserId: 'md-1',
-          eventId: 'event-1',
-          sentAt: '2026-09-20T00:03:00Z',
-          payload: {},
-        })
-        return legacySnapshot
-      }),
-      disconnect: vi.fn(async () => undefined),
-    }
+    const service = new StageExecutionService()
+    const result = await service.play('stage-1')
 
-    const service = new StageExecutionService({
-      client: {
-        rpc: vi.fn(async () => ({ data: null, error: null })),
-      },
-      realtimeFactory: (_sessionId, _client, nextCallbacks) => {
-        callbacks = nextCallbacks ?? {}
-        return realtime as never
-      },
+    expect(rpc).toHaveBeenCalledWith('target_stage_play', {
+      p_stage_session_id: 'stage-1',
     })
-
-    const events: Array<{ sessionId: string }> = []
-    await service.connect('target-session', {
-      onEvent: (event) => events.push(event),
-    })
-
-    expect(events).toHaveLength(1)
-    expect(events[0].sessionId).toBe('target-session')
+    expect(result.state.revision).toBe(3)
+    expect(result.state.isRunning).toBe(true)
   })
 })
