@@ -42,7 +42,7 @@ Legado (`domain/bands`, `bandSyncEngine`, `syncEngine`, `bandStageRealtime`, rot
 - Componente/página: `Foo.tsx` + `Foo.css` + `Foo.test.tsx` lado a lado.
 - Testes de UI por papel/label acessível (`getByRole`, `getByLabelText`), não por classe CSS. Supabase sempre mockado; repositórios com `fake-indexeddb`.
 - Arquivos grandes (`StagePage.tsx`, `bandStageRealtime.ts`): extrair hooks/serviços em vez de crescer.
-- `react-hooks/set-state-in-effect` está desligado globalmente (débito técnico): não escreva código novo que dependa disso.
+- `react-hooks/set-state-in-effect` está ativa; só 8 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
 
 ## Persistência
 
