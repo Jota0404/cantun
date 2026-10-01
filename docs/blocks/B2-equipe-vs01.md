@@ -28,7 +28,8 @@ Detalhe, capacidades nomeadas e casos negativos: [`docs/PERMISSIONS.md`](../PERM
 | Gerenciar pessoas da equipe | ✅ adicionar, inativar, promover Líder | ✅ idem | ✅ adicionar, inativar e reativar **membros não Líderes** da própria equipe; não promove nem rebaixa Líder (✔ resolvido) | ❌ |
 | Definir funções musicais | ✅ qualquer um | ✅ qualquer um | ✅ qualquer membro da própria equipe | ✅ só as próprias (✔ resolvido) |
 | Criar música | ✅ | ✅ | ✅ | ✅ |
-| Editar ou excluir música e repertório | ✅ | ✅ | ✅ como Owner e Admin | ✅ só o que criou (✔ resolvido) |
+| Editar música e repertório | ✅ | ✅ | ✅ como Owner e Admin | ✅ só o que criou (✔ resolvido) |
+| Excluir música e repertório | ✅ | ✅ | ✅ só o que criou; o de outra pessoa ❌ (✔ resolvido) | ✅ só o que criou |
 | Criar repertório | ✅ | ✅ | ✅ | ✅ |
 | Executar Modo Palco | ✅ | ✅ | ✅ | ✅ |
 
@@ -38,15 +39,15 @@ Regras de `inactive`: membro `inactive` não age nem é editado pelo Líder; Lí
 
 **Entra:**
 1. Spec `docs/specs/VS-01-equipe.md` + ADR-051 + `docs/PERMISSIONS.md` (revisados pelo owner **antes** do código).
-2. Migration: `team_memberships.role text not null default 'member' check (role in ('leader','member'))`; `status text not null default 'active' check (status in ('active','inactive','pending_invite'))`. O criador da equipe vira `leader`. `app.has_permission(...)`.
+2. Migration: `team_memberships.role text not null default 'member' check (role in ('leader','member'))`; `status text not null default 'active' check (status in ('active','inactive'))`; `pending_invite` é derivado de `organization_invites`, não persistido. O criador da equipe vira `leader` **no servidor** (trigger em `teams`); `role`/`status` ficam protegidos por trigger contra escrita direta (ADR-051). `app.has_permission(...)`.
 3. RLS/RPC: substituir "admins can manage team memberships" por uma política baseada em `app.has_permission`; RPCs `set_team_member_role`, `set_team_member_status`, `set_team_member_functions` (Líder/Admin para outros). Abrir **criação de música e repertório para Membro** (§49).
 4. Domínio: tipos `TeamRole`, `MemberStatus`, regras de transição; `permissions.ts` espelhando a matriz.
-5. Application: `promoteToLeader`, `demoteToMember`, `setMemberStatus`, `setMemberFunctions`; convite com estado `pending_invite` até aceitar.
+5. Application: `promoteToLeader`, `demoteToMember`, `setMemberStatus`, `setMemberFunctions`; convite exibido como `pending_invite` (derivado de `organization_invites`) até aceitar.
 6. Dexie: nova `version()` com `teamMemberships` indexando `role` e `status` + upgrade (`role='member'`, `status='active'`); `TargetSyncEngine` sincronizando os campos novos.
 7. **Onboarding guiado** (§6.2): sem organização → criar organização (vira Owner) → criar equipe principal (vira Líder) → convidar → definir funções. Regra "1 organização principal por conta" na UI e no caso de uso (sem constraint de banco).
 8. Tela de Equipe (§32.3): membros com papel, funções e status; filtros; destaque das funções sem ninguém; ações conforme permissão.
 
-**Não entra:** disponibilidade (B4), escala (B4), navegação nova (B5; usar a rota atual), troca/recuperação de Owner (issue para depois).
+**Não entra:** `team_member.remove` (o B2 só inativa; remover/anonimizar vai para o B8), disponibilidade (B4), escala (B4), navegação nova (B5; usar a rota atual), troca/recuperação de Owner (issue para depois).
 
 ## Entregáveis por PR
 1. `docs/vs-01-spec` — spec + ADR-051 + PERMISSIONS.md.
@@ -59,7 +60,7 @@ Regras de `inactive`: membro `inactive` não age nem é editado pelo Líder; Lí
 - Quem cria a equipe é Líder dela; o Owner promove e rebaixa Líder.
 - O Líder adiciona e inativa membros e define funções **só na própria equipe**; tentar em outra equipe é negado pelo banco.
 - O Membro cria música e repertório, edita as próprias funções e não altera as dos outros.
-- Convite aparece como `pending_invite` até ser aceito.
+- Convite aparece como `pending_invite` (derivado de `organization_invites`) até ser aceito.
 - Um usuário novo completa o onboarding em até 5 passos.
 - Funciona offline para leitura; mutações sobem pela fila e respeitam a autorização no servidor.
 

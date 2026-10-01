@@ -20,6 +20,7 @@ Permitir uso real com base legal, transparência e recuperação de dados, consi
 5. **Menores**: regra de produto definida com o jurídico (idade mínima para conta própria e/ou consentimento do responsável) e minimização de dados de membros menores.
 6. `docs/BACKUP_RECOVERY.md`: frequência, retenção, onde fica a cópia (independente do provedor), procedimento de **restore testado**, RPO/RTO alvo. Avaliar o plano pago do Supabase (backup diário) até o B9.
 7. Logs administrativos para ações críticas (remoção de membro, mudança de papel, exclusão de conta) sem conteúdo privado (NFR-008).
+8. **Remover e anonimizar** (herdado do B2, VS-01): remoção de vínculo de equipe (`team_member.remove`, que o B2 deixou de fora; lá só se inativa) e anonimização de autoria de música e repertório na saída do criador. Define a política de saída do criador exigida pela alternativa A do dono da música (ver ADR-051).
 
 **Não entra:** perfil público da Network e moderação (B10).
 

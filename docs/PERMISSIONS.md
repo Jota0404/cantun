@@ -10,7 +10,7 @@
 |---|---|---|---|
 | Organização | `owner`, `admin`, `member` | `organization_memberships.role` | Um Owner por organização no primeiro escopo. |
 | Equipe | `leader`, `member` | `team_memberships.role` (novo no B2) | Papel **por equipe**: a mesma pessoa pode ser Líder numa equipe e Membro em outra. |
-| Status do membro | `active`, `inactive`, `pending_invite` | `team_memberships.status` (novo no B2) | Blueprint §53. |
+| Status do membro | `active`, `inactive` (persistidos) | `team_memberships.status` (novo no B2) | `pending_invite` (Blueprint §53) **não é persistido**: é derivado de `organization_invites` (convite não aceito, sem `user_id`) e só aparece como estado de leitura/UX. |
 
 Papel de acesso **não** é função musical (ADR-016). Funções (`team_musical_functions`) não concedem nenhuma capacidade.
 
@@ -24,6 +24,7 @@ Papel de acesso **não** é função musical (ADR-016). Funções (`team_musical
 6. **Membro `inactive`.** Quem está `inactive` em uma equipe não exerce nenhuma capacidade nela e não pode ser editado pelo Líder dela. Detalhes na seção 4.
 7. **Identidade.** SQL usa `app.current_user_id()`, nunca `auth.uid()` (ADR-049). Nenhuma permissão é lida de claims do token.
 8. **Cache local não é autorização** (Blueprint §50.3). Mutações offline sobem pela fila e são validadas no servidor.
+9. **`role` e `status` são protegidos por trigger.** RLS não compara valor antigo; por isso `team_memberships.role` e `.status` só mudam por RPC `security definer` (trigger `before insert or update` barra o resto) e o **criador da equipe vira Líder no servidor** (trigger em `teams`), nunca por escrita do cliente. Ver ADR-051.
 
 ## 3. Capacidades e matriz papel × capacidade
 
@@ -40,7 +41,7 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 
 | Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
 |---|---|:-:|:-:|:-:|:-:|---|
-| `team.create` | organização | ✅ | ✅ | ❌ | ❌ | Decisão 2. O criador vira `leader` da equipe criada. |
+| `team.create` | organização | ✅ | ✅ | ❌ | ❌ | Decisão 2. O criador vira `leader` da equipe criada, **criado pelo servidor** (trigger em `teams`), nunca por escrita do cliente. |
 | `team.rename` | equipe | ✅ | ✅ | **L** | ❌ | Decisão 2. |
 | `team.delete` | equipe | ✅ | ✅ | ❌ | ❌ | Decisão 2. |
 | `team_member.add` | equipe | ✅ | ✅ | **L** | ❌ | Adiciona como `member`. Tornar Líder exige `team_member.set_role`. |
@@ -55,14 +56,14 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 | Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
 |---|---|:-:|:-:|:-:|:-:|---|
 | `song.create` | organização | ✅ | ✅ | ✅ | ✅ | Decisão 4. |
-| `song.edit` | organização | ✅ | ✅ | **L\*** | ❌ | Qualquer música da organização. O Líder edita a biblioteca como Owner e Admin. |
+| `song.edit` | organização | ✅ | ✅ | **L\*** | ❌ | Qualquer música da organização. O Líder **edita** a biblioteca como Owner e Admin, mas não exclui o que é de outra pessoa. |
 | `song.edit_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
-| `song.delete` | organização | ✅ | ✅ | **L\*** | ❌ | |
+| `song.delete` | organização | ✅ | ✅ | ❌ | ❌ | Só Owner e Admin excluem o que é de outra pessoa (decisão do Jota). O Líder exclui só o que criou (`song.delete_own`). |
 | `song.delete_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
 | `repertoire.create` | organização | ✅ | ✅ | ✅ | ✅ | Decisão 4. |
 | `repertoire.edit` | organização | ✅ | ✅ | **L\*** | ❌ | Inclui itens do repertório. |
 | `repertoire.edit_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
-| `repertoire.delete` | organização | ✅ | ✅ | **L\*** | ❌ | |
+| `repertoire.delete` | organização | ✅ | ✅ | ❌ | ❌ | Mesma regra de `song.delete`. |
 | `repertoire.delete_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
 | `stage.run` | organização | ✅ | ✅ | ✅ | ✅ | Executar o Modo Palco. A autorização do operador (MD) do Stage não muda neste bloco. |
 
@@ -70,10 +71,10 @@ Capacidades fora do B2 (criar serviço, gerenciar escala, confirmar participaç�
 
 ## 4. Membro `inactive`, Líder inativo e quem está "ativo"
 
-- **Escopo de equipe** (seção 3.2): para o papel Líder ou Membro, a capacidade só vale se o vínculo naquela equipe tem `status = 'active'`. `inactive` e `pending_invite` não exercem nada.
+- **Escopo de equipe** (seção 3.2): para o papel Líder ou Membro, a capacidade só vale se o vínculo naquela equipe tem `status = 'active'`. `inactive` não exerce nada. Convite pendente (derivado de `organization_invites`) não gera vínculo e não exerce nada.
 - **Líder inativo** perde todos os poderes de Líder naquela equipe. Só Owner ou Admin o reativam (`team_member.set_leader_status`).
 - **Membro `inactive` não é editado pelo Líder.** A única ação do Líder sobre um alvo `inactive` é reativá-lo (`team_member.set_status`), e só se o alvo não for Líder. O Líder não altera as funções de um membro inativo.
-- **Escopo de organização** (`song.*`, `repertoire.*`, `stage.run`): vale para quem tem vínculo na organização e está **ativo na organização**. Define-se "ativo na organização" como: não possui vínculos de equipe naquela organização **ou** possui ao menos um com `status = 'active'`. Quem está `inactive` em todas as suas equipes não exerce capacidades de organização.
+- **Escopo de organização** (`song.*`, `repertoire.*`, `stage.run`): vale para quem tem vínculo na organização e está **ativo na organização**. Define-se "ativo na organização" como: não possui vínculos de equipe naquela organização **ou** possui ao menos um com `status = 'active'`. Só `active` e `inactive` existem em `team_memberships`; convite pendente não conta como vínculo. Quem está `inactive` em todas as suas equipes não exerce capacidades de organização.
 - **L\*** exige ser Líder **ativo** de ao menos uma equipe da organização.
 - **Owner e Admin** não dependem de `team_memberships`: o papel de organização basta, mesmo que tenham vínculos de equipe `inactive`.
 
@@ -89,7 +90,7 @@ Cada caso vira teste de RLS/RPC no harness (`feat/team-roles-schema`) e teste de
 | N4 | Líder inativo tenta qualquer ação de Líder | negado |
 | N5 | Líder tenta alterar funções ou papel de um membro `inactive` | negado (só reativar é permitido) |
 | N6 | Membro tenta alterar as funções de outro membro | negado |
-| N7 | Membro tenta editar ou excluir música ou repertório criado por outra pessoa | negado |
+| N7 | Membro tenta editar ou excluir música ou repertório criado por outra pessoa; Líder tenta **excluir** música ou repertório criado por outra pessoa (editar é permitido) | negado |
 | N8 | Membro de outra organização tenta ler ou escrever em equipe, música ou repertório | negado |
 | N9 | Usuário sem membership (autenticado) tenta qualquer capacidade | negado |
 | N10 | Usuário anônimo (sem `app.current_user_id()`) | negado |
@@ -97,7 +98,10 @@ Cada caso vira teste de RLS/RPC no harness (`feat/team-roles-schema`) e teste de
 | N12 | Admin tenta excluir a organização | negado |
 | N13 | Líder ou Membro tenta criar equipe | negado |
 | N14 | Capacidade desconhecida, ou `p_team_id` de outra organização | `false` (negação por padrão) |
-| N15 | Cliente envia `role`/`status` direto no `upsert` (sync) para se promover | negado pelo RLS; só as RPCs mudam papel e status |
+| N15 | Cliente envia `role`/`status` direto no `upsert` (sync) ou em `update` para se promover, reativar-se ou alterar outro | negado pelo **trigger de guarda** (e por privilégio de coluna, se houver); só as RPCs mudam papel e status |
+| N16 | Cliente insere vínculo com `role = 'leader'` ou `status` diferente de `active` (para si ou para outro) | negado pelo trigger de guarda |
+| N17 | Cliente cria a equipe e tenta inserir o próprio vínculo `leader` por escrita direta | negado; o Líder criador só existe porque o trigger em `teams` o cria no servidor |
+| N18 | `update team_memberships set role/status` direto por Owner, Admin ou Líder | negado; o mesmo efeito por RPC é permitido conforme a matriz |
 
 Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria equipe e Membro no próprio recurso conseguem a ação correspondente.
 
@@ -108,11 +112,14 @@ Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria e
 - Criar serviço, gerenciar escala, confirmar participação, Network (B3, B4, B10).
 - Permissões granulares por recurso (ACL): rejeitado no ADR-051.
 
-## 7. Pendências conhecidas (não alteradas no B2)
+## 7. Pendências e pontos em aberto (não alterados no B2)
 
 1. **Admin promove e rebaixa outro Admin.** Hoje `update_organization_member_role` permite que um Admin mude o papel de organização de outros membros, inclusive promover alguém a `admin` ou rebaixar outro `admin`. Isso fica **como está** no B2. Decidir em issue própria se a mudança de papel de organização passa a ser exclusiva do Owner.
 2. **Blueprint §49** mostra "Gerenciar pessoas" como ✅ simples para o Líder. A exceção "Líder não promove nem rebaixa Líder" (Decisão 3) refina essa célula. O Blueprint **não** é alterado neste PR.
-3. **`pending_invite`:** a forma de materializar o vínculo pendente (a pessoa convidada ainda não tem `user_id`) é resolvida no PR `feat/team-roles-schema`; ver a spec VS-01.
+3. **`pending_invite` (resolvido na spec):** o convite pendente é derivado de `organization_invites`; o banco só persiste `active | inactive`. Em aberto para o PR de schema: o convite precisa saber a equipe de destino (proposta: `team_id` nullable em `organization_invites`, aditivo) para aparecer na lista da equipe e criar o vínculo `member`/`active` ao ser aceito.
+4. **`team_member.remove` (decidido: fora do B2).** O B2 só **inativa** (`team_member.set_status`); não existe capacidade de remover vínculo de equipe. Remover e anonimizar (vínculos, autoria de música e repertório, funções) vai para o **B8** (exclusão de conta e privacidade). Até lá, o delete direto de `team_memberships` continua restrito a Owner e Admin, como na política atual, sem capacidade nomeada. Decisão do Jota, 2026-10-01.
+5. **Excluir música ou repertório de outra pessoa (resolvido).** O Líder **edita** o que é de outra pessoa, mas só Owner e Admin o **excluem** (`song.delete` e `repertoire.delete`: Líder ❌). `*.delete_own` permanece para todos. Decisão do Jota, 2026-10-01.
+6. **Dono da música (resolvido):** alternativa A (o usuário é dono; a organização vincula) no B2, com salvaguardas; a alternativa B (organização dona) vira ADR no B6. Ver a spec VS-01.
 
 ## 8. Mapa de implementação
 
