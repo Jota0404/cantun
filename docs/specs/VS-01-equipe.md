@@ -121,7 +121,7 @@ Rastreio: RF-TEAM-001 → RN-03, RN-09; RF-TEAM-002 → RN-10, RN-11; RF-TEAM-00
 ## Issues
 - [ ] Épico #46 — VS-01 / Equipe
 - [ ] #42 — débito `react-hooks/set-state-in-effect` (não bloqueia o B2; só não ampliar a lista de exceções)
-- [ ] `feat/team-roles-schema` — migration + `app.has_permission` + RLS + testes de harness (issue a criar)
-- [ ] `feat/team-roles-domain` — domínio + application + Dexie + sync + testes (issue a criar)
-- [ ] `feat/team-onboarding` — onboarding guiado + organização principal (issue a criar)
-- [ ] `feat/team-page` — tela de Equipe (issue a criar)
+- [ ] #57 — `feat/team-roles-schema`: migration + `app.has_permission` + RLS + testes de harness
+- [ ] #58 — `feat/team-roles-domain`: domínio + application + Dexie + sync + testes
+- [ ] #59 — `feat/team-onboarding`: onboarding guiado + organização principal
+- [ ] #60 — `feat/team-page`: tela de Equipe
