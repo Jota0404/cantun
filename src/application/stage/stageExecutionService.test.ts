@@ -60,7 +60,7 @@ describe('StageExecutionService', () => {
   })
 
   it('executes commands through target RPCs', async () => {
-    rpc
+    mocks.rpc
       .mockResolvedValueOnce({ data: snapshot(), error: null })
       .mockResolvedValueOnce({
         data: {
