@@ -173,7 +173,7 @@ export class BandStageReconciler {
   }
 
   private async loadSnapshot(): Promise<BandStageSnapshot> {
-    let data: unknown = null
+    let data: unknown
     let error: { message?: string } | null = null
 
     const { data: targetData, error: targetError } = await this.options.client.rpc(
