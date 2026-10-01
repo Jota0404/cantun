@@ -5,10 +5,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BandStagePage } from './BandStagePage'
 
-const connect = vi.fn()
-const disconnect = vi.fn()
-const trackPresence = vi.fn()
-const refresh = vi.fn()
+const { connect, disconnect, trackPresence, refresh } = vi.hoisted(() => ({
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  trackPresence: vi.fn(),
+  refresh: vi.fn(),
+}))
 
 vi.mock('../../auth/authContext', () => ({
   useAuth: () => ({
@@ -22,8 +24,8 @@ vi.mock('../../auth/authContext', () => ({
   }),
 }))
 
-vi.mock('../../application/stage/stageExecutionService', () => ({
-  StageExecutionService: class {
+vi.mock('../../application/stage/bandStageService', () => ({
+  BandStageService: class {
     connect = connect
     disconnect = disconnect
     trackPresence = trackPresence
@@ -38,17 +40,6 @@ vi.mock('../../application/stage/stageExecutionService', () => ({
     endSession = vi.fn()
     setAnnotation = vi.fn()
   },
-}))
-
-vi.mock('../../application/stage/getTargetStageSession', () => ({
-  getTargetStageSessionByLegacyId: vi.fn(async () => ({ id: 'stage-1', serviceId: 'service-1', legacyBandStageSessionId: 'session-1', status: 'live', createdAt: '2026-09-08T00:00:00.000Z', updatedAt: '2026-09-08T00:02:00.000Z' })),
-}))
-
-vi.mock('../../application/stage/getServiceStageSongs', () => ({
-  getServiceStageSongs: vi.fn(async () => [
-    { position: 0, songId: 'song-1', title: 'Primeira', artist: 'Artista', originalKey: 'C', currentKey: 'C', lyrics: '[C]Primeira música', notes: 'Observação', musicalRole: 'vocals' },
-    { position: 1, songId: 'song-2', title: 'Segunda', artist: 'Artista', originalKey: 'G', currentKey: 'G', lyrics: '[G]Segunda música', musicalRole: 'vocals' },
-  ]),
 }))
 
 vi.mock('../../application/stage/getBandStageSessionSetlist', () => ({
