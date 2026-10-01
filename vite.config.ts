@@ -3,6 +3,18 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// HTTPS opcional no `vite preview` para testes em dispositivo na rede local.
+// Defina PREVIEW_HTTPS_KEY e PREVIEW_HTTPS_CERT (ver .env.example).
+const previewHttpsKey = process.env.PREVIEW_HTTPS_KEY
+const previewHttpsCert = process.env.PREVIEW_HTTPS_CERT
+const previewHttps =
+  previewHttpsKey &&
+  previewHttpsCert &&
+  fs.existsSync(previewHttpsKey) &&
+  fs.existsSync(previewHttpsCert)
+    ? { key: previewHttpsKey, cert: previewHttpsCert }
+    : null
+
 // https://vite.dev/config/
 export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? '/cantun/' : '/',
@@ -33,12 +45,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: true,
-    ...(fs.existsSync('./10.190.119.79+2-key.pem') &&
-    fs.existsSync('./10.190.119.79+2.pem')
+    ...(previewHttps
       ? {
           https: {
-            key: fs.readFileSync('./10.190.119.79+2-key.pem'),
-            cert: fs.readFileSync('./10.190.119.79+2.pem'),
+            key: fs.readFileSync(previewHttps.key),
+            cert: fs.readFileSync(previewHttps.cert),
           },
         }
       : {}),
