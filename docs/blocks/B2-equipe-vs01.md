@@ -33,7 +33,7 @@ Detalhe, capacidades nomeadas e casos negativos: [`docs/PERMISSIONS.md`](../PERM
 | Criar repertório | ✅ | ✅ | ✅ | ✅ |
 | Executar Modo Palco | ✅ | ✅ | ✅ | ✅ |
 
-Regras de `inactive`: membro `inactive` não age nem é editado pelo Líder; Líder `inactive` perde os poderes e só Owner ou Admin o reativam. Pendências conhecidas (Admin muda papel de organização de outros Admins; forma do `pending_invite`) estão no `PERMISSIONS.md` §7 e na spec.
+Regras de `inactive`: membro `inactive` não age nem é editado pelo Líder; Líder `inactive` perde os poderes e só Owner ou Admin o reativam. Pendência conhecida (Admin muda papel de organização de outros Admins) e a decisão sobre `pending_invite` estão no `PERMISSIONS.md` §7.
 
 ## Escopo
 
