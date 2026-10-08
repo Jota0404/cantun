@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted · emendado pelo [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) (merge e limpeza de branches pela IA com ok do owner)
 
 ## Contexto
 
