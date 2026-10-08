@@ -1,8 +1,8 @@
 # ADR-059 — Saída completa do Supabase: PostgreSQL + backend próprio em Node.js
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-08)
 - **Data:** 2026-10-08
-- **Decisor:** Jota (owner). Decidido pelo owner: saída completa e de uma vez, stack Node.js + TypeScript + PostgreSQL, hospedagem definida depois. O restante é proposta para aceite.
+- **Decisor:** Jota (owner). Saída completa e de uma vez, stack Node.js + TypeScript + PostgreSQL e hospedagem definida depois; o ADR inteiro, inclusive a remoção do legado, foi aceito pelo owner em 2026-10-08.
 - **Altera:** ADR-049 (o cronograma Fase A → Fase B é substituído; os princípios continuam), ADR-012 (provedor remoto). **Encerra** os limites de compatibilidade legada dos ADR-036, 038–041 e 045.
 - **Plano:** [`docs/BACKEND_MIGRATION_PLAN.md`](../BACKEND_MIGRATION_PLAN.md) · Bloco [B1](../blocks/B1-portabilidade-postgres.md)
 

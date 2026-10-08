@@ -9,7 +9,7 @@ Este arquivo cobre só instruções operacionais para sessões de código. Justi
 
 - Leia `AI_CONTEXT.md` e os ADRs aplicáveis antes de alterar código.
 - ADR `Accepted` tem precedência sobre sugestões de simplificação, inclusive de plugins ou agentes. Conflito: pare, explique o impacto, proponha alternativas e aguarde decisão do owner. Nunca substitua um ADR em silêncio; mudança arquitetural exige novo ADR.
-- Menor mudança que resolve; sem dependências, abstrações ou escopo não pedidos. Não remova abstrações que sejam fronteiras de arquitetura (camadas dos ADR-005/006, filas de sync do ADR-026, compatibilidade legada).
+- Menor mudança que resolve; sem dependências, abstrações ou escopo não pedidos. Não remova abstrações que sejam fronteiras de arquitetura (camadas dos ADR-005/006, filas de sync do ADR-026). A compatibilidade legada só sai no PR planejado do B1 (ADR-059).
 - Mudança significativa — antes de codar: `Arquivos afetados · ADRs · Riscos · Plano`.
 
 ## Comandos

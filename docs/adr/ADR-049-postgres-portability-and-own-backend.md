@@ -1,6 +1,6 @@
 # ADR-049 — PostgreSQL portável agora, backend próprio depois
 
-- **Status:** Accepted
+- **Status:** Accepted · cronograma (Fases A/B) substituído pelo [ADR-059](ADR-059-own-backend-now.md); os princípios continuam
 - **Data:** 2026-10-01
 - **Decisor:** Jota (owner)
 - **Escopo:** Infraestrutura remota / banco / autenticação / realtime
