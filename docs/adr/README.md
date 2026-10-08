@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Atualizado em 2026-10-01. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-08. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -53,8 +53,10 @@
 | [ADR-047](ADR-047-target-stage-native-execution-finalization.md) | Finalização da transição do Stage para o domínio canônico | Accepted |
 | [ADR-048](ADR-048-local-data-session-isolation.md) | Isolamento de dados locais por sessão | Accepted |
 | [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted |
-| [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted |
+| [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted (emendado pelo ADR-058) |
 | [ADR-051](ADR-051-papeis-dois-niveis-e-permissoes.md) | Papéis em dois níveis e matriz de permissões | Accepted |
+| [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted |
+| [ADR-059](ADR-059-own-backend-now.md) | Saída completa do Supabase: PostgreSQL + backend próprio em Node.js | Proposed |
 
 ## Números reservados
 
@@ -69,4 +71,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 | 056 | Materiais e storage | B6 |
 | 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
 
-Próximo número livre: **ADR-058** (052–057 estão reservados; o 051 está `Accepted`).
+Próximo número livre: **ADR-060** (052–057 estão reservados).

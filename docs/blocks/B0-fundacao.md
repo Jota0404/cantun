@@ -1,6 +1,8 @@
 # B0 — Fundação
 
 > Fase 0 · Esforço: ~1 semana · Depende de: — · Bloqueia: todos os outros
+>
+> **Status (2026-10-08): ✅ concluído** (#37–#41, #43, #61). Branches antigas removidas em 2026-10-08 (SHAs: `feature/song-form` b4a4469, `fix/band-mode-hardening` b56f696, `fix/ci-pipeline-validation` 4c58ca3, `fix/ci-test-failures` 3c351b9, `docs/claude-md-operational` 44546fa; os de PR seguem em `refs/pull/N/head`). A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 Deixar o repositório pronto para entregar features com segurança e rastreabilidade: governança da IA, templates de spec, issue e PR, lint íntegro, plano versionado e o preparo do baseline do banco.
