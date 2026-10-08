@@ -1,57 +1,38 @@
-# B1 — Portabilidade PostgreSQL (ADR-049, Fase A)
+# B1 — Backend próprio: PostgreSQL + Node.js (ADR-059)
 
-> Fase 0 · Esforço: 1–2 semanas · Depende de: B0 + **dump do schema de produção (owner)** · Em paralelo com B2–B5
+> Fase 0/1 · Esforço: 4–6 semanas de dedicação parcial · Depende de: B0 · Bloqueia: SQL do B2 (#57) · Absorve o antigo B9
+> Nome do arquivo mantido por causa dos links existentes; o conteúdo antigo (portabilidade gradual, ADR-049 Fase A) foi substituído.
 
 ## Objetivo
-Tornar o banco **reproduzível a partir do Git** e o código **independente do Supabase**, preparando a troca para um backend próprio (padrão E.C.H.O) sem parar o produto.
+Tirar o CANTUM do Supabase de uma vez: banco PostgreSQL reproduzível a partir do Git, backend próprio em Node.js + TypeScript e cliente sem `@supabase/supabase-js`, com a autorização continuando no banco. Como não há usuários reais, não há migração de dados nem convivência.
 
 ## Estado atual
-- 19 das 36 migrations falham em PostgreSQL puro. Causas: `position` sem aspas em `RETURNS TABLE`; mudança de tipo de retorno sem `drop`; trigger recriado sem `drop`; FKs para `songs(id)` com PK `(user_id, id)`. **A produção diverge do repositório.**
-- Existem `scripts/db/platform-shim.sql`, `scripts/db/verify-migrations.sh`, o workflow `db-portability` (informativo) e `app.current_user_id()` (PR #40).
-- Acoplamento: 173 `auth.uid()`, 19 FKs para `auth.users`, 18 `.from()` + 47 `.rpc()` em 31 arquivos TS, 3 canais Realtime.
+- 36 migrations Supabase; 19 falham em PostgreSQL puro (ver `docs/BACKEND_MIGRATION_PLAN.md` §2).
+- `app.current_user_id()` já existe (PR #40). Ainda há 173 `auth.uid()` e 19 FKs para `auth.users`.
+- 30 arquivos TS importam o Supabase; 29 RPCs, das quais 13 são do legado `Band*`.
+- Realtime do Modo Palco em `stage-session:<id>:state` (canônico) e `band-stage:<id>` (legado).
 
 ## Escopo
 
-### A0 — Baseline (bloqueante)
-1. O owner gera `prod-schema.sql` (só schema de `public`, `private`, `app` + políticas de `realtime.messages`) e `applied.txt` (`supabase_migrations.schema_migrations`). Nunca exportar dados.
-2. Comparar com o resultado do harness e documentar as divergências em `docs/db/BASELINE_DIFF.md`.
-3. Versionar `db/baseline/0000_baseline.sql`, normalizado e sem objetos da plataforma.
-4. Harness: shim + baseline + migrations com timestamp maior que o do baseline. Workflow `db-portability` **bloqueante** (remover `continue-on-error`).
-5. Documentar em `supabase/README.md` como ambientes novos são criados.
+**Entra** (detalhe e donos em `docs/BACKEND_MIGRATION_PLAN.md` §3):
+1. **Baseline** `db/migrations/0001_baseline.sql` + runner + CI `db` bloqueante + testes de RLS multiusuário.
+2. **Servidor** `server/`: auth própria (`scrypt`, sessão opaca em cookie `HttpOnly`, verificação e reset de e-mail), `/rpc/:name` com allowlist, `/sync/:table`, rate limit, logs sem conteúdo privado.
+3. **Realtime** WebSocket + `docs/REALTIME_CONTRACT.md`.
+4. **Cliente** `src/platform/{auth,rpc,realtime}.ts` no lugar de `src/lib/supabase.ts`.
+5. **Remoção do legado** (`Band*`, `Setlist*`, rotas e stores legadas), com nova `version()` do Dexie.
+6. **Remoção do Supabase** (dependência, `supabase/`, shim, docs de dump).
 
-### A1 — Identidade e papéis no SQL
-- Migration que recria funções e políticas trocando `auth.uid()` por `app.current_user_id()`. É mecânica, com `create or replace function` e `drop policy` / `create policy`.
-- Tabela `app.users (id, email, created_at)` alimentada por trigger em `auth.users`. FKs **novas** apontam para `app.users`.
-- Testes de RLS multiusuário em SQL no harness: dois `sub`, duas organizações; um não lê nem escreve na organização do outro.
-
-### A2 — Camada de plataforma no TypeScript
-```text
-src/platform/auth.ts       AuthGateway       signIn, signUp, signOut, getSession, onSessionChange
-src/platform/data.ts       DataGateway       call(rpc, args), select(table, query)
-src/platform/realtime.ts   RealtimeGateway   join(topic) → broadcast/presence/state
-src/platform/supabase/     adaptadores (únicos a importar @supabase/supabase-js)
-```
-- Migrar por contexto, um PR cada: auth → organizations/teams → repertoires/services → stage/realtime → sync engines.
-- ESLint `no-restricted-imports` bloqueando `@supabase/supabase-js` e `src/lib/supabase` fora de `src/platform/supabase/`.
-- Testes passam a mockar os gateways.
-
-### A3 — Contrato de Realtime
-`docs/REALTIME_CONTRACT.md`: tópicos, eventos, payloads, presença/readiness, quem pode emitir (só o MD muta), `revision` monotônica, reconexão e snapshot.
-
-**Não entra:** backend próprio (B9); troca de provedor; Storage.
-
-## Entregáveis por PR
-1. `chore/db-baseline` (A0) · 2. `refactor/sql-identity-contract` (A1) · 3–7. `refactor/platform-*` (A2, um por contexto) · 8. `docs/realtime-contract` (A3).
+**Não entra:** hospedagem de produção (decisão do owner, antes do primeiro usuário real, junto com o B8); Storage/Materiais (B6); multi-instância do realtime.
 
 ## Critérios de aceite
-- `verify-migrations.sh` recria o banco do zero sem erro e o CI bloqueia regressões.
-- Zero `auth.uid()` em funções e políticas ativas (consulta ao catálogo no harness).
-- Zero imports do Supabase fora de `src/platform/supabase/` (ESLint).
-- Contrato de Realtime documentado e revisado.
+- `db/` recria o banco do zero; o CI bloqueia regressões.
+- Testes de RLS: usuário de outra organização não lê nem escreve; anônimo não acessa nada privado; membro `inactive` não age.
+- Nenhum import do Supabase; gate verde; fluxos manuais da §5 do plano OK contra o servidor local.
 
 ## Riscos
-- Divergência prod × repo maior que o esperado → o baseline vem do dump, nunca da cadeia.
-- Regressão de autorização na troca de identidade → testes de RLS antes do merge.
+Ver `docs/BACKEND_MIGRATION_PLAN.md` §6.
 
 ## Owner precisa
-Gerar o dump (instruções em `scripts/db/export-production-schema.md`, do B0) e aplicar as migrations novas na produção.
+- Aceitar o ADR-059.
+- Antes do primeiro usuário real: escolher a hospedagem (mesmo site para front e API) e o provedor de e-mail.
+- Depois do cutover: desligar o projeto Supabase.
