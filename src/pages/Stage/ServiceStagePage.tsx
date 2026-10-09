@@ -70,10 +70,7 @@ export function ServiceStagePage() {
         setSongs(loadedSongs)
         if (user?.id) {
           await service.trackPresence(sessionId, {
-            userId: user.id,
-            displayName: user.email.split('@')[0],
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
-            isMd: initial.session.mdUserId === user.id,
             readiness: 'waiting',
           })
         }
@@ -116,10 +113,7 @@ export function ServiceStagePage() {
     try {
       setReadiness(next)
       await service.trackPresence(sessionId, {
-        userId: user.id,
-        displayName: user.email.split('@')[0],
         musicalRole,
-        isMd: false,
         readiness: next,
       })
       setError('')

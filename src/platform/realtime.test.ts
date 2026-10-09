@@ -86,13 +86,16 @@ describe('RealtimeClient', () => {
   })
 
   it('RT-23: 4401 does not reconnect and reports an expired session', () => {
-    const { handlers, socket } = setup()
+    const { client, handlers, socket } = setup()
+    const onSessionExpired = vi.fn()
+    client.onSessionExpired = onSessionExpired
     socket().open()
     socket().drop(4401)
     vi.advanceTimersByTime(60_000)
     expect(FakeSocket.instances).toHaveLength(1)
     expect(handlers.onStatus).toHaveBeenLastCalledWith('ERROR')
     expect(handlers.onError).toHaveBeenCalledWith('session_expired')
+    expect(onSessionExpired).toHaveBeenCalledTimes(1)
   })
 
   it('RT-23: forbidden drops only the topic and stops delivering it', () => {

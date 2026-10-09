@@ -109,7 +109,7 @@ describe('StageRealtime', () => {
       ['md-1', true], ['u-3', false], ['u-2', false],
     ])
 
-    await stage.trackPresence({ userId: 'spoof', displayName: 'X', isMd: true, musicalRole: 'vocals', readiness: 'ready' })
+    await stage.trackPresence({ musicalRole: 'vocals', readiness: 'ready' })
     expect(setPresence).toHaveBeenCalledWith({ musicalRole: 'vocals', readiness: 'ready' })
   })
 
@@ -132,7 +132,7 @@ describe('StageRealtime', () => {
     await connected
     server.snapshot(raw(2, { status: 'ended' }))
     expect(onSnapshot.mock.calls.at(-1)?.[0].session.status).toBe('ended')
-    await stage.trackPresence({ userId: 'u', displayName: 'u', isMd: false, musicalRole: 'vocals', readiness: 'ready' })
+    await stage.trackPresence({ musicalRole: 'vocals', readiness: 'ready' })
     expect(setPresence).not.toHaveBeenCalled()
   })
 

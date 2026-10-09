@@ -9,8 +9,6 @@ export interface StageConnectionCallbacks {
   onSnapshot?: (snapshot: StageSnapshot, reason: StageSnapshotReason) => void
   onStatus?: (status: StageConnectionStatus) => void
   onPresence?: (participants: StageParticipant[]) => void
-  /** @deprecated O estado chega completo em `onSnapshot`; não é mais chamado. Sai quando as páginas pararem de passá-lo. */
-  onEvent?: () => void
 }
 
 function firstRow(data: unknown, message: string): Record<string, unknown> {
@@ -25,8 +23,7 @@ export class StageExecutionService {
   private realtime(stageSessionId: string, callbacks: StageConnectionCallbacks = {}): StageRealtime {
     const existing = this.realtimeByTarget.get(stageSessionId)
     if (existing) return existing
-    const { onSnapshot, onStatus, onPresence } = callbacks
-    const realtime = new StageRealtime({ sessionId: stageSessionId, onSnapshot, onStatus, onPresence })
+    const realtime = new StageRealtime({ sessionId: stageSessionId, ...callbacks })
     this.realtimeByTarget.set(stageSessionId, realtime)
     return realtime
   }

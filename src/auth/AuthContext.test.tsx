@@ -15,6 +15,8 @@ const auth = vi.hoisted(() => ({
 }))
 vi.mock('../platform/auth', () => auth)
 vi.mock('../platform/http', () => ({ isPlatformConfigured: true }))
+const realtime = vi.hoisted(() => ({ onSessionExpired: null as (() => void) | null }))
+vi.mock('../platform/realtime', () => ({ realtime }))
 vi.mock('../sync/syncService', () => ({ syncEngine: { bootstrap: vi.fn(), sync: vi.fn() }, syncTargetDomain: vi.fn() }))
 
 import { AuthProvider } from './AuthContext.tsx'
@@ -74,6 +76,17 @@ describe('AuthProvider', () => {
 
     expect(auth.confirmPasswordReset).toHaveBeenCalledWith('token-1', 'nova-senha-123')
     expect(result.current.user).toBeNull()
+  })
+
+  it('signs out when the realtime socket reports an expired session (4401)', async () => {
+    const { result, unmount } = await renderAuth()
+    auth.getSession.mockResolvedValueOnce(null)
+
+    await act(async () => { realtime.onSessionExpired?.() })
+
+    await waitFor(() => expect(result.current.user).toBeNull())
+    unmount()
+    expect(realtime.onSessionExpired).toBeNull()
   })
 
   it('requestPasswordReset delegates to the server', async () => {

@@ -3,6 +3,7 @@ import { db } from '../db/database'
 import * as platformAuth from '../platform/auth'
 import type { AuthUser } from '../platform/auth'
 import { isPlatformConfigured } from '../platform/http'
+import { realtime } from '../platform/realtime'
 import { syncEngine, syncTargetDomain } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
@@ -58,6 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await applyUser(nextUser)
     }
   }, [applyUser])
+
+  // Socket fechado com 4401: confirma no servidor e, se a sessão caiu, sai (user = null).
+  useEffect(() => {
+    realtime.onSessionExpired = () => { void refresh().catch(() => undefined) }
+    return () => { realtime.onSessionExpired = null }
+  }, [refresh])
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

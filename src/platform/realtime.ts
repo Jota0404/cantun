@@ -52,6 +52,8 @@ export class RealtimeClient {
   private listening = false
   private readonly url: () => string
   private readonly createSocket: (url: string) => WebSocket
+  /** Injetado pelo AuthContext: 4401 significa que a sessão do cookie caiu. */
+  onSessionExpired: (() => void) | null = null
 
   constructor(url: () => string = realtimeUrl, createSocket: (url: string) => WebSocket = (value) => new WebSocket(value)) {
     this.url = url
@@ -187,6 +189,7 @@ export class RealtimeClient {
         entry.handlers.onStatus?.('ERROR')
         entry.handlers.onError?.('session_expired')
       }
+      this.onSessionExpired?.()
       return
     }
     if (this.topics.size === 0) return
