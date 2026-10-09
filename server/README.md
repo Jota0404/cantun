@@ -30,6 +30,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 | `POST /auth/logout` | — | 204; revoga a sessão |
 | `GET /auth/session` | — | 200 `{ user }` ou 401 |
 | `POST /auth/verify-email` | `{ token }` | 204 |
+| `POST /auth/verify-email/resend` | — (exige sessão) | 204; se o e-mail ainda não foi verificado, invalida os links anteriores e envia um novo |
 | `POST /auth/password-reset/request` | `{ email }` | sempre 204 |
 | `POST /auth/password-reset/confirm` | `{ token, password }` | 204; derruba todas as sessões |
 
@@ -58,7 +59,7 @@ Só tabelas com grant para `cantum_user`, sempre sob RLS. Filtros são de iguald
 | `PATCH` | atualizar colunas; filtro obrigatório | `{ values: {...} }` | `{ count }` |
 | `DELETE` | apagar; filtro obrigatório | — | `{ count }` |
 
-Uma linha que a RLS não deixa ver ou alterar não gera erro em `PATCH` e `DELETE`: o `count` vem 0. Um `POST` que a RLS recusa devolve 403.
+Uma linha que a RLS não deixa ver ou alterar não gera erro em `PATCH` e `DELETE`: o `count` vem 0. Um `POST` que a RLS recusa devolve 403. Tabelas que o `cantum_user` só lê (ex.: `stage_sessions`, `stage_session_states`, que mudam só por `target_stage_*`) recusam `POST`, `PATCH` e `DELETE` com 403.
 
 ### Outros
 

@@ -168,6 +168,21 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     return reply.code(204).send()
   })
 
+  app.post('/auth/verify-email/resend', { config: authLimit }, async (request, reply) => {
+    if (!request.userId) throw new HttpError(401, 'sessão inválida')
+    const { rows } = await pool.query<UserRow>('select id, email, email_verified_at from app.users where id = $1', [request.userId])
+    const user = rows[0]
+    if (!user) throw new HttpError(401, 'sessão inválida')
+    if (user.email_verified_at) return reply.code(204).send()
+    // Só o link mais recente vale.
+    await pool.query(
+      `update app.email_tokens set used_at = now() where user_id = $1 and purpose = 'verify_email' and used_at is null`,
+      [user.id],
+    )
+    await sendEmailToken(user.id, user.email, 'verify_email')
+    return reply.code(204).send()
+  })
+
   app.post<{ Body: { email: string } }>('/auth/password-reset/request', {
     config: authLimit,
     schema: { body: { type: 'object', required: ['email'], additionalProperties: false, properties: { email: emailSchema } } },

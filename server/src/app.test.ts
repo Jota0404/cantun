@@ -109,6 +109,27 @@ describe('autenticação', () => {
     assert.equal(login.statusCode, 200)
   })
 
+  test('reenvio da verificação: exige sessão, invalida o link anterior e não reenvia se já verificado', async () => {
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/verify-email/resend' })).statusCode, 401)
+
+    const { cookie } = await signup('reenvio@teste.local')
+    const first = tokenFrom(mails.at(-1))
+    const sent = mails.length
+    const resend = await app.inject({ method: 'POST', url: '/auth/verify-email/resend', headers: { cookie } })
+    assert.equal(resend.statusCode, 204)
+    assert.equal(mails.length, sent + 1)
+    assert.equal(mails.at(-1)?.to, 'reenvio@teste.local')
+    assert.equal(mails.at(-1)?.purpose, 'verify_email')
+    const second = tokenFrom(mails.at(-1))
+
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/verify-email', payload: { token: first } })).statusCode, 400)
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/verify-email', payload: { token: second } })).statusCode, 204)
+
+    const verified = await app.inject({ method: 'POST', url: '/auth/verify-email/resend', headers: { cookie } })
+    assert.equal(verified.statusCode, 204)
+    assert.equal(mails.length, sent + 1)
+  })
+
   test('escrita vinda de outra origem é bloqueada', async () => {
     const response = await app.inject({ method: 'POST', url: '/auth/logout', headers: { origin: 'https://malicioso.example' } })
     assert.equal(response.statusCode, 403)
@@ -178,5 +199,23 @@ describe('dados sob RLS', () => {
     assert.equal(unfiltered.statusCode, 400)
     const badColumn = await app.inject({ method: 'GET', url: '/sync/songs?senha=1', headers: { cookie: ana } })
     assert.equal(badColumn.statusCode, 400)
+  })
+  test('Stage só muda por RPC: /sync recusa gravar em stage_sessions e stage_session_states', async () => {
+    const anaId = (await app.inject({ method: 'GET', url: '/auth/session', headers: { cookie: ana } })).json().user.id
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const writes = [
+      { table: 'stage_sessions', row: { id, service_id: crypto.randomUUID(), status: 'live', md_user_id: anaId, created_at: now, updated_at: now } },
+      { table: 'stage_session_states', row: { stage_session_id: id, revision: 999999, current_index: 0, is_running: true, updated_at: now } },
+    ]
+    for (const { table, row } of writes) {
+      const insert = await app.inject({ method: 'POST', url: `/sync/${table}`, headers: { cookie: ana }, payload: { rows: [row] } })
+      assert.equal(insert.statusCode, 403, `${table}: ${insert.body}`)
+      const key = table === 'stage_sessions' ? 'id' : 'stage_session_id'
+      const patch = await app.inject({ method: 'PATCH', url: `/sync/${table}?${key}=${id}`, headers: { cookie: ana }, payload: { values: { updated_at: now } } })
+      assert.equal(patch.statusCode, 403, `${table}: ${patch.body}`)
+      const remove = await app.inject({ method: 'DELETE', url: `/sync/${table}?${key}=${id}`, headers: { cookie: ana } })
+      assert.equal(remove.statusCode, 403, `${table}: ${remove.body}`)
+    }
   })
 })
