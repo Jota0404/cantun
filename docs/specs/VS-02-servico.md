@@ -85,8 +85,18 @@ Rastreio: RF-SVC-001 → RN-01, RN-08; RF-SVC-002 → RN-02, RN-03, RN-06; RF-SV
   - RLS: substitui "organization admins can write services/service items" por políticas com `app.has_permission(organization_id, team_id, 'service.*')`; leitura mantém "membro da organização", com a regra de ativo do §4.
   - As sete funções do Stage listadas acima: `create or replace` com o filtro `type = 'song'`. `create_target_stage_session` continua exigindo owner/admin (ver decisões).
 - **Dexie:** nova `this.version(13)` (a v12 é do B2; confirmar no PR): `services: 'id, organizationId, teamId, startsAt, status, updatedAt'`; `upgrade()`: `planned → draft`, `confirmed → ready`, `teamId` = equipe local mais antiga da organização ou `null` (o pull corrige); `serviceItems` recebe `type = 'song'`. Teste de upgrade v12 → v13.
-- **Sync (`TargetSyncEngine`):** mapeia os campos novos. `status` **não** sobe no push (só por RPC) e o pull o sobrescreve sem LWW; demais campos LWW (ADR-026). Transição offline entra na fila; recusa do servidor reverte e avisa. Itens de um serviço sobem depois do serviço e numa mesma transação de push (renumeração com a `unique` deferida).
-- **RLS / permissões:** acrescentar `service.*` ao `PERMISSIONS.md` (seção 3) e casos negativos (abaixo); a UI não é mecanismo de segurança.
+- **Sync (`TargetSyncEngine`):** mapeia os campos novos. `status` **não** sobe no push (só por RPC) e o pull o sobrescreve sem LWW; demais campos LWW (ADR-026). Transição offline entra na fila; recusa do servidor reverte e avisa. Itens de um serviço sobem depois do serviço e numa mesma transação de push (renumeração com a `unique` deferida). **Confirmado:** `POST /sync/:table` grava todas as linhas do lote numa única transação (`server/src/data.ts:85`); o cliente só precisa enviar os itens renumerados de um serviço no mesmo lote.
+- **RLS / permissões:** `service.*` em `PERMISSIONS.md` §3.4 e casos S1–S8 em §5.1; a UI não é mecanismo de segurança.
+
+## Decisões pendentes do owner (propostas do planner)
+1. **Proposta:** aceitar o ADR-052; status só pela RPC `transition_service`, com trigger de guarda.
+2. **Proposta:** o Líder exclui só em `draft`; fora disso, cancela. Owner e Admin excluem sempre.
+3. **Proposta:** permitir `ready → draft` (volta ao planejamento).
+4. **Proposta:** iniciar o Stage não muda o serviço para `in_progress` no B3 (Service ≠ StageSession).
+5. **Proposta:** `create_target_stage_session` segue só owner/admin; abrir ao Líder em issue separada, fora do D6.
+6. **Proposta:** `on delete restrict` para equipe com serviços.
+
+Até a decisão, as regras RN-02, RN-08 e as seções correspondentes valem como proposta.
 
 ## Fora do escopo
 - Vagas, atribuições e escala (B4); aplicar repertório, materiais e ensaio (B6) — áreas aparecem como placeholders.
@@ -119,7 +129,7 @@ Casos negativos novos (para o `PERMISSIONS.md`):
 | Risco | Mitigação |
 |---|---|
 | `song_id` nulo quebra consumidores | Lista completa acima; regressão do Stage obrigatória |
-| Renumerar a ordem esbarra na `unique (service_id, position)` no push | `unique` deferida + push dos itens de um serviço numa transação; teste de servidor |
+| Renumerar a ordem esbarra na `unique (service_id, position)` no push | `unique` deferida + itens do serviço no mesmo lote de `POST /sync/:table` (uma transação, `server/src/data.ts:85`); teste de servidor |
 | Ajuste do Stage vira feature (D6) | Só o filtro `type = 'song'` nas sete funções; nenhuma UI nova no Stage |
 | Equipe excluída com serviços | `on delete restrict`; Admin cancela/move antes (decisão pendente) |
 | Status offline divergente | Status só por RPC, pull autoritativo, reversão com aviso |
