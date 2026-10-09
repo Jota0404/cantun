@@ -3,13 +3,20 @@
 | Campo | Valor |
 |---|---|
 | Documento | CANTUM — Project & Product Blueprint |
-| Versão | 1.1 — Approved Product Baseline (conversão Markdown 2026-10-01) |
-| Data | 2026-09-09 |
+| Versão | 1.2 — Approved Product Baseline |
+| Data | 2026-09-09 (v1.1) · 2026-10-08 (v1.2) |
 | Status | **Accepted / Product Baseline** |
 | Produto | CANTUM |
 | Repositório | <https://github.com/Jota0404/cantun> |
 
-> **Nota de conversão (2026-10-01).** Transcrição fiel do PDF *CANTUN_PROJECT_BLUEPRINT_v1.1_APPROVED*. Única alteração de conteúdo: o nome do produto passa de "CANTUN" para **CANTUM**, por decisão do owner (ver ADR-011). As interfaces conceituais em `docs/assets/blueprint/` mantêm a marca antiga nas imagens. Correções propostas pela auditoria de viabilidade de 2026-10-01 **não** foram incorporadas aqui; serão tratadas como v1.2 após decisão do owner.
+> **Nota de conversão (2026-10-01).** Transcrição fiel do PDF *CANTUN_PROJECT_BLUEPRINT_v1.1_APPROVED*. Única alteração de conteúdo: o nome do produto passa de "CANTUN" para **CANTUM**, por decisão do owner (ver ADR-011). As interfaces conceituais em `docs/assets/blueprint/` mantêm a marca antiga nas imagens.
+
+> **v1.2 (2026-10-08).** Incorpora as decisões de produto da auditoria de viabilidade de 2026-10-01 (registradas em `docs/DELIVERY_PLAN.md` §2) e a troca de infraestrutura remota:
+> - §5.1 e §49: papéis em dois níveis (organização e equipe); matriz detalhada em `docs/PERMISSIONS.md` (ADR-051).
+> - §8.3 e §53: `needed` passa a ser estado da **vaga**, não da atribuição.
+> - §16.2, §30.3, §47.2 e §59.1: infraestrutura remota passa a ser PostgreSQL com backend próprio (ADR-049, ADR-059), no lugar do Supabase.
+>
+> Nenhuma outra seção mudou.
 
 **Organize • Prepare • Escala • Executa • Conecta**
 
@@ -248,6 +255,8 @@ Uma regra fundamental do domínio é:
 | Líder | coordenação da equipe, serviços e escalas |
 | Membro | participação e execução |
 
+**v1.2 — dois níveis.** Na organização, os papéis são Owner, Administrador e Membro. Na equipe, Líder e Membro: uma pessoa pode liderar uma equipe e ser membro de outra. O Líder exerce seus poderes só na equipe que lidera. Matriz detalhada: `docs/PERMISSIONS.md` (ADR-051).
+
 ### 5.2 Funções
 
 As funções representam aquilo que a pessoa faz na operação musical/técnica.
@@ -440,6 +449,8 @@ cancelled
 ```
 
 Os nomes podem mudar na implementação, mas o comportamento precisa existir.
+
+**v1.2 — vaga × atribuição.** A função necessária no serviço é uma **vaga** (função + quantidade), que fica aberta ou preenchida conforme as atribuições; `needed` descreve a vaga aberta. A **atribuição** liga uma pessoa à vaga e usa `invited`, `confirmed`, `declined`, `replacement_needed` e `cancelled`.
 
 **Operações essenciais**
 
@@ -1091,7 +1102,7 @@ O sistema deve continuar útil sem internet para as funções essenciais já dis
 
 ### 16.2 Infraestrutura remota
 
-O estado atual do repositório já possui uma decisão aceita para autenticação e sincronização multidispositivo com Supabase, mantendo IndexedDB/Dexie como armazenamento local e sincronizando operações quando a conexão estiver disponível. Essa evolução substituiu a antiga decisão de "sem backend" para o escopo de autenticação/sincronização. ADR-012 no repositório
+A autenticação e a sincronização multidispositivo usam PostgreSQL com backend próprio (ADR-049, ADR-059), no lugar do Supabase adotado inicialmente pelo ADR-012. IndexedDB/Dexie continua como armazenamento local, e as operações sincronizam quando a conexão estiver disponível.
 
 ### 16.3 Network
 
@@ -1628,7 +1639,7 @@ Antes do lançamento da Network e de qualquer uso amplo de dados pessoais, o pro
 - transparência sobre finalidades;
 - informação sobre o uso de provedores/processadores de infraestrutura;
 - fluxo para atendimento de solicitações dos titulares.
-- identificação dos provedores/subprocessadores de infraestrutura relevantes, incluindo Supabase quando utilizado.
+- identificação dos provedores/subprocessadores de infraestrutura relevantes, incluindo a hospedagem do banco, do backend e do e-mail.
 
 As escolhas jurídicas finais serão formalizadas em política de privacidade, termos e decisões de produto/arquitetura correspondentes.
 
@@ -2211,7 +2222,7 @@ IndexedDB / Dexie               API / Backend
                     Domain
 ```
 
-A infraestrutura concreta do backend continuará sendo definida pelos ADRs. O repositório já possui uma decisão aceita para Supabase, autenticação e sincronização multidispositivo. ADR-012
+A infraestrutura concreta do backend continuará sendo definida pelos ADRs: PostgreSQL com backend próprio, autenticação e sincronização multidispositivo (ADR-049, ADR-059).
 
 ### 47.3 Regra de isolamento
 
@@ -2294,6 +2305,8 @@ A primeira matriz conceitual é:
 | Criar necessidade externa | ✅ | ✅ | ✅ | 🟡 |
 
 🟡 significa que a decisão exata dependerá de permissões mais granulares.
+
+**v1.2:** a coluna Líder vale para a equipe que a pessoa lidera. As células 🟡 foram resolvidas em `docs/PERMISSIONS.md` (ADR-051), fonte detalhada desta matriz.
 
 **Regra**
 
@@ -2452,6 +2465,8 @@ replacement_needed
 cancelled
 ```
 
+*v1.2:* `needed` é o estado da vaga aberta; os demais são estados da atribuição (§8.3).
+
 **Membro**
 
 ```text
@@ -2459,6 +2474,8 @@ active
 inactive
 pending_invite
 ```
+
+*v1.2:* `pending_invite` é exibido a partir do convite aberto; o vínculo com a equipe só existe depois do aceite.
 
 **Necessidade Network**
 
@@ -2660,7 +2677,7 @@ Stage contracts
 Presence model
 PWA
 IndexedDB
-Supabase sync/auth decision
+Sync decision (local-first + fila)
 Tests
 ```
 

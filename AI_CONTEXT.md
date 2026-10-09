@@ -1,7 +1,7 @@
 # CANTUM — AI Context
 
 > Contexto operacional para agentes de IA que trabalham no CANTUM. Curto de propósito: carregue sempre; consulte os documentos-fonte para detalhes.
-> Última revisão: 2026-10-01 (alinhamento ao Blueprint v1.1).
+> Última revisão: 2026-10-08 (B0 concluído; B1 = saída do Supabase, ADR-059).
 
 ## 1. Identidade
 
@@ -13,7 +13,7 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 
 1. [`docs/CANTUM_PROJECT_BLUEPRINT.md`](docs/CANTUM_PROJECT_BLUEPRINT.md) — produto, escopo, comportamento, UX.
 2. [`docs/CANTUM_ARCHITECTURE.md`](docs/CANTUM_ARCHITECTURE.md) + ADRs `Accepted` em [`docs/adr/`](docs/adr/) — arquitetura.
-3. Feature Specs / GitHub Issues — escopo de implementação.
+3. Feature Specs (`docs/specs/`), plano de blocos ([`docs/DELIVERY_PLAN.md`](docs/DELIVERY_PLAN.md) + `docs/blocks/`, um épico por bloco no GitHub) e Issues — escopo de implementação.
 4. Código existente — evidência, **nunca** limite da visão aprovada.
 5. Suposições da IA — sem autoridade.
 
@@ -21,32 +21,33 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 
 ## 3. Estado atual (atualizar ao fechar cada fase)
 
-- **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras.
-- **Em andamento:** Fase 0 — alinhamento de documentação, CI em `main`, higiene de segurança.
-- **Próximo:** Fase 1 — papel Líder por equipe, status de membro, Service ↔ Team, estados de serviço, vagas de escala + confirmação, disponibilidade.
-- **Legado em compatibilidade:** `Band*`, `Setlist*`, `SyncEngine`, `BandSyncEngine`, rotas `/bands*`, `/stage/setlist`, `/stage/session`. Só correção; nada de feature nova (ADR-038…045).
+- **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras; **B0 Fundação** (CI em `main`, isolamento local ADR-048, portabilidade ADR-049, governança da IA ADR-050/058, templates, plano de blocos); spec do **B2 Equipe** (VS-01, ADR-051, `docs/PERMISSIONS.md`).
+- **Em andamento:** **B1 Backend próprio** (ADR-059): sai o Supabase de uma vez; entra PostgreSQL (`db/`) + servidor Node.js (`server/`). Plano em `docs/BACKEND_MIGRATION_PLAN.md`. O SQL do B2 (#57) espera o baseline; domínio e UI do B2 (#58–#60) podem andar.
+- **Próximo:** B3 Serviço (VS-02) → B4 Escala (VS-03); B5 Navegação/Design System em paralelo; B8 Privacidade antes de qualquer usuário real.
+- **Legado:** `Band*`, `Setlist*`, `BandSyncEngine`, `bandStageRealtime`, rotas `/bands*`, `/stage/setlist`, `/stage/session`. Nada de feature nova; será **removido** no B1 (ADR-059), não portado.
 
 ## 4. Stack
 
-React 19 · React Router 7 · TypeScript · Vite + PWA · Dexie/IndexedDB · Supabase (Auth, Postgres + RLS, RPC, Realtime) · Vitest + Testing Library + fake-indexeddb · GitHub Actions/Pages.
+React 19 · React Router 7 · TypeScript · Vite + PWA · Dexie/IndexedDB · remoto hoje no Supabase; destino (B1): PostgreSQL 16 + servidor Node.js/TypeScript (Fastify, `pg`) com auth, RPC e WebSocket próprios · Vitest + Testing Library + fake-indexeddb · GitHub Actions/Pages.
 Sem Redux (ADR-008). Nova dependência só com justificativa; nova lib de estado/UI só com ADR.
 
 ## 5. Arquitetura (resumo)
 
 ```text
-pages/ components/  →  application/  →  domain/  ←  db/ (Dexie)  ·  sync/ + lib/supabase (remoto)
+pages/ components/  →  application/  →  domain/  ←  db/ (Dexie)  ·  sync/ + platform/ (remoto)  →  server/  →  PostgreSQL
 ```
 
-- UI nunca acessa Dexie/Supabase diretamente.
+- UI nunca acessa Dexie nem o remoto diretamente.
 - `domain/` é TypeScript puro.
 - Core **local-first**: escreve no Dexie, enfileira sync (`targetSyncQueue`/`TargetSyncEngine`, ADR-026).
 - Network (futura) é cloud-backed e **não pode** degradar biblioteca, repertório ou Stage offline.
-- Migrations Supabase: append-only, RLS em toda tabela, RPC `security definer` + `set search_path = ''`.
+- SQL: append-only, RLS em toda tabela, função `security definer` + `set search_path = ''`, `app.current_user_id()`. Depois do baseline do B1, migrations novas só em `db/migrations/`. A autorização mora no banco; o servidor só define papel e usuário por transação.
 - Estado efêmero (presença, readiness, scroll) nunca é persistido como dado operacional.
 
 ## 6. Domínio — regras que não podem ser violadas
 
 - **Access Role ≠ Musical Function.** Uma pessoa pode ter várias funções.
+- Papéis em dois níveis (D2): organização `owner`/`admin`/`member`; equipe `leader`/`member`.
 - **Repertoire ≠ Service.** Repertório é reutilizável; Service é a ocasião real e o centro operacional.
 - **Service ≠ StageSession.**
 - Organization é dona de Team, Songs, Repertoires e Services; acesso por membership, nunca por "conhecer o id".
@@ -60,6 +61,7 @@ pages/ components/  →  application/  →  domain/  ←  db/ (Dexie)  ·  sync/
 
 Experiência crítica — "aplicação dentro da aplicação". Entrada: Service → Order → item musical → Stage.
 Escuro, alto contraste, poucos controles, alvos de toque grandes, anterior/próxima na ordem do serviço, transposição rápida, fonte ajustável, auto-scroll, fullscreen/wake lock quando suportado, tolerante a rede instável. Ao trocar de música: topo + reinício do auto-scroll. Só o MD (operador) muta o estado compartilhado.
+**Congelado para features novas até o fim da Fase 2 (D6):** só correções e o ajuste mínimo exigido pelo B3.
 
 ## 8. Fronteira do produto (Blueprint §3, §24, §37)
 
@@ -84,8 +86,8 @@ Prioridade de implementação: correção → aderência ao produto → aderênc
 
 - Branches `feature/*`, `fix/*`, `refactor/*`, `docs/*`, `test/*`, `chore/*` a partir de `main`; PR para `main`.
 - Conventional Commits; um commit = uma unidade lógica.
-- O desenvolvedor mantém o controle (ADR-009, revisado pelo ADR-050). Com aprovação explícita do owner, a IA pode criar branch, commitar, rodar testes, fazer push e abrir PR.
-- Exclusivo do owner: merge, push forçado em `main`, exclusão de branches, mudança de settings, secrets e variables do GitHub, e aplicação de migrations em produção. A IA não faz rebase de branch compartilhada.
+- O desenvolvedor mantém o controle (ADR-009, ADR-050, ADR-058). Com aprovação explícita do owner para cada ação, a IA pode criar branch, commitar, rodar testes, fazer push, abrir PR, fazer merge (CI verde) e excluir branches já mescladas ou fechadas (registrando o SHA).
+- Exclusivo do owner: push forçado em `main`, rebase de branch compartilhada, settings, secrets e variables do GitHub, e qualquer ação em banco ou ambiente de produção.
 
 ## 11. Como responder
 

@@ -1,21 +1,22 @@
 # CANTUM — Plano de entrega em blocos
 
-> v1.0 · 2026-10-01 · Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`
-> Arquitetura: `docs/CANTUM_ARCHITECTURE.md` + `docs/adr/` · Migração de backend: `docs/BACKEND_MIGRATION_PLAN.md` (ADR-049)
+> v1.0 · 2026-10-01 (status atualizado em 2026-10-08) · Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`
+> Arquitetura: `docs/CANTUM_ARCHITECTURE.md` + `docs/adr/` · Migração de backend: `docs/BACKEND_MIGRATION_PLAN.md` (ADR-059)
 > Documentos por bloco: `docs/blocks/` (índice em `docs/blocks/00-INDICE.md`)
 
 ## 1. Visão geral
 
 ```text
-B0 Fundação ──► B1 Portabilidade SQL/TS ─────────────────────────────┐ (paralelo)
-     │                                                               │
-     └──► B2 Equipe (VS-01) ──► B3 Serviço (VS-02) ──► B4 Escala (VS-03) ──► B6 Música no serviço + Ensaio (VS-04/05)
-               ▲                    ▲                     ▲                        │
-               └──── B5 Navegação & Design System (começa junto com B2) ───────────┘
-                                                                                   ▼
-                     B8 Privacidade mínima (antes de usuários reais) ──► B7 Execução & Histórico (VS-06)
-                                                                                   ▼
-                                                     B9 Backend próprio (Fase B) ──► B10 Network (hipótese)
+B0 Fundação ──► B1 Backend próprio (ADR-059: baseline SQL → servidor → cliente sem Supabase)
+                    │ baseline (PR 1)
+                    ▼
+               B2 Equipe (VS-01) ──► B3 Serviço (VS-02) ──► B4 Escala (VS-03) ──► B6 Música no serviço + Ensaio (VS-04/05)
+                    ▲                    ▲                     ▲                        │
+                    └──── B5 Navegação & Design System (começa junto com B2) ───────────┘
+                                                                                        ▼
+                          B8 Privacidade mínima (antes de usuários reais) ──► B7 Execução & Histórico (VS-06)
+                                                                                        ▼
+                                                                            B10 Network (hipótese)
 ```
 
 **MVP-Operacional (meta):** B0 + B2 + B3 + B4 + B5 + B8. Cobre os critérios de sucesso 1 a 3 do Blueprint (§26): montar serviço rápido, escalar com menos esforço e cada músico saber o que fazer.
@@ -23,15 +24,15 @@ B0 Fundação ──► B1 Portabilidade SQL/TS ──────────�
 | Bloco | Fase (Blueprint §33) | Esforço* | Depende de |
 |---|---|---|---|
 | B0 Fundação | 0 | 1 sem | — |
-| B1 Portabilidade | 0 (ADR-049 Fase A) | 1–2 sem | B0 (dump de produção) |
-| B2 Equipe | 1 | 2–3 sem | B0 |
+| B1 Backend próprio | 0/1 (ADR-059) | 4–6 sem | B0 |
+| B2 Equipe | 1 | 2–3 sem | B0; SQL depois do baseline do B1 |
 | B3 Serviço | 1 | 2–3 sem | B2 |
 | B4 Escala | 1 | 4–6 sem | B3 |
 | B5 Navegação & Design System | 1 | 2 sem (contínuo) | B0 |
 | B6 Música no serviço + Ensaio + Materiais | 2 | 4–6 sem | B4 |
 | B7 Execução & Histórico | 2/3 | 2–3 sem | B6 |
 | B8 Privacidade mínima | 0/1 | 1–2 sem | B2 |
-| B9 Backend próprio | ADR-049 Fase B | 6–10 sem | B1 + Fase 1 concluída |
+| ~~B9 Backend próprio~~ | — | — | absorvido pelo B1 (ADR-059) |
 | B10 Network | 5 | — | hipótese; só após validação do core |
 
 \*Semanas de dedicação parcial de um desenvolvedor solo, como ordem de grandeza.
@@ -41,12 +42,14 @@ B0 Fundação ──► B1 Portabilidade SQL/TS ──────────�
 | # | Decisão | Origem |
 |---|---|---|
 | D1 | Nome do produto: **CANTUM** | owner, ADR-011 |
-| D2 | **Papéis em dois níveis**: organização = `owner` / `admin` / `member`; equipe = `leader` / `member` (`TeamMembership.role`) | auditoria de viabilidade, Anexo A |
-| D3 | **Vaga × atribuição**: `ServicePosition` (serviço + função + quantidade) e `Assignment` ligado à vaga. Estados da atribuição: `invited → confirmed \| declined → replacement_needed`, mais `cancelled`. Vaga `open/filled` é derivada | auditoria, Anexo B |
-| D4 | Supabase é transitório: SQL novo usa `app.current_user_id()`; nada de recurso exclusivo do Supabase sem ADR | ADR-049 |
+| D2 | **Papéis em dois níveis**: organização = `owner` / `admin` / `member`; equipe = `leader` / `member` (`TeamMembership.role`) | auditoria, Anexo A · ADR-051 · Blueprint v1.2 |
+| D3 | **Vaga × atribuição**: `ServicePosition` (serviço + função + quantidade) e `Assignment` ligado à vaga. Estados da atribuição: `invited → confirmed \| declined → replacement_needed`, mais `cancelled`. Vaga `open/filled` é derivada | auditoria, Anexo B · Blueprint v1.2 · ADR-053 (reservado) |
+| D4 | Supabase sai de uma vez (B1): PostgreSQL + backend próprio em Node.js; SQL usa `app.current_user_id()`; nada exclusivo de provedor | ADR-049 + ADR-059 |
 | D5 | Dados locais isolados por usuário | ADR-048 |
 | D6 | Stage congelado para features novas até o fim da Fase 2 (só correções) | auditoria, I6 |
 | D7 | Arrangement não é persistido; Network fora do caminho crítico | Blueprint §8.7, §16.3 |
+
+Esta tabela é o **registro canônico** das decisões da auditoria de viabilidade de 2026-10-01, que é um documento externo e não versionado. O que muda o produto (D2, D3) entrou no Blueprint v1.2.
 
 ## 3. Blocos
 
@@ -54,32 +57,36 @@ B0 Fundação ──► B1 Portabilidade SQL/TS ──────────�
 
 **Objetivo:** repositório pronto para entregar features com segurança.
 
-- [ ] Mesclar os PRs #37 → #38 → #39 → #40 (antes do #37, criar as variáveis `VITE_SUPABASE_*` no GitHub).
-- [ ] Adicionar ADR-048 ao índice `docs/adr/README.md` e atualizar o próximo número livre.
-- [ ] **ADR-050 — revisão do ADR-009:** a IA (Claude Code) pode criar branch, commitar, fazer push e abrir PR com aprovação do owner; merge sempre humano.
-- [ ] `docs/specs/_TEMPLATE.md` (Feature Spec, Blueprint §34.1) e `.github/ISSUE_TEMPLATE/feature.md` com campo de requisito `RF-*`.
-- [ ] `.github/pull_request_template.md` com o checklist de DoD do Blueprint §36.
-- [ ] Reabilitar `react-hooks/set-state-in-effect` por arquivo (lista de exceções explícita) e abrir issue para zerar as exceções.
-- [ ] Apagar as branches antigas já contidas em `main` (com aprovação do owner).
-- [ ] Este plano versionado em `docs/DELIVERY_PLAN.md`.
+- [x] Mesclar os PRs #37 → #38 → #39 → #40 (antes do #37, criar as variáveis `VITE_SUPABASE_*` no GitHub).
+- [x] Adicionar ADR-048 ao índice `docs/adr/README.md` e atualizar o próximo número livre.
+- [x] **ADR-050 — revisão do ADR-009:** a IA (Claude Code) pode criar branch, commitar, fazer push e abrir PR com aprovação do owner; merge sempre humano.
+- [x] `docs/specs/_TEMPLATE.md` (Feature Spec, Blueprint §34.1) e `.github/ISSUE_TEMPLATE/feature.md` com campo de requisito `RF-*`.
+- [x] `.github/pull_request_template.md` com o checklist de DoD do Blueprint §36.
+- [x] Reabilitar `react-hooks/set-state-in-effect` por arquivo (lista de exceções explícita) e abrir issue para zerar as exceções (#43, débito em #42).
+- [x] Apagar as branches antigas já contidas em `main` (2026-10-08, ADR-058; SHAs no `B0-fundacao.md`).
+- [x] Este plano versionado em `docs/DELIVERY_PLAN.md`.
 
 **Pronto quando:** `main` verde, templates ativos, ADR-050 aceito.
 
-### B1 — Portabilidade SQL/TS (ADR-049 Fase A, em paralelo)
+### B1 — Backend próprio (ADR-059, substitui a portabilidade gradual do ADR-049)
 
-- [ ] **A0 — baseline:** owner gera o dump só de schema da produção e a lista de migrations aplicadas; versionar `db/baseline/0000_baseline.sql`; harness passa a aplicar shim + baseline + migrations posteriores; job `db-portability` vira **bloqueante**.
-- [ ] **A1:** migration que troca `auth.uid()` por `app.current_user_id()` em funções e políticas; `app.users` espelhando `auth.users`; testes de RLS multiusuário no harness.
-- [ ] **A2:** `src/platform/{auth,data,realtime}.ts` + adaptadores `src/platform/supabase/`; migrar os 31 arquivos, um contexto por PR; regra ESLint `no-restricted-imports`.
-- [ ] **A3:** `docs/REALTIME_CONTRACT.md`.
+Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados. Detalhe em `docs/BACKEND_MIGRATION_PLAN.md` §3.
 
-**Regra para os blocos B2+:** toda migration nova precisa passar no harness. Até o A0 existir, valide a migration isolada contra um schema mínimo do próprio teste e registre a limitação no PR.
+- [ ] **PR 1 — baseline:** `db/migrations/0001_baseline.sql` (PostgreSQL puro, sem legado), runner, CI `db` bloqueante, testes de RLS multiusuário.
+- [ ] **PR 2 — servidor:** `server/` (Node.js + TS, Fastify, `pg`): auth própria, `/rpc/:name`, `/sync/:table`.
+- [ ] **PR 3 — realtime:** `docs/REALTIME_CONTRACT.md` + WebSocket.
+- [ ] **PR 4 — cliente:** `src/platform/{auth,rpc,realtime}.ts` no lugar de `src/lib/supabase.ts`.
+- [ ] **PR 5 — legado:** remover `Band*`, `Setlist*` e rotas legadas; nova `version()` do Dexie.
+- [ ] **PR 6 — limpeza:** remover `@supabase/supabase-js`, `supabase/` e o shim; atualizar CI, deploy e docs.
+
+**Regra para os blocos B2+:** SQL novo vai para `db/migrations/` depois do PR 1 e passa no job `db`.
 
 ### B2 — Equipe (VS-01 · RF-TEAM-001…004)
 
 **Objetivo:** Owner/Admin organizam a equipe; o Líder coordena; o Membro participa.
 
-- [ ] **ADR-051 — Papéis em dois níveis** (D2) com a matriz de permissões §49 como fonte única: `docs/PERMISSIONS.md` + função SQL `app.has_permission(...)` + espelho TS para a UX.
-- [ ] Migration: `team_memberships.role` (`leader`/`member`, default `member`) e `status` (`active`/`inactive`/`pending_invite`). Atualizar o domínio, o Dexie (nova `version`), o sync e os repositórios.
+- [x] **ADR-051 — Papéis em dois níveis** (D2) com a matriz de permissões §49 como fonte única: `docs/PERMISSIONS.md` + função SQL `app.has_permission(...)` + espelho TS para a UX. Spec: `docs/specs/VS-01-equipe.md` (#56).
+- [ ] Migration (em `db/migrations/`, depois do baseline do B1): `team_memberships.role` (`leader`/`member`, default `member`) e `status` (`active`/`inactive`); `pending_invite` é derivado do convite aberto (`PERMISSIONS.md` §7.3). Atualizar o domínio, o Dexie (nova `version`), o sync e os repositórios.
 - [ ] RLS: Líder gerencia pessoas e funções da **sua** equipe; Membro cria música e repertório (§49); ajustar as políticas que hoje exigem `owner`/`admin`.
 - [ ] Casos de uso: promover/rebaixar Líder, ativar/inativar membro, convite com estado `pending_invite`.
 - [ ] Regra de produto "1 organização principal por conta" na UI e no caso de uso, sem constraint de banco (§6.1).
@@ -135,9 +142,9 @@ B0 Fundação ──► B1 Portabilidade SQL/TS ──────────�
 - [ ] Regra para menores (art. 14) — validar com assessoria jurídica.
 - [ ] `docs/BACKUP_RECOVERY.md` (NFR-009) com restore testado.
 
-### B9 — Backend próprio (ADR-049 Fase B)
+### B9 — Backend próprio
 
-Ver `docs/BACKEND_MIGRATION_PLAN.md` §4 (B0–B6). Começa só depois da Fase 1 do produto concluída e do B1 pronto.
+Absorvido pelo B1 (ADR-059).
 
 ### B10 — Network
 
@@ -153,4 +160,4 @@ Feature Spec (docs/specs/) → ADR, se houver decisão estrutural → migration 
 - Um PR por fatia vertical; PRs grandes se dividem por camada só quando inevitável.
 - Gate obrigatório: `npm test`, `npm run lint`, `npm run build` + `scripts/db/verify-migrations.sh` quando houver SQL.
 - Todo PR referencia `RF-*`/`NFR-*` e segue o checklist DoD (§36).
-- Merge sempre pelo owner.
+- Merge pelo owner, ou pela IA com o ok do owner para aquele PR e CI verde (ADR-058).

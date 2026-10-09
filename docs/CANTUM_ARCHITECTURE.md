@@ -1,10 +1,12 @@
 # CANTUM Architecture
 
-> Status: baseline de migração — Fase 0
+> Status: vigente · atualizado em 2026-10-08 (Fase 0 concluída; Fase 1 em andamento)
+>
+> Plano de entrega: [DELIVERY_PLAN.md](DELIVERY_PLAN.md) · Migração de backend: [BACKEND_MIGRATION_PLAN.md](BACKEND_MIGRATION_PLAN.md)
 >
 > Produto: CANTUM
 >
-> Fonte de verdade de produto: [CANTUM Project & Product Blueprint v1.1](CANTUM_PROJECT_BLUEPRINT.md) — Accepted
+> Fonte de verdade de produto: [CANTUM Project & Product Blueprint v1.2](CANTUM_PROJECT_BLUEPRINT.md) — Accepted
 
 ## 1. Authority
 
@@ -155,19 +157,33 @@ Target entities use a dedicated `targetSyncQueue` and `TargetSyncEngine`. The le
 
 See ADR-026 for the synchronization contract.
 
-## 9. Next implementation slice
+## 9. Próximas fatias
 
-The first target vertical slice is:
+A fatia Organization → Team → Membership → Access Role → Musical Function está entregue (ver "Target Team operational UI — complete"). As próximas seguem o [plano de blocos](DELIVERY_PLAN.md):
 
 ```
-Organization
-  -> Team
-  -> Membership
-  -> Access Role
-  -> Musical Function
+B1  backend próprio: PostgreSQL + Node.js          (ADR-059)
+B2  papéis em dois níveis + matriz de permissões   (ADR-051, spec VS-01)
+B3  Service operacional: equipe, estados, itens    (ADR-052, reservado)
+B4  vagas (ServicePosition) + atribuições          (ADR-053/054/057, reservados)
 ```
 
-Before coding it, audit the current Band persistence, invite flow, application services, UI dependencies, sync queue and Supabase security contracts.
+Cada fatia: spec → ADR → migration (harness) → domínio → application → Dexie/sync → UI → gate.
+
+### Backend próprio (ADR-049 + ADR-059)
+
+O Supabase sai de uma vez no B1. Destino:
+
+```
+cliente (React/Dexie) ── src/platform/{auth,rpc,realtime} ──► server/ (Node.js + TS, Fastify)
+                                                                 │  transação: set local role cantum_user
+                                                                 │             + set_config('app.user_id')
+                                                                 ▼
+                                                      PostgreSQL 16 (db/migrations)
+                                                      RLS + funções security definer
+```
+
+A autorização continua no banco. SQL usa `app.current_user_id()` e PostgreSQL padrão; nenhum arquivo novo importa `src/lib/supabase` ou `@supabase/supabase-js`. Realtime por WebSocket + `LISTEN/NOTIFY`, com presença em memória. O legado `Band*`/`Setlist*` é removido, não portado. Sequência e riscos em [BACKEND_MIGRATION_PLAN.md](BACKEND_MIGRATION_PLAN.md).
 
 
 ### Stage operational state migration (ADR-032)

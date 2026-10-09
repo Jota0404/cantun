@@ -1,6 +1,6 @@
 # ADR-012 — Autenticação e sincronização multidispositivo com Supabase
 
-**Status:** Accepted  
+**Status:** Accepted · provedor Supabase substituído pelo [ADR-059](ADR-059-own-backend-now.md); local-first, filas e LWW continuam  
 **Data:** 2026-08-27
 
 ## Contexto

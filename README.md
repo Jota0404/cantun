@@ -12,8 +12,8 @@ A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/C
 
 | Fase (Blueprint §33) | Situação |
 |---|---|
-| Fase 0 — Fundação atual | 🟡 Em fechamento: domínio canônico (Organization → Team → Song/Repertoire → Service → Stage) consolidado em `main`; documentação sendo alinhada ao Blueprint |
-| Fase 1 — Operação de equipe | ⏳ Próxima: papéis, membros, serviços, escalas, disponibilidade |
+| Fase 0 — Fundação atual | ✅ Domínio canônico consolidado em `main`; B0 (CI, governança da IA, templates, plano de blocos) concluído |
+| Fase 1 — Operação de equipe | 🟡 Em andamento: B1 Backend próprio (sai o Supabase, ADR-059) e B2 Equipe (spec e ADR-051 aceitos); depois B3 Serviço e B4 Escala |
 | Fase 2 — Operação musical integrada | ⏳ |
 | Fase 3 — Execução madura | 🟡 Parte adiantada: Modo Palco compartilhado, presença e readiness já existem |
 | Fase 4 — Eficiência | ⏳ |
@@ -35,11 +35,11 @@ O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído e validado
 | Linguagem | TypeScript |
 | Build/PWA | Vite + `vite-plugin-pwa` |
 | Local-first | IndexedDB via Dexie |
-| Remoto | Supabase — Auth, Postgres com RLS, RPCs, Realtime (ADR-012) |
+| Remoto | Hoje: Supabase (ADR-012). Em migração (B1, ADR-059): PostgreSQL 16 + servidor próprio Node.js/TypeScript (auth, RPC, WebSocket) |
 | Testes | Vitest, Testing Library, `fake-indexeddb` |
 | CI/CD | GitHub Actions → GitHub Pages |
 
-Arquitetura em camadas (Presentation → Application → Domain → Infrastructure) com Repository pattern. O core é **local-first**; a sincronização com Supabase é complementar e a Network será cloud-backed sem contaminar o caminho crítico da execução (Blueprint §16, §47).
+Arquitetura em camadas (Presentation → Application → Domain → Infrastructure) com Repository pattern. O core é **local-first**; a sincronização remota é complementar e a Network será cloud-backed sem contaminar o caminho crítico da execução (Blueprint §16, §47).
 
 ## Desenvolvimento local
 
@@ -68,6 +68,9 @@ Sem as variáveis do Supabase o app funciona apenas no modo local.
 | [`docs/CANTUM_PROJECT_BLUEPRINT.md`](docs/CANTUM_PROJECT_BLUEPRINT.md) | **Produto** — visão, fronteira, capacidades, requisitos, roadmap |
 | [`docs/CANTUM_ARCHITECTURE.md`](docs/CANTUM_ARCHITECTURE.md) | **Arquitetura** vigente e migração de domínio |
 | [`docs/adr/`](docs/adr/) | Decisões arquiteturais (ADRs) |
+| [`docs/DELIVERY_PLAN.md`](docs/DELIVERY_PLAN.md) + [`docs/blocks/`](docs/blocks/) | Plano de entrega em blocos (B0–B10) |
+| [`docs/specs/`](docs/specs/) | Feature Specs (Blueprint §34.1) |
+| [`docs/BACKEND_MIGRATION_PLAN.md`](docs/BACKEND_MIGRATION_PLAN.md) | Saída do Supabase para backend próprio (ADR-059) |
 | [`AI_CONTEXT.md`](AI_CONTEXT.md) / [`CLAUDE.md`](CLAUDE.md) | Regras operacionais para desenvolvimento assistido por IA |
 | `docs/BAND_*.md`, `docs/LEGACY_DEXIE_MIGRATION_GATES.md` | Contratos e gates do runtime legado (compatibilidade) |
 | `docs/TASK_*.md` | Especificações históricas de tarefas |
