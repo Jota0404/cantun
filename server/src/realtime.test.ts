@@ -2,6 +2,9 @@
 // Requer psql no PATH e as variáveis PG* (as mesmas do scripts/db/verify-migrations.sh).
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
+import { once } from 'node:events'
+import net from 'node:net'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { after, before, describe, test } from 'node:test'
@@ -23,6 +26,7 @@ let app: FastifyInstance
 let idleApp: FastifyInstance
 let url: string
 let idleUrl: string
+let subscriberCount: (topic: string) => number = () => -1
 
 interface User { id: string; cookie: string }
 type Message = { type: string; [key: string]: unknown }
@@ -33,7 +37,10 @@ before(async () => {
   pool = createPool({ database: DB })
   app = await buildApp({
     pool, appOrigin: ORIGIN, logger: false,
-    realtime: { idleTimeoutMs: 30_000, revalidateMs: 300, listenerHealthMs: 200, listenerBackoffMinMs: 500, listenerBackoffMaxMs: 500 },
+    realtime: {
+      idleTimeoutMs: 30_000, revalidateMs: 300, listenerHealthMs: 200, listenerBackoffMinMs: 500, listenerBackoffMaxMs: 500,
+      exposeSubscriberCount: (count) => { subscriberCount = count },
+    },
   })
   url = (await app.listen({ port: 0, host: '127.0.0.1' })).replace('http', 'ws') + '/realtime'
   idleApp = await buildApp({ pool, appOrigin: ORIGIN, logger: false, realtime: { idleTimeoutMs: 300 } })
@@ -153,6 +160,51 @@ function connect(cookie: string | null, { origin = ORIGIN as string | null, targ
     ws.once('unexpected-response', (_request, response) => reject(new Error(`HTTP ${response.statusCode}`)))
     ws.once('error', reject)
   })
+}
+
+/**
+ * Proxy TCP para o PostgreSQL que consegue "congelar" a conexão do LISTEN: para de
+ * repassar bytes sem fechar nada, como uma conexão meio aberta (sem `error` nem `end`).
+ */
+async function startPgProxy() {
+  const pairs = new Set<{ client: net.Socket; upstream: net.Socket; listener: boolean; frozen: boolean }>()
+  const host = process.env.PGHOST ?? 'localhost'
+  const port = Number(process.env.PGPORT ?? 5432)
+  const server = net.createServer((client) => {
+    const upstream = host.startsWith('/') ? net.connect(`${host}/.s.PGSQL.${port}`) : net.connect(port, host)
+    const pair = { client, upstream, listener: false, frozen: false }
+    pairs.add(pair)
+    client.on('data', (chunk) => {
+      // A mensagem de startup traz o application_name em texto.
+      if (chunk.includes('cantum-realtime-listener')) pair.listener = true
+      if (!pair.frozen) upstream.write(chunk)
+    })
+    upstream.on('data', (chunk) => {
+      if (!pair.frozen) client.write(chunk)
+    })
+    for (const [a, b] of [[client, upstream], [upstream, client]]) {
+      a.on('error', () => undefined)
+      a.on('close', () => {
+        pairs.delete(pair)
+        b.destroy()
+      })
+    }
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  return {
+    port: (server.address() as net.AddressInfo).port,
+    freezeListener() {
+      const listeners = [...pairs].filter((pair) => pair.listener)
+      for (const pair of listeners) pair.frozen = true
+      return listeners.length
+    },
+    async close() {
+      for (const pair of pairs) pair.client.destroy()
+      server.close()
+      await once(server, 'close')
+    },
+  }
 }
 
 const topicOf = (stageId: string) => `stage-session:${stageId}`
@@ -446,5 +498,79 @@ describe('realtime', () => {
     assert.equal(musician.inbox.filter((m) => m.type === 'error').length, 0)
     await md.close()
     await musician.close()
+  })
+
+  test('RT-18: conexão fechada durante a checagem do subscribe não deixa assinatura órfã', async () => {
+    const other = topicOf(await createLiveStage(ana, orgId))
+    const control = await connect(bruno.cookie)
+    await control.subscribe(other)
+    assert.equal(subscriberCount(other), 1)
+    await control.close()
+    await sleep(QUIET_MS)
+    assert.equal(subscriberCount(other), 0)
+
+    // Segura app.can_subscribe_stage_session até o socket já ter fechado.
+    const lock = await pool.connect()
+    try {
+      await lock.query('begin')
+      await lock.query('lock table public.stage_sessions in access exclusive mode')
+      const client = await connect(bruno.cookie)
+      client.send({ type: 'subscribe', topic: other })
+      await sleep(100)
+      client.ws.terminate()
+      await client.closed
+      await sleep(100)
+    } finally {
+      await lock.query('commit')
+      lock.release()
+    }
+    await sleep(QUIET_MS)
+    assert.equal(subscriberCount(other), 0)
+  })
+
+  test('RT-19: LISTEN meio aberto (sem error/end) estoura o timeout, reconecta e entrega o snapshot', async () => {
+    const proxy = await startPgProxy()
+    const proxiedPool = createPool({ database: DB, host: '127.0.0.1', port: proxy.port })
+    const proxied = await buildApp({
+      pool: proxiedPool, appOrigin: ORIGIN, logger: false,
+      realtime: { listenerHealthMs: 200, listenerBackoffMinMs: 100, listenerBackoffMaxMs: 100 },
+    })
+    const proxiedUrl = (await proxied.listen({ port: 0, host: '127.0.0.1' })).replace('http', 'ws') + '/realtime'
+    try {
+      const musician = await connect(bruno.cookie, { target: proxiedUrl })
+      const before = revisionOf((await musician.subscribe(topic)).snapshot)
+      assert.equal(proxy.freezeListener(), 1)
+      const ok = await rpc(ana, 'target_stage_set_annotation', { p_stage_session_id: stageId, p_annotation: 'RT-19' })
+      assert.equal(ok.statusCode, 200, ok.body)
+      assert.equal(revisionOf(await musician.next(isSnapshot(topic), 5000)), before + 1)
+      await musician.close()
+    } finally {
+      await proxied.close()
+      await proxy.close()
+      await proxiedPool.end()
+    }
+  })
+
+  test('RT-20: no desligamento, socket que não responde ao 1001 é derrubado após o prazo', async () => {
+    const closing = await buildApp({ pool, appOrigin: ORIGIN, logger: false })
+    const address = new URL(await closing.listen({ port: 0, host: '127.0.0.1' }))
+    // Cliente cru: faz o handshake e nunca responde ao frame de close.
+    const raw = net.connect(Number(address.port), address.hostname)
+    raw.on('error', () => undefined)
+    await once(raw, 'connect')
+    raw.write([
+      'GET /realtime HTTP/1.1', `Host: ${address.host}`, 'Upgrade: websocket', 'Connection: Upgrade',
+      `Sec-WebSocket-Key: ${randomBytes(16).toString('base64')}`, 'Sec-WebSocket-Version: 13',
+      `Origin: ${ORIGIN}`, `Cookie: ${bruno.cookie}`, '', '',
+    ].join('\r\n'))
+    const [head] = (await once(raw, 'data')) as [Buffer]
+    assert.match(head.toString(), /^HTTP\/1\.1 101/)
+    const rawClosed = once(raw, 'close')
+
+    const started = Date.now()
+    await closing.close()
+    await rawClosed
+    const elapsed = Date.now() - started
+    assert.ok(elapsed < 5000, `desligamento levou ${elapsed} ms`)
   })
 })

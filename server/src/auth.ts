@@ -1,7 +1,7 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import type { Pool } from './db.ts'
-import { HttpError } from './db.ts'
+import type { Client, Pool } from './db.ts'
+import { HttpError, transaction } from './db.ts'
 import type { Mailer } from './mailer.ts'
 
 // Parâmetros OWASP para scrypt (N=2^17, r=8, p=1); maxmem acima de 128·N·r.
@@ -66,6 +66,8 @@ const emailSchema = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[
 const passwordSchema = { type: 'string', minLength: 8, maxLength: 128 }
 const tokenSchema = { type: 'string', minLength: 20, maxLength: 200 }
 const authLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
+/** Intervalo mínimo entre e-mails de verificação do mesmo usuário (além do limite por IP). */
+const RESEND_COOLDOWN_SECONDS = 60
 
 export interface AuthOptions {
   pool: Pool
@@ -90,15 +92,23 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     })
   }
 
-  async function sendEmailToken(userId: string, email: string, purpose: 'verify_email' | 'reset_password') {
+  async function insertEmailToken(db: Pool | Client, userId: string, purpose: 'verify_email' | 'reset_password'): Promise<string> {
     const { token, hash } = newToken()
     const hours = purpose === 'verify_email' ? 24 : 1
-    await pool.query(
+    await db.query(
       `insert into app.email_tokens (token_hash, user_id, purpose, expires_at) values ($1, $2, $3, now() + make_interval(hours => $4))`,
       [hash, userId, purpose, hours],
     )
+    return token
+  }
+
+  function mailEmailToken(email: string, purpose: 'verify_email' | 'reset_password', token: string) {
     const path = purpose === 'verify_email' ? 'verify-email' : 'reset-password'
-    await mailer.send({ to: email, purpose, link: `${appOrigin}/auth/${path}?token=${token}` })
+    return mailer.send({ to: email, purpose, link: `${appOrigin}/auth/${path}?token=${token}` })
+  }
+
+  async function sendEmailToken(userId: string, email: string, purpose: 'verify_email' | 'reset_password') {
+    await mailEmailToken(email, purpose, await insertEmailToken(pool, userId, purpose))
   }
 
   async function useEmailToken(token: string, purpose: 'verify_email' | 'reset_password'): Promise<string> {
@@ -169,17 +179,29 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
   })
 
   app.post('/auth/verify-email/resend', { config: authLimit }, async (request, reply) => {
-    if (!request.userId) throw new HttpError(401, 'sessão inválida')
-    const { rows } = await pool.query<UserRow>('select id, email, email_verified_at from app.users where id = $1', [request.userId])
-    const user = rows[0]
-    if (!user) throw new HttpError(401, 'sessão inválida')
-    if (user.email_verified_at) return reply.code(204).send()
-    // Só o link mais recente vale.
-    await pool.query(
-      `update app.email_tokens set used_at = now() where user_id = $1 and purpose = 'verify_email' and used_at is null`,
-      [user.id],
-    )
-    await sendEmailToken(user.id, user.email, 'verify_email')
+    const userId = request.userId
+    if (!userId) throw new HttpError(401, 'sessão inválida')
+    const mail = await transaction(pool, async (client) => {
+      // `for update` serializa reenvios simultâneos do mesmo usuário: um link válido por vez.
+      const { rows } = await client.query<UserRow>('select id, email, email_verified_at from app.users where id = $1 for update', [userId])
+      const user = rows[0]
+      if (!user) throw new HttpError(401, 'sessão inválida')
+      if (user.email_verified_at) return null
+      // Cooldown por usuário: quem cadastrou o e-mail de outra pessoa não consegue fazer spam.
+      const recent = await client.query(
+        `select 1 from app.email_tokens
+          where user_id = $1 and purpose = 'verify_email' and created_at > now() - make_interval(secs => $2)`,
+        [user.id, RESEND_COOLDOWN_SECONDS],
+      )
+      if (recent.rowCount) return null
+      // Só o link mais recente vale.
+      await client.query(
+        `update app.email_tokens set used_at = now() where user_id = $1 and purpose = 'verify_email' and used_at is null`,
+        [user.id],
+      )
+      return { email: user.email, token: await insertEmailToken(client, user.id, 'verify_email') }
+    })
+    if (mail) await mailEmailToken(mail.email, 'verify_email', mail.token)
     return reply.code(204).send()
   })
 

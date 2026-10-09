@@ -14,10 +14,12 @@ export interface RealtimeOptions {
   idleTimeoutMs: number
   /** Revalidação de sessão e de cada tópico assinado. */
   revalidateMs: number
-  /** `select 1` na conexão de LISTEN. */
+  /** `select 1` na conexão de LISTEN; também é o timeout de conexão e de query dela. */
   listenerHealthMs: number
   listenerBackoffMinMs: number
   listenerBackoffMaxMs: number
+  /** Só para testes: recebe uma função que conta as conexões assinantes de um tópico. */
+  exposeSubscriberCount?: (count: (topic: string) => number) => void
 }
 
 const DEFAULTS: RealtimeOptions = {
@@ -33,6 +35,8 @@ const MAX_TOPICS = 4
 const MAX_CONNECTIONS_PER_USER = 10
 const RATE_WINDOW_MS = 10_000
 const RATE_MAX = 30
+/** Prazo para os sockets responderem ao 1001 no desligamento; depois, terminate(). */
+const CLOSE_GRACE_MS = 2_000
 const CHANNEL = 'stage_state_changed'
 const TOPIC = /^stage-session:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/
 // Valores de team_musical_functions_musical_function_check (0001_baseline.sql).
@@ -48,6 +52,8 @@ interface Presence {
 
 interface Subscription {
   lastRevision: number
+  /** Já há um deliver na fila que ainda não começou (fanOut não enfileira outro). */
+  pending: boolean
   presence?: Presence
 }
 
@@ -58,6 +64,8 @@ interface Conn {
   displayName: string
   subs: Map<string, Subscription>
   queue: Promise<void>
+  /** Marcado no `close`: nada mais roda nem se registra para esta conexão. */
+  closed: boolean
   windowStart: number
   windowCount: number
 }
@@ -94,6 +102,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
   const connsByUser = new Map<string, Set<Conn>>()
   let presenceSeq = 0
   let closing = false
+  opts.exposeSubscriberCount?.((topic) => topics.get(topic)?.size ?? 0)
 
   const send = (conn: Conn, message: object) => {
     if (conn.socket.readyState === conn.socket.OPEN) conn.socket.send(JSON.stringify(message))
@@ -104,7 +113,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
   /** Mensagens e entregas de uma conexão rodam em ordem, uma por vez (contrato §1). */
   const enqueue = (conn: Conn, task: () => Promise<void>) => {
     // Depois do fechamento, nada mais roda: evita registrar assinatura de conexão morta.
-    conn.queue = conn.queue.then(() => (conn.socket.readyState === conn.socket.OPEN ? task() : undefined)).catch((error: unknown) => {
+    conn.queue = conn.queue.then(() => (conn.closed ? undefined : task())).catch((error: unknown) => {
       app.log.error({ err: { code: (error as { code?: string }).code, message: (error as Error).message }, userId: conn.userId }, 'realtime: falha')
       sendError(conn, 'internal')
     })
@@ -173,7 +182,16 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
   }
 
   function fanOut(topic: string) {
-    for (const conn of topics.get(topic) ?? []) enqueue(conn, () => deliver(conn, topic))
+    for (const conn of topics.get(topic) ?? []) {
+      const sub = conn.subs.get(topic)
+      if (!sub || sub.pending) continue
+      sub.pending = true
+      enqueue(conn, () => {
+        // Liberado antes da leitura: um NOTIFY que chegue durante ela enfileira outro deliver.
+        sub.pending = false
+        return deliver(conn, topic)
+      })
+    }
   }
 
   async function subscribe(conn: Conn, topic: string) {
@@ -183,8 +201,10 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
         app.log.info({ userId: conn.userId, topic, ok: false }, 'realtime: subscribe')
         return sendError(conn, 'forbidden', topic)
       }
+      // A conexão pode ter fechado durante a checagem: não deixar assinatura órfã em `topics`.
+      if (conn.closed) return
       // Registrar antes de ler: um NOTIFY entre a leitura e o registro não se perde.
-      conn.subs.set(topic, { lastRevision: -1 })
+      conn.subs.set(topic, { lastRevision: -1, pending: false })
       if (!topics.has(topic)) topics.set(topic, new Set())
       topics.get(topic)?.add(conn)
     }
@@ -249,7 +269,15 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
   }
 
   async function listen() {
-    const client = new pg.Client({ ...pool.options, application_name: 'cantum-realtime-listener', keepAlive: true })
+    // Timeouts: conexão meio aberta não dispara `error`/`end`; o `select 1` estoura e cai em `fail`.
+    const client = new pg.Client({
+      ...pool.options,
+      application_name: 'cantum-realtime-listener',
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
+      connectionTimeoutMillis: opts.listenerHealthMs,
+      query_timeout: opts.listenerHealthMs,
+    })
     const fail = () => {
       if (listener !== client) return
       listener = null
@@ -289,10 +317,18 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
       closing = true
       clearTimeout(listenerTimer)
       clearInterval(healthTimer)
-      for (const set of connsByUser.values()) for (const conn of set) conn.socket.close(1001, 'servidor desligando')
+      const wss = this.websocketServer
+      for (const socket of wss.clients) socket.close(1001, 'servidor desligando')
+      // Quem não responder ao close dentro do prazo é derrubado; senão o close do servidor espera até 30 s.
+      const kill = setTimeout(() => {
+        for (const socket of wss.clients) socket.terminate()
+      }, CLOSE_GRACE_MS)
       const client = listener
       listener = null
-      void (client ? client.end().catch(() => undefined) : Promise.resolve()).then(() => this.websocketServer.close(() => done()))
+      void (client ? client.end().catch(() => undefined) : Promise.resolve()).then(() => wss.close(() => {
+        clearTimeout(kill)
+        done()
+      }))
     },
   })
   await listen()
@@ -304,6 +340,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
       if (request.headers.origin !== appOrigin) throw new HttpError(403, 'origem não permitida')
     },
   }, async (socket, request) => {
+    if (closing) return socket.close(1001, 'servidor desligando')
     const token = request.cookies[SESSION_COOKIE]
     const userId = request.userId
     if (!userId || !token) return socket.close(4401, 'sessão inválida')
@@ -312,7 +349,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
 
     const conn: Conn = {
       socket, userId, tokenHash: tokenHash(token), displayName: '', subs: new Map(),
-      queue: Promise.resolve(), windowStart: Date.now(), windowCount: 0,
+      queue: Promise.resolve(), closed: false, windowStart: Date.now(), windowCount: 0,
     }
     userConns.add(conn)
     connsByUser.set(userId, userConns)
@@ -341,6 +378,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
     })
 
     socket.on('close', (code) => {
+      conn.closed = true
       clearTimeout(idle)
       clearInterval(revalidation)
       for (const topic of [...conn.subs.keys()]) dropSubscription(conn, topic)

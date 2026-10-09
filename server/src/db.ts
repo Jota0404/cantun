@@ -7,16 +7,10 @@ export function createPool(config: pg.PoolConfig = {}): Pool {
   return new pg.Pool(config)
 }
 
-/**
- * Transação de uma requisição: papel e usuário locais à transação.
- * Quem decide o acesso é a RLS e as funções do banco (ADR-049, ADR-059).
- */
-export async function asUser<T>(pool: Pool, userId: string | null, fn: (client: Client) => Promise<T>): Promise<T> {
+export async function transaction<T>(pool: Pool, fn: (client: Client) => Promise<T>): Promise<T> {
   const client = await pool.connect()
   try {
     await client.query('begin')
-    await client.query(userId ? 'set local role cantum_user' : 'set local role cantum_anon')
-    await client.query("select set_config('app.user_id', $1, true)", [userId ?? ''])
     const result = await fn(client)
     await client.query('commit')
     return result
@@ -26,6 +20,18 @@ export async function asUser<T>(pool: Pool, userId: string | null, fn: (client: 
   } finally {
     client.release()
   }
+}
+
+/**
+ * Transação de uma requisição: papel e usuário locais à transação.
+ * Quem decide o acesso é a RLS e as funções do banco (ADR-049, ADR-059).
+ */
+export function asUser<T>(pool: Pool, userId: string | null, fn: (client: Client) => Promise<T>): Promise<T> {
+  return transaction(pool, async (client) => {
+    await client.query(userId ? 'set local role cantum_user' : 'set local role cantum_anon')
+    await client.query("select set_config('app.user_id', $1, true)", [userId ?? ''])
+    return fn(client)
+  })
 }
 
 export class HttpError extends Error {
