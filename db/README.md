@@ -25,7 +25,7 @@ PGUSER=postgres scripts/db/verify-migrations.sh
 - `cantum_anon` e `cantum_user` são papéis `NOLOGIN`. O servidor conecta com um papel de login que é membro deles e, em cada requisição, abre uma transação com `set local role cantum_user` e `select set_config('app.user_id', <id>, true)`.
 - `app.current_user_id()` lê `app.user_id`. Toda política e função usa essa função; nunca `auth.uid()`.
 - A autorização mora no banco: RLS em toda tabela de dados e funções `security definer` com `set search_path = ''` e checagem interna.
-- `app.users` guarda as contas. Credenciais e sessões entram com o servidor (B1, PR 2).
+- `app.users` guarda as contas; `app.sessions` e `app.email_tokens` guardam só hashes de tokens (`0002_auth.sql`). Nenhuma dessas tabelas tem grant para os papéis de requisição: só o servidor acessa. Ver `server/README.md`.
 - `pgcrypto` fica no schema `extensions` e é chamado com nome qualificado (`extensions.digest`, `extensions.gen_random_bytes`).
 
 ## Como o baseline foi gerado (2026-10-08)
