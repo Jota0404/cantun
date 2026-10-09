@@ -122,7 +122,7 @@ Organization
 - Arrangement is a reserved domain concept; do not persist it as a first-class entity prematurely.
 - Network is not part of the Core critical path.
 - Stage is preserved and migrated incrementally rather than rewritten.
-- Dexie/local-first and Supabase/sync remain complementary layers.
+- Dexie/local-first and server sync remain complementary layers.
 
 ## 6. Migration rules
 
@@ -172,7 +172,7 @@ Cada fatia: spec → ADR → migration (harness) → domínio → application �
 
 ### Backend próprio (ADR-049 + ADR-059)
 
-O Supabase sai de uma vez no B1. Destino:
+O Supabase saiu de vez no B1. Estado atual:
 
 ```
 cliente (React/Dexie) ── src/platform/{auth,rpc,realtime} ──► server/ (Node.js + TS, Fastify)
@@ -183,7 +183,7 @@ cliente (React/Dexie) ── src/platform/{auth,rpc,realtime} ──► server/ 
                                                       RLS + funções security definer
 ```
 
-A autorização continua no banco. SQL usa `app.current_user_id()` e PostgreSQL padrão; nenhum arquivo novo importa `src/lib/supabase` ou `@supabase/supabase-js`. Realtime por WebSocket + `LISTEN/NOTIFY`, com presença em memória. O legado `Band*`/`Setlist*` é removido, não portado. Sequência e riscos em [BACKEND_MIGRATION_PLAN.md](BACKEND_MIGRATION_PLAN.md).
+A autorização continua no banco. SQL usa `app.current_user_id()` e PostgreSQL padrão. Realtime por WebSocket + `LISTEN/NOTIFY`, com presença em memória. O legado `Band*`/`Setlist*` é removido, não portado. Sequência e riscos em [BACKEND_MIGRATION_PLAN.md](BACKEND_MIGRATION_PLAN.md).
 
 
 ### Stage operational state migration (ADR-032)

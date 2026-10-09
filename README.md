@@ -13,7 +13,7 @@ A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/C
 | Fase (Blueprint §33) | Situação |
 |---|---|
 | Fase 0 — Fundação atual | ✅ Domínio canônico consolidado em `main`; B0 (CI, governança da IA, templates, plano de blocos) concluído |
-| Fase 1 — Operação de equipe | 🟡 Em andamento: B1 Backend próprio (sai o Supabase, ADR-059) e B2 Equipe (spec e ADR-051 aceitos); depois B3 Serviço e B4 Escala |
+| Fase 1 — Operação de equipe | 🟡 Em andamento: B1 Backend próprio concluído (Supabase removido, ADR-059); B2 Equipe (spec e ADR-051 aceitos); depois B3 Serviço e B4 Escala |
 | Fase 2 — Operação musical integrada | ⏳ |
 | Fase 3 — Execução madura | 🟡 Parte adiantada: Modo Palco compartilhado, presença e readiness já existem |
 | Fase 4 — Eficiência | ⏳ |
@@ -35,7 +35,7 @@ O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído e validado
 | Linguagem | TypeScript |
 | Build/PWA | Vite + `vite-plugin-pwa` |
 | Local-first | IndexedDB via Dexie |
-| Remoto | Hoje: Supabase (ADR-012). Em migração (B1, ADR-059): PostgreSQL 16 + servidor próprio Node.js/TypeScript (auth, RPC, WebSocket) |
+| Remoto | PostgreSQL 16 + servidor próprio Node.js/TypeScript em `server/` (auth, RPC, WebSocket) — ADR-059 |
 | Testes | Vitest, Testing Library, `fake-indexeddb` |
 | CI/CD | GitHub Actions → GitHub Pages |
 
@@ -47,7 +47,7 @@ Pré-requisito: Node.js 24.
 
 ```bash
 npm ci
-cp .env.example .env.local   # preencha VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY
+cp .env.example .env.local   # VITE_API_URL (padrão em dev: http://localhost:8787)
 npm run dev
 ```
 
@@ -59,7 +59,7 @@ npm run dev
 | `npm run build` | type-check (`tsc -b`) + build de produção |
 | `npm run preview` | servir o build localmente |
 
-Sem as variáveis do Supabase o app funciona apenas no modo local.
+Servidor e banco locais: ver `server/README.md` e `db/README.md`. Sem servidor, o app abre só com os dados locais.
 
 ## Documentação
 
@@ -70,7 +70,7 @@ Sem as variáveis do Supabase o app funciona apenas no modo local.
 | [`docs/adr/`](docs/adr/) | Decisões arquiteturais (ADRs) |
 | [`docs/DELIVERY_PLAN.md`](docs/DELIVERY_PLAN.md) + [`docs/blocks/`](docs/blocks/) | Plano de entrega em blocos (B0–B10) |
 | [`docs/specs/`](docs/specs/) | Feature Specs (Blueprint §34.1) |
-| [`docs/BACKEND_MIGRATION_PLAN.md`](docs/BACKEND_MIGRATION_PLAN.md) | Saída do Supabase para backend próprio (ADR-059) |
+| [`docs/BACKEND_MIGRATION_PLAN.md`](docs/BACKEND_MIGRATION_PLAN.md) | Histórico da saída do Supabase (ADR-059, concluída) |
 | [`AI_CONTEXT.md`](AI_CONTEXT.md) / [`CLAUDE.md`](CLAUDE.md) | Regras operacionais para desenvolvimento assistido por IA |
 | `docs/BAND_*.md`, `docs/LEGACY_DEXIE_MIGRATION_GATES.md` | Contratos e gates do runtime legado (compatibilidade) |
 | `docs/TASK_*.md` | Especificações históricas de tarefas |

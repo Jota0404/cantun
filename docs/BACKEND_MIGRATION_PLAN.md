@@ -1,6 +1,6 @@
 # CANTUM — Plano de migração: Supabase → PostgreSQL + backend próprio
 
-> Decisão: [ADR-059](adr/ADR-059-own-backend-now.md) (substitui o cronograma do [ADR-049](adr/ADR-049-postgres-portability-and-own-backend.md)) · Bloco: [B1](blocks/B1-portabilidade-postgres.md) · Atualizado: 2026-10-08
+> Decisão: [ADR-059](adr/ADR-059-own-backend-now.md) (substitui o cronograma do [ADR-049](adr/ADR-049-postgres-portability-and-own-backend.md)) · Bloco: [B1](blocks/B1-portabilidade-postgres.md) · **Concluído em 2026-10-09** (PRs #63–#68 e o PR 6)
 > Estratégia: **saída completa e de uma vez**. Não há usuários reais nem dados a preservar, então não há convivência, migração de dados nem cutover gradual.
 
 ## 1. Mapa de dependências do Supabase (`main` @ `6b11ea5`)
