@@ -2,6 +2,11 @@ import { teamMembershipRepository, type TeamMembershipRepository } from '../../d
 import type { MemberDisplayStatus, MemberStatus, TeamMembership, TeamRole } from '../../domain/teams/teamMembership'
 import { normalizeDisplayName } from '../../domain/users/displayName'
 import { rpc } from '../../platform/rpc'
+import { selectRows } from '../../platform/sync'
+import { getCurrentUser } from '../../platform/auth'
+import { teamRepository } from '../../db/repositories/teamRepository'
+import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
+import type { AccessContext } from '../../domain/access/permissions'
 import { listOrganizationInvites } from '../organizations/organizationInviteService'
 
 // Papel, status e funções só mudam por RPC (o banco autoriza, RN-12). Sem fila offline:
@@ -92,6 +97,8 @@ export interface TeamMemberView {
   displayName: string
   role: TeamRole
   displayStatus: MemberDisplayStatus
+  /** Funções na equipe; `[]` sem rede (não há store local) e em convite pendente. */
+  musicalFunctions: string[]
 }
 
 // Último valor conhecido: offline, a tela mostra os nomes já lidos (VS-01 §Dados).
@@ -106,6 +113,37 @@ async function loadProfiles(organizationId: string) {
   }
 }
 
+// A RLS de `team_musical_functions` devolve só o que o usuário pode ler; filtra pelos vínculos da equipe.
+async function loadFunctions(membershipIds: string[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>()
+  if (!membershipIds.length) return result
+  const wanted = new Set(membershipIds)
+  const rows = await selectRows<{ team_membership_id: string; musical_function: string }>('team_musical_functions').catch(() => [])
+  for (const row of rows) {
+    if (!wanted.has(row.team_membership_id)) continue
+    result.set(row.team_membership_id, [...(result.get(row.team_membership_id) ?? []), row.musical_function])
+  }
+  return result
+}
+
+/** Contexto de quem está logado para `hasPermission` (só UX; o banco decide). Offline, lê do Dexie. */
+export async function getMyAccessContext(input: { organizationId: string; teamId?: string }): Promise<AccessContext> {
+  const user = getCurrentUser()
+  if (!user) return { organizationRole: null }
+  const organizationMembership = await organizationMembershipRepository.findByOrganizationAndUser(input.organizationId, user.id)
+  const teams = await teamRepository.listByOrganizationId(input.organizationId)
+  const mine = (await Promise.all(teams.map((team) => teamMembershipRepository.findByTeamAndUser(team.id, user.id))))
+    .filter((membership): membership is TeamMembership => Boolean(membership))
+  const current = input.teamId ? mine.find((membership) => membership.teamId === input.teamId) : undefined
+  return {
+    organizationRole: organizationMembership?.role ?? null,
+    teamRole: current?.role ?? null,
+    teamStatus: current?.status ?? null,
+    isActiveLeaderInOrganization: mine.some((membership) => membership.role === 'leader' && membership.status === 'active'),
+    isActiveInOrganization: mine.length === 0 || mine.some((membership) => membership.status === 'active'),
+  }
+}
+
 /** Membros da equipe com nome de exibição (nunca e-mail, RN-15) e convites pendentes como `pending_invite`. */
 export async function listTeamMembers(
   input: { organizationId: string; teamId: string; includePendingInvites?: boolean },
@@ -116,15 +154,17 @@ export async function listTeamMembers(
     input.includePendingInvites ? listOrganizationInvites(input.organizationId).catch(() => []) : Promise.resolve([]),
     loadProfiles(input.organizationId),
   ])
+  const functionsByMembership = await loadFunctions(memberships.map((membership) => membership.id))
   const members: TeamMemberView[] = memberships.map((membership) => ({
     membershipId: membership.id,
     userId: membership.userId,
     displayName: profileCache.get(membership.userId) ?? 'Participante',
     role: membership.role,
     displayStatus: membership.status,
+    musicalFunctions: functionsByMembership.get(membership.id) ?? [],
   }))
   const pending: TeamMemberView[] = invites
     .filter((invite) => invite.teamId === input.teamId && invite.status === 'pending')
-    .map((invite) => ({ inviteId: invite.id, displayName: 'Convite pendente', role: 'member', displayStatus: 'pending_invite' }))
+    .map((invite) => ({ inviteId: invite.id, displayName: 'Convite pendente', role: 'member', displayStatus: 'pending_invite', musicalFunctions: [] }))
   return [...members, ...pending]
 }
