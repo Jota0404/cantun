@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { useAuth } from '../../auth/authContext'
 import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
 import { teamMembershipRepository, teamRepository } from '../../db/repositories/teamRepository'
@@ -52,7 +53,10 @@ export function TeamPage() {
     }
   }, [organizationId, teamId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   const currentOrganizationMember = organizationMembers.find((member) => member.userId === user?.id)
   const canManage = currentOrganizationMember?.role === 'owner' || currentOrganizationMember?.role === 'admin'

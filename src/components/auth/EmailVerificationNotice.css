@@ -9,3 +9,6 @@
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+.email-verification-notice p { margin: 0; }
+.email-verification-notice button { margin-top: 8px; min-height: 44px; }
+.email-verification-notice [role='status'] { margin-top: 8px; color: var(--color-text-muted); }

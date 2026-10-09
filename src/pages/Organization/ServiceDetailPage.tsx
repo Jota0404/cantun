@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { assignmentRepository } from '../../db/repositories/assignmentRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
@@ -41,7 +42,10 @@ export function ServiceDetailPage() {
     }
   }, [serviceId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   async function startStage() {
     try {

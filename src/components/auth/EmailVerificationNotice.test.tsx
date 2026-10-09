@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthContextValue } from '../../auth/authContext'
 import { EmailVerificationNotice } from './EmailVerificationNotice'
 
 let user: AuthContextValue['user'] = null
-vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user }) }))
+const resendVerification = vi.fn()
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user, resendVerification }) }))
 
 describe('EmailVerificationNotice', () => {
   it('explains why verification matters when the e-mail is not verified', () => {
@@ -24,5 +25,22 @@ describe('EmailVerificationNotice', () => {
     user = null
     rerender(<EmailVerificationNotice />)
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+
+  it('resends the e-mail and disables the button for 60 s', async () => {
+    vi.useFakeTimers()
+    resendVerification.mockResolvedValue(undefined)
+    user = { id: 'u1', email: 'ana@example.com', emailVerified: false }
+    render(<EmailVerificationNotice />)
+    const button = screen.getByRole('button', { name: 'Reenviar e-mail' })
+
+    await act(async () => { fireEvent.click(button) })
+
+    expect(resendVerification).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('status')).toHaveTextContent('Se for possível, enviamos um novo link.')
+    expect(button).toBeDisabled()
+    act(() => { vi.advanceTimersByTime(60_000) })
+    expect(button).toBeEnabled()
+    vi.useRealTimers()
   })
 })

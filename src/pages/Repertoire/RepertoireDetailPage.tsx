@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
 import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
 import { songRepository } from '../../db/repositories/songRepository'
@@ -26,7 +27,10 @@ export function RepertoireDetailPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o repertório.') }
   }, [repertoireId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   async function rename() { const name = window.prompt('Novo nome', repertoire?.name); if (!name?.trim()) return; try { await renameRepertoire(repertoireId, name); await load() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível renomear o repertório.') } }
   async function duplicate() { try { const copy = await duplicateRepertoire(repertoireId); navigate(`/repertoires/${copy.id}`) } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível duplicar o repertório.') } }
