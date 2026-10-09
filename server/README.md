@@ -62,7 +62,18 @@ Uma linha que a RLS não deixa ver ou alterar não gera erro em `PATCH` e `DELET
 
 ### Outros
 
-`GET /health` → `{ ok: true }`. Requisições de escrita com cabeçalho `Origin` diferente de `APP_ORIGIN` recebem 403. O realtime (`/realtime`) entra no PR 3 do B1.
+`GET /health` → `{ ok: true }`. Requisições de escrita com cabeçalho `Origin` diferente de `APP_ORIGIN` recebem 403.
+
+### Tempo real (`/realtime`)
+
+WebSocket do Modo Palco; o contrato completo (mensagens, erros, códigos de fechamento, consistência) está em [`docs/REALTIME_CONTRACT.md`](../docs/REALTIME_CONTRACT.md). Implementação em `src/realtime.ts`, com `@fastify/websocket`.
+
+- **Handshake:** `Origin` obrigatório e igual a `APP_ORIGIN` (senão HTTP 403, sem upgrade); cookie `cantum_session` válido (senão o upgrade completa e fecha com 4401).
+- **Tópico:** `stage-session:<uuid>` (minúsculo). Autorizado por `app.can_subscribe_stage_session(uuid)` no `subscribe` e a cada revalidação; o `snapshot` é sempre lido por `get_target_stage_snapshot` com a identidade do assinante.
+- **Mudanças:** trigger `stage_session_states_notify` → `pg_notify('stage_state_changed', {"stage_session_id","revision"})` → `LISTEN` numa conexão dedicada (`application_name = cantum-realtime-listener`), com reconexão e resync dos tópicos assinados.
+- **Presença:** em memória, por conexão e tópico, deduplicada por usuário. `userId` e `displayName` vêm da sessão; o cliente só escolhe `musicalRole` e `readiness`. Até o B2, `displayName` é o prefixo do e-mail (`displayNameFor` em `src/realtime.ts`).
+- **Limites:** 4 KiB por mensagem (1009), 30 mensagens a cada 10 s (1008), 4 tópicos por conexão, 10 conexões por usuário (4429), 60 s sem mensagem encerra com 1001, revalidação a cada 60 s. Os intervalos são opções de `buildApp({ realtime })` para os testes.
+- **Uma instância só:** assinaturas e presença são locais ao processo (ADR-059 §6).
 
 ## Produção
 

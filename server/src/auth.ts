@@ -43,10 +43,13 @@ export function tokenHash(token: string): Buffer {
 }
 
 export async function sessionUserId(pool: Pool, token: string | undefined): Promise<string | null> {
-  if (!token) return null
+  return token ? userIdForSessionHash(pool, tokenHash(token)) : null
+}
+
+export async function userIdForSessionHash(pool: Pool, hash: Buffer): Promise<string | null> {
   const { rows } = await pool.query<{ user_id: string }>(
     'select user_id from app.sessions where token_hash = $1 and revoked_at is null and expires_at > now()',
-    [tokenHash(token)],
+    [hash],
   )
   return rows[0]?.user_id ?? null
 }
