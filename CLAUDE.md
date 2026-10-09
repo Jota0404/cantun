@@ -43,7 +43,7 @@ Config local: `.env.local` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_
 | `server/` *(B1)* | backend Node.js + TS: auth, `/rpc`, `/sync`, `/realtime` | só `pg` e o próprio `server/` |
 | `src/platform` *(B1)* | cliente HTTP/WS do `server/`; substitui `src/lib/supabase.ts` | — |
 
-Legado (`domain/bands`, `bandSyncEngine`, `bandStageRealtime`, `Setlist*`, rotas `/bands*`, `/stage/setlist`, `/stage/session`): só correção de bug; sai no B1 (ADR-059).
+O legado Band/Setlist foi removido no B1 (ADR-059, PR 5); não recriar.
 
 ## Convenções de código
 
@@ -52,8 +52,8 @@ Legado (`domain/bands`, `bandSyncEngine`, `bandStageRealtime`, `Setlist*`, rotas
 - Use cases recebem repositório por parâmetro com default (`fn(input, repository = defaultRepository)`) e retornam `{ success: true, … } | { success: false, errors }` para validação.
 - Componente/página: `Foo.tsx` + `Foo.css` + `Foo.test.tsx` lado a lado.
 - Testes de UI por papel/label acessível (`getByRole`, `getByLabelText`), não por classe CSS. Remoto sempre mockado (`src/lib/supabase` hoje, `src/platform` depois do B1); repositórios com `fake-indexeddb`.
-- Arquivos grandes (`StagePage.tsx`, `bandStageRealtime.ts`): extrair hooks/serviços em vez de crescer.
-- `react-hooks/set-state-in-effect` está ativa; só 8 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
+- Arquivos grandes (`ServiceStagePage.tsx`, `StagePage.tsx`): extrair hooks/serviços em vez de crescer.
+- `react-hooks/set-state-in-effect` está ativa; só 7 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
 
 ## Persistência
 
@@ -83,7 +83,7 @@ Equipe em `.claude/agents/`. A sessão principal é o **lead**: fatia o trabalho
 | `reviewer` | revisão de diff antes do PR: bugs, ADRs, camadas, RLS, offline, escopo, DoD | — (só lê) |
 | `qa` | reproduzir bug e validar aceite no app (celular, tablet, offline) | — (só relatório) |
 
-Fluxo de uma fatia: `planner` → `backend-engineer` → `core-engineer` → `ui-engineer` → `reviewer` → `qa` → lead (gate + PR). Bug: `qa` reproduz → engenheiro da camada corrige com teste → `reviewer` → lead.
+Fluxo de uma fatia: `planner` → `backend-engineer` → `core-engineer` → `ui-engineer` → lead roda `/ponytail:ponytail-review` no diff e o dono aplica os cortes → `reviewer` → `qa` → lead (gate + PR). Bug: `qa` reproduz → engenheiro da camada corrige com teste → `reviewer` → lead.
 
 - Cada agente trabalha só dentro do escopo atribuído e não altera arquivos ou áreas de outro agente sem coordenação explícita.
 - Antes de iniciar trabalho paralelo, o lead identifica os arquivos compartilhados (ex.: `src/db/database.ts`, `eslint.config.js`, `package.json`, `package-lock.json`, `docs/adr/README.md`) e evita edições concorrentes no mesmo arquivo: um único agente é dono de cada um.

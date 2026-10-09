@@ -153,7 +153,7 @@ The following are frozen as the current architectural baseline:
 
 ## 8. Synchronization boundary
 
-Target entities use a dedicated `targetSyncQueue` and `TargetSyncEngine`. The legacy `SyncEngine` and `BandSyncEngine` remain unchanged during migration. Local-first repositories persist target entities to Dexie first and queue Supabase synchronization; Organization creation uses the existing secure creation RPC.
+Target entities use a dedicated `targetSyncQueue` and `TargetSyncEngine`. `SyncEngine` syncs only `songs`; the legacy `BandSyncEngine` was removed in B1 (ADR-059). Local-first repositories persist target entities to Dexie first and queue Supabase synchronization; Organization creation uses the existing secure creation RPC.
 
 See ADR-026 for the synchronization contract.
 
@@ -239,7 +239,9 @@ No destructive removal of legacy Band persistence was performed in this slice.
 Legacy Band list/detail routes are now compatibility redirects into the canonical Organization/Team flow. Existing Band invite URLs remain valid for backward compatibility, but accepted invites land directly on the canonical Team route. Legacy Band persistence, sync, RPCs and Stage runtime remain intact until the migration gates are cleared.
 
 
-### Legacy Dexie coexistence and removal gate (ADR-041)
+### Legacy Dexie coexistence and removal gate (ADR-041) — encerrado
+
+> Histórico. O ADR-059 encerrou este gate: a `version(11)` do Dexie removeu as stores legadas (B1, PR 5).
 
 The local-first migration now explicitly separates canonical target stores from legacy Band compatibility stores. Target writes use the target repositories and `targetSyncQueue`; legacy Band stores remain available for compatibility routes, legacy Stage fallback and existing offline data.
 
