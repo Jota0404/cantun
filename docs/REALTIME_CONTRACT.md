@@ -90,7 +90,7 @@ JSON inválido, `type` desconhecido ou campo fora do formato geram `error invali
 
 ## 3. Autorização
 
-**Quem assina `stage-session:<id>`:** quem passa em `app.can_subscribe_stage_session(<id>)`, ou seja, o membro da organização dona do serviço da sessão, com qualquer papel. É a mesma regra de `get_target_stage_snapshot` e da antiga política "Stage target members can receive realtime". Usuário de outra organização, sem vínculo ou anônimo recebe `false`. Sessão `ended` pode ser assinada, para leitura do estado final.
+**Quem assina `stage-session:<id>`:** quem passa em `app.can_subscribe_stage_session(<id>)`, ou seja, quem tem `stage.run` na organização dona do serviço da sessão (B2, `0004_team_roles.sql`): membro ativo na organização, com qualquer papel; quem está `inactive` em todas as equipes é negado (N11). É a mesma regra de `get_target_stage_snapshot` e da antiga política "Stage target members can receive realtime". Usuário de outra organização, sem vínculo ou anônimo recebe `false`. Sessão `ended` pode ser assinada, para leitura do estado final.
 
 **O que cada papel envia pelo WebSocket:** todos enviam o mesmo conjunto (`subscribe`, `unsubscribe`, `presence`, `ping`). O MD muta o estado só por `POST /rpc/target_stage_*`. O banco garante que só o MD atual muta, via `private.assert_stage_operator` e os triggers `*_operator_guard`. O servidor do realtime não reimplementa essa regra (ADR-059 §3).
 
@@ -113,7 +113,7 @@ grant execute on function app.can_subscribe_stage_session(uuid) to cantum_user;
 
 - **Onde roda:** dentro de `asUser(pool, userId, …)` (`server/src/db.ts`), como as rotas HTTP. Fica no schema `app`, então não entra na allowlist de `/rpc`: `server/src/catalog.ts` só lista funções de `public`.
 - **Quando roda:** no `subscribe` e na revalidação de 60 s. Além disso, cada `snapshot` é lido por `get_target_stage_snapshot` com a identidade do assinante, então toda entrega de estado passa de novo pela autorização do banco.
-- **Membro `inactive`:** ver a Pendência 3.
+- **Membro `inactive`:** negado no `subscribe` e na revalidação de 60 s (quem é inativado perde a assinatura com `forbidden`); `get_target_stage_snapshot`, `get_service_stage_session` e `get_service_stage_songs` exigem `stage.run` também. A função do bloco SQL acima é a versão do `0003`; o `0004` a substitui.
 
 ## 4. Consistência
 
@@ -146,7 +146,7 @@ grant execute on function app.can_subscribe_stage_session(uuid) to cantum_user;
 | Campo | Origem | Validação no servidor |
 |---|---|---|
 | `userId` | **Sessão do socket** | — |
-| `displayName` | **Sessão do socket** (servidor) | Lido do banco na abertura da conexão: hoje o prefixo do e-mail; no B2, `app.users.display_name` (obrigatório no cadastro, 1–80 caracteres) |
+| `displayName` | **Sessão do socket** (servidor) | `app.users.display_name` (obrigatório no cadastro, 1–80 caracteres), lido do banco na abertura da conexão. Usuário inexistente fecha com 4401 |
 | `musicalRole` | Cliente | Um dos valores de `team_musical_functions_musical_function_check` (`vocals` … `other`); fora disso vira `other` |
 | `readiness` | Cliente | `ready` ou `waiting`; fora disso vira `waiting` |
 
@@ -296,10 +296,6 @@ Os testes de cliente mockam `src/platform/realtime.ts`, sem tocar no Supabase. O
    - **Recomendação:** o lead anota no índice que o ADR-047 teve o "Realtime alterado pelo ADR-059", sem editar o ADR.
 2. **Fonte do nome exibido na presença (decidido, 2026-10-09).**
    - O servidor lê o nome da sessão (§5); o cliente não envia `displayName`.
-   - Até o B2: prefixo do e-mail, visível só para membros da mesma organização.
-   - B2 (`docs/specs/VS-01-equipe.md`): `app.users.display_name not null`, obrigatório no `POST /auth/signup`; `displayNameFor` (`server/src/realtime.ts`) passa a ler essa coluna. Sem fallback.
-3. **Membro `inactive` no Stage (dependência do B2).**
-   - Hoje `can_subscribe_stage_session` e `get_target_stage_snapshot` exigem só o vínculo com a organização.
-   - O `PERMISSIONS.md` (§4, N11) nega o Stage a quem está `inactive` em todas as equipes.
-   - **Recomendação:** a migration do B2 que cria `app.has_permission` passa as duas funções a exigir `stage.run`, no mesmo PR, com o teste N11.
+   - B2 (`docs/specs/VS-01-equipe.md`, `0004_team_roles.sql`): `app.users.display_name not null`, obrigatório no `POST /auth/signup`; `displayNameFor` (`server/src/realtime.ts`) lê essa coluna. Sem fallback; usuário inexistente fecha com 4401.
+3. **Membro `inactive` no Stage (resolvido no B2).** `0004_team_roles.sql` passa `can_subscribe_stage_session`, `get_target_stage_snapshot`, `get_service_stage_session` e `get_service_stage_songs` a exigir `stage.run` (N11), valendo no `subscribe` e na revalidação de 60 s.
 4. **Número da migration.** O SQL do B2 também vai para `db/migrations/`. Use o próximo número livre no momento do merge.
