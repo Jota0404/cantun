@@ -1,44 +1,34 @@
 #!/usr/bin/env bash
-# CANTUM — aplica todas as migrations em um PostgreSQL padrão (ADR-049).
+# CANTUM — verifica o schema em um PostgreSQL padrão (ADR-059).
 #
-# Cria um banco descartável, aplica o shim da plataforma Supabase
-# (scripts/db/platform-shim.sql) e, em ordem, cada arquivo de
-# supabase/migrations em sua própria transação. Falha se qualquer
-# migration não puder ser aplicada.
+# Cria um banco descartável, aplica db/migrations com scripts/db/migrate.sh,
+# confere que uma segunda execução não aplica nada e roda os testes SQL de
+# db/tests (cada arquivo falha com exceção se uma verificação não passar).
 #
 # Variáveis (padrões para o service container do CI):
 #   PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=postgres
 #   VERIFY_DB=cantum_migrations_check
-#   KEEP_GOING=1   continua após falhas e lista todas (padrão: para na primeira)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MIGRATIONS_DIR="$ROOT/supabase/migrations"
-SHIM="$ROOT/scripts/db/platform-shim.sql"
 DB="${VERIFY_DB:-cantum_migrations_check}"
-KEEP_GOING="${KEEP_GOING:-0}"
 
 export PGHOST="${PGHOST:-localhost}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}"
 PSQL=(psql -X -q -v ON_ERROR_STOP=1)
 
 "${PSQL[@]}" -d postgres -c "drop database if exists \"$DB\"" -c "create database \"$DB\""
-"${PSQL[@]}" -d "$DB" -f "$SHIM" 2>&1 | grep -v -E 'wal_level|HINT' || true
 
-total=0
-failed=0
-for file in "$MIGRATIONS_DIR"/*.sql; do
-  total=$((total + 1))
-  name="$(basename "$file")"
-  if output="$("${PSQL[@]}" -d "$DB" --single-transaction -f "$file" 2>&1)"; then
-    echo "ok    $name"
-  else
-    failed=$((failed + 1))
-    echo "FAIL  $name"
-    echo "$output" | grep -E 'ERROR|LINE' | sed 's/^/      /' | head -4
-    [ "$KEEP_GOING" = "1" ] || break
-  fi
+"$ROOT/scripts/db/migrate.sh" "$DB"
+
+second_run="$("$ROOT/scripts/db/migrate.sh" "$DB")"
+if [ -n "$second_run" ]; then
+  echo "FAIL  a segunda execução do migrate.sh aplicou migrations de novo:"
+  echo "$second_run"
+  exit 1
+fi
+echo "ok    migrate.sh é idempotente"
+
+for test in "$ROOT"/db/tests/*.sql; do
+  "${PSQL[@]}" -d "$DB" -f "$test"
+  echo "ok    $(basename "$test")"
 done
-
-echo
-echo "Migrations aplicadas: $((total - failed))/$total (falhas: $failed)"
-[ "$failed" -eq 0 ]
