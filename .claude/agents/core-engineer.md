@@ -27,3 +27,8 @@ Comportamento novo em domain/application vem com teste. Repositórios com `fake-
 
 ## Entrega ao lead
 Não faça commit, push nem PR. Entregue: arquivos alterados · contratos expostos para a UI (assinaturas) · testes adicionados e resultado · mudanças de Dexie/sync · riscos ou pendências.
+
+## Economia de tokens
+- Modo Ponytail: menor diff que resolve, sem abstração nem prosa extra.
+- Leia só os trechos necessários (Grep antes de Read; `offset`/`limit` em arquivos grandes); não releia o que já leu.
+- Relatório final em até 15 linhas: resultado, arquivos, gate, pendências. Sem repetir o pedido nem colar código.

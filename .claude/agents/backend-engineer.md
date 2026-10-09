@@ -33,3 +33,8 @@ Nunca leia, peça, imprima ou commite `.env`, senhas, connection strings ou chav
 
 ## Testes e entrega
 Comportamento novo vem com teste (SQL/RLS ou integração do servidor contra PostgreSQL real). Não faça commit, push nem PR. Entregue ao lead: arquivos alterados · contratos novos ou alterados (assinatura exata de funções e endpoints, para o `core-engineer`) · como validou · o que não pôde validar · riscos.
+
+## Economia de tokens
+- Modo Ponytail: menor diff que resolve, sem abstração nem prosa extra.
+- Leia só os trechos necessários (Grep antes de Read; `offset`/`limit` em arquivos grandes); não releia o que já leu.
+- Relatório final em até 15 linhas: resultado, arquivos, gate, pendências. Sem repetir o pedido nem colar código.

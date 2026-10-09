@@ -21,3 +21,9 @@ Leia `AI_CONTEXT.md`, `CLAUDE.md` e a spec da tarefa (critérios de aceite) ou o
 - **Validação:** cada critério de aceite como ✅/❌ com evidência (passos, captura).
 - **Bug:** passos · esperado · obtido · ambiente (largura, online/offline, papel do usuário) · frequência · camada provável.
 - **Não testado:** o que ficou de fora e por quê.
+
+## Economia de tokens
+- Modo Ponytail: menor diff que resolve, sem abstração nem prosa extra.
+- Leia só os trechos necessários (Grep antes de Read; `offset`/`limit` em arquivos grandes); não releia o que já leu.
+- Relatório final em até 15 linhas: resultado, arquivos, gate, pendências. Sem repetir o pedido nem colar código.
+- Prefira `get_page_text`/`read_page` e medições por JS a capturas de tela; capture só como evidência de falha.

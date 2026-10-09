@@ -74,14 +74,16 @@ Legado (`domain/bands`, `bandSyncEngine`, `bandStageRealtime`, `Setlist*`, rotas
 
 Equipe em `.claude/agents/`. A sessão principal é o **lead**: fatia o trabalho, delega, integra, roda o gate e cuida do Git. O lead é dono de `package*.json`, `eslint.config.js`, configs de build/teste, `.github/`, `CLAUDE.md`, `AI_CONTEXT.md`, `README.md` e índices (`docs/adr/README.md`, `docs/DELIVERY_PLAN.md`, `docs/blocks/00-INDICE.md`).
 
-| Agente | Quando usar | Dono de |
-|---|---|---|
-| `planner` | Feature Spec, ADR `Proposed`, checagem de fronteira e rastreabilidade antes de codar | `docs/specs/`, `docs/blocks/B*.md`, ADRs novos, docs de contrato (`PERMISSIONS.md`, `REALTIME_CONTRACT.md`) |
-| `backend-engineer` | schema, RLS, funções SQL, migrations e o servidor Node.js | `db/`, `supabase/`, `scripts/db/`, `server/` |
-| `core-engineer` | domínio, casos de uso, Dexie, sync e cliente remoto | `src/domain`, `src/application`, `src/db` (inclui `database.ts`), `src/sync`, `src/platform`, `src/lib`, `src/auth` (lógica) |
-| `ui-engineer` | páginas, componentes, CSS, rotas, acessibilidade, Modo Palco (só correções, D6) | `src/pages`, `src/components`, `src/App.tsx`, CSS |
-| `reviewer` | revisão de diff antes do PR: bugs, ADRs, camadas, RLS, offline, escopo, DoD | — (só lê) |
-| `qa` | reproduzir bug e validar aceite no app (celular, tablet, offline) | — (só relatório) |
+| Agente | Quando usar | Dono de | Esforço |
+|---|---|---|---|
+| `planner` | Feature Spec, ADR `Proposed`, checagem de fronteira e rastreabilidade antes de codar | `docs/specs/`, `docs/blocks/B*.md`, ADRs novos, docs de contrato (`PERMISSIONS.md`, `REALTIME_CONTRACT.md`) | médio |
+| `backend-engineer` | schema, RLS, funções SQL, migrations e o servidor Node.js | `db/`, `supabase/`, `scripts/db/`, `server/` | médio (alto só em auth/RLS novos) |
+| `core-engineer` | domínio, casos de uso, Dexie, sync e cliente remoto | `src/domain`, `src/application`, `src/db` (inclui `database.ts`), `src/sync`, `src/platform`, `src/lib`, `src/auth` (lógica) | baixo |
+| `ui-engineer` | páginas, componentes, CSS, rotas, acessibilidade, Modo Palco (só correções, D6) | `src/pages`, `src/components`, `src/App.tsx`, CSS | baixo |
+| `reviewer` | revisão de diff antes do PR: bugs, ADRs, camadas, RLS, offline, escopo, DoD | — (só lê) | médio |
+| `qa` | reproduzir bug e validar aceite no app (celular, tablet, offline) | — (só relatório) | baixo |
+
+O lead passa o esforço da tabela em cada chamada de agente e só sobe um nível com motivo registrado. Todos seguem a seção "Economia de tokens" do próprio arquivo.
 
 Fluxo de uma fatia: `planner` → `backend-engineer` → `core-engineer` → `ui-engineer` → `reviewer` → `qa` → lead (gate + PR). Bug: `qa` reproduz → engenheiro da camada corrige com teste → `reviewer` → lead.
 
