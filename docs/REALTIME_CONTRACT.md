@@ -13,7 +13,7 @@ Cobre só o Stage canônico (`StageSession`, ADR-047). O legado `band-stage:<id>
 - Um tipo de tópico: `stage-session:<StageSession.id>`.
 - O servidor envia só o que vem do banco (snapshot completo do estado) e a presença. O cliente só assina tópicos e publica a própria presença.
 - Mutação continua só por `POST /rpc/target_stage_*`. O WebSocket não tem mensagem de mutação.
-- A presença fica em memória no servidor e a identidade vem da sessão, nunca do payload.
+- A presença fica em memória no servidor. Identidade e nome exibido vêm da sessão, nunca do payload.
 
 ## 1. Transporte e autenticação
 
@@ -25,7 +25,7 @@ Cobre só o Stage canônico (`StageSession`, ADR-047). O legado `band-stage:<id>
 | Origem | `Origin` é obrigatório e deve ser igual a `APP_ORIGIN`. Caso contrário, **HTTP 403 sem upgrade** (defesa contra cross-site WebSocket hijacking). O hook atual de `server/src/app.ts` só confere a origem em métodos de escrita, então a rota `/realtime` confere por conta própria. |
 | Mesmo site | Front e API no mesmo site (ADR-059 §5). Em desenvolvimento, use o mesmo host nos dois (`localhost:5173` e `localhost:8787`). `127.0.0.1` e `localhost` são sites diferentes: o cookie `SameSite=Lax` não vai no handshake nem no `fetch`. |
 | Revalidação | A cada 60 s, por conexão, o servidor revalida a sessão (logout, reset de senha, expiração) e a autorização de cada tópico assinado (§3). Sessão inválida fecha com **4401**. Tópico não autorizado gera `error forbidden`, e a assinatura e a presença daquele tópico caem. |
-| Heartbeat | O cliente envia `ping` a cada 25 s e o servidor responde `pong`. Sem `pong` em 10 s, o cliente fecha e reconecta. O servidor encerra a conexão que passa 60 s sem enviar nenhuma mensagem. Em `visibilitychange` (volta ao primeiro plano) e no evento `online`, o cliente manda `ping` na hora, ou reconecta se o socket não estiver aberto. |
+| Heartbeat | O cliente envia `ping` a cada 25 s e o servidor responde `pong`. Sem `pong` em 10 s, o cliente fecha e reconecta. O servidor encerra com **1001** a conexão que passa 60 s sem enviar nenhuma mensagem (o cliente trata como queda e reconecta). Em `visibilitychange` (volta ao primeiro plano) e no evento `online`, o cliente manda `ping` na hora, ou reconecta se o socket não estiver aberto. |
 | Reconexão | Backoff de 0,5 s, 1 s, 2 s, 4 s e 8 s, com teto de 10 s e jitter de ±20%. O contador zera quando chega um `snapshot`. Depois de reconectar, o cliente reassina todos os tópicos e reenvia a última presença de cada um. Não há reconexão depois de **4401** nem depois de fechamento pelo próprio cliente (1000). |
 | Multiplexação | Uma conexão por aba, com até 4 tópicos (§6.3). O cliente pode fechar o socket (1000) quando não sobra nenhum tópico. |
 
@@ -33,7 +33,7 @@ O servidor processa as mensagens de cada conexão **em ordem, uma por vez**. Ass
 
 ## 2. Mensagens
 
-Frames de texto com JSON, no formato `{ "type": "...", ... }`. Os tópicos seguem `^stage-session:<uuid>$`.
+Frames de texto com JSON, no formato `{ "type": "...", ... }`. Os tópicos seguem `^stage-session:<uuid>$`, com o uuid **em minúsculas** (`[0-9a-f]`, formato 8-4-4-4-12), como o PostgreSQL e `crypto.randomUUID()` o produzem. Maiúsculas geram `error invalid_topic`; o cliente não normaliza, envia o id como recebeu do banco.
 
 ### 2.1 Cliente → servidor
 
@@ -41,10 +41,10 @@ Frames de texto com JSON, no formato `{ "type": "...", ... }`. Os tópicos segue
 |---|---|---|
 | `subscribe` | `topic` | Autoriza (§3), registra e responde com `snapshot` seguido de `presence`. Repetir a mensagem é idempotente: o servidor reenvia os dois. |
 | `unsubscribe` | `topic` | Remove a assinatura e a presença desta conexão no tópico, e os demais assinantes recebem `presence`. É idempotente e não tem resposta. |
-| `presence` | `topic`, `displayName`, `musicalRole`, `readiness` | Substitui a presença desta conexão no tópico (§5) e o servidor envia `presence` a todos os assinantes. Exige assinatura ativa. |
+| `presence` | `topic`, `musicalRole`, `readiness` | Substitui a presença desta conexão no tópico (§5) e o servidor envia `presence` a todos os assinantes. Exige assinatura ativa. |
 | `ping` | — | O servidor responde `pong`. |
 
-JSON inválido, `type` desconhecido ou campo fora do formato geram `error invalid_message`, e a conexão continua. Campos extras são ignorados. **`userId` e `isMd` nunca são lidos do payload.**
+JSON inválido, `type` desconhecido ou campo fora do formato geram `error invalid_message`, e a conexão continua. Campos extras são ignorados. Mensagem binária gera `error invalid_message`. **`userId`, `displayName` e `isMd` nunca são lidos do payload.**
 
 ### 2.2 Servidor → cliente
 
@@ -62,7 +62,7 @@ JSON inválido, `type` desconhecido ou campo fora do formato geram `error invali
 { "type": "snapshot", "topic": "stage-session:6f1c…",
   "snapshot": { "session": { "id": "6f1c…", "service_id": "…", "md_user_id": "…", "status": "live", "…": "…" },
                 "state": { "stage_session_id": "6f1c…", "revision": 12, "current_index": 2, "is_running": true, "…": "…" } } }
-{ "type": "presence", "topic": "stage-session:6f1c…", "displayName": "Ana", "musicalRole": "vocals", "readiness": "ready" }
+{ "type": "presence", "topic": "stage-session:6f1c…", "musicalRole": "vocals", "readiness": "ready" }
 { "type": "presence", "topic": "stage-session:6f1c…",
   "participants": [{ "userId": "…", "displayName": "Ana", "musicalRole": "vocals", "readiness": "ready" }] }
 ```
@@ -81,7 +81,7 @@ JSON inválido, `type` desconhecido ou campo fora do formato geram `error invali
 | Fechamento | Motivo | Reconecta? |
 |---|---|---|
 | 1000 | Fechamento normal pelo cliente | Não |
-| 1001 | Servidor desligando ou reiniciando | Sim |
+| 1001 | Servidor desligando ou reiniciando, ou 60 s sem mensagem do cliente (inatividade, §1) | Sim |
 | 1006 | Queda de rede (sem frame de fechamento) | Sim |
 | 1008 | Excesso de mensagens (§6.3) | Sim, com backoff |
 | 1009 | Mensagem acima de 4 KiB | Sim, com backoff |
@@ -146,12 +146,12 @@ grant execute on function app.can_subscribe_stage_session(uuid) to cantum_user;
 | Campo | Origem | Validação no servidor |
 |---|---|---|
 | `userId` | **Sessão do socket** | — |
-| `displayName` | Cliente | `trim`, de 1 a 80 caracteres; fora disso vira `"Participante"` |
+| `displayName` | **Sessão do socket** (servidor) | Lido do banco na abertura da conexão: hoje o prefixo do e-mail; no B2, `app.users.display_name` (obrigatório no cadastro, 1–80 caracteres) |
 | `musicalRole` | Cliente | Um dos valores de `team_musical_functions_musical_function_check` (`vocals` … `other`); fora disso vira `other` |
 | `readiness` | Cliente | `ready` ou `waiting`; fora disso vira `waiting` |
 
 - **`isMd` não trafega.** O cliente calcula `userId === snapshot.session.md_user_id`, como já faz hoje. Por isso o servidor sempre envia o `snapshot` antes da primeira `presence`.
-- **Identidade:** o `userId` é sempre o da sessão do socket. O servidor monta a entrada só com os três campos da tabela. Hoje, qualquer membro pode publicar presença com o `userId` de outra pessoa, inclusive o do MD (§7). O teste RT-10 cobre esse caso.
+- **Identidade:** `userId` e `displayName` são sempre os da sessão do socket; um `displayName` enviado pelo cliente é ignorado, pelo mesmo motivo do `userId`: ninguém se passa por outro. Do payload, o servidor lê só `musicalRole` e `readiness`. O nome é lido uma vez por conexão: uma troca de nome aparece na próxima conexão. Hoje, qualquer membro pode publicar presença com o `userId` de outra pessoa, inclusive o do MD (§7). O teste RT-10 cobre esse caso.
 - **Escopo:** a presença existe por conexão e tópico. Só aparece quem enviou `presence`; assinar não basta. O cliente não envia presença em sessão `ended`, como hoje.
 - **Deduplicação:** a lista é indexada por `userId`. Várias conexões do mesmo usuário (abas, aparelhos) viram uma entrada só, a do `presence` recebido por último. O usuário sai da lista quando a última conexão dele deixa o tópico.
 - **Limpeza:** `unsubscribe`, fechamento do socket, timeout de heartbeat, 4401 e `forbidden` removem a presença da conexão e disparam `presence` para quem fica.
@@ -194,7 +194,7 @@ create trigger stage_session_states_notify
 - **`LISTEN`:** um `pg.Client` dedicado, fora do pool e com `keepAlive`, faz `LISTEN stage_state_changed`. Em erro ou fim de conexão, reconecta com backoff de 1 s a 30 s e faz o resync (§4).
 - **Estado em memória:**
   - `topics: Map<topic, Set<Conn>>`;
-  - `Conn = { userId, tokenHash, subs: Map<topic, { lastRevision, presence? }>, lastMessageAt }`.
+  - `Conn = { userId, tokenHash, displayName, subs: Map<topic, { lastRevision, presence? }>, queue }` (o `displayName` é lido do banco na abertura, antes de qualquer mensagem da fila).
 - **`subscribe`:**
   1. valida o formato e o limite de tópicos;
   2. roda `can_subscribe_stage_session` (falso gera `forbidden`);
@@ -221,7 +221,6 @@ create trigger stage_session_states_notify
 | Mensagens recebidas | 30 a cada 10 s, por conexão | fecha com 1008 |
 | Tópicos | 4 por conexão | `error too_many_topics` |
 | Conexões | 10 por usuário | fecha a nova com 4429 |
-| `displayName` | 80 caracteres | normaliza (§5) |
 | Handshake | limite global do servidor (300/min por IP) | HTTP 429 |
 
 ### 6.4 Logs (NFR-008)
@@ -240,7 +239,7 @@ create trigger stage_session_states_notify
 | `postgres_changes` em `stage_session_states` + publicação `supabase_realtime` | Trigger `pg_notify` + `LISTEN`, e o servidor envia o `snapshot` |
 | Broadcast `stage.*` publicado pelo cliente do MD depois da RPC (`publishStageEvent`) | **Removido.** Só o servidor emite estado, sempre lido do banco |
 | `get_target_stage_snapshot` por RPC a cada evento | O snapshot chega pelo socket. A RPC fica para "Sincronizar" e para o retorno dos comandos do MD |
-| `channel.track({ userId, isMd, … })` + `presenceState()` / `sync`/`join`/`leave` | `presence` sem `userId`/`isMd`, e o servidor envia a lista completa |
+| `channel.track({ userId, isMd, … })` + `presenceState()` / `sync`/`join`/`leave` | `presence` sem `userId`/`displayName`/`isMd`, e o servidor envia a lista completa |
 | Status `SUBSCRIBED` / `CHANNEL_ERROR` / `TIMED_OUT` / `CLOSED` | `StageConnectionStatus` (§4) e códigos de fechamento (§2.3) |
 | Heartbeat do Phoenix | `ping` / `pong` |
 
@@ -268,11 +267,11 @@ create trigger stage_session_states_notify
 | RT-07 | server | MD chama `target_stage_next` por `/rpc` | todos os assinantes recebem `snapshot` com `revision + 1`. A mesma RPC de um não-MD responde 400 e ninguém recebe nada |
 | RT-08 | server | Cliente `pg` em `LISTEN stage_state_changed` durante um comando | payload só com `stage_session_id` e `revision`. `UPDATE` que não muda a `revision` não notifica |
 | RT-09 | server | Várias RPCs em sequência rápida | cada conexão recebe `revision` estritamente crescente |
-| RT-10 | server | `presence` com `userId`/`isMd` de outra pessoa, ou com campos inválidos | a lista mostra o `userId` da sessão, com os campos normalizados (§5) |
+| RT-10 | server | `presence` com `userId`/`displayName`/`isMd` de outra pessoa, ou com campos inválidos | a lista mostra o `userId` e o `displayName` da sessão, com `musicalRole`/`readiness` normalizados (§5) |
 | RT-11 | server | Duas conexões do mesmo usuário | uma entrada (a mais recente). Fechar uma mantém a entrada; fechar a outra remove, e os demais recebem a lista nova |
 | RT-12 | server | `unsubscribe`; `presence` sem `subscribe` | a presença sai da lista; `error not_subscribed` |
-| RT-13 | server | Mensagem acima de 4 KiB; quinto tópico; excesso de mensagens; 11ª conexão; JSON inválido | 1009; `too_many_topics`; 1008; 4429; `invalid_message`, com a conexão ativa |
-| RT-14 | server | `ping`; silêncio acima do timeout | `pong`; o servidor encerra a conexão e limpa a presença |
+| RT-13 | server | Mensagem acima de 4 KiB; quinto tópico; excesso de mensagens; 11ª conexão; JSON inválido; tópico com uuid em maiúsculas | 1009; `too_many_topics`; 1008; 4429; `invalid_message`, com a conexão ativa; `invalid_topic` |
+| RT-14 | server | `ping`; silêncio acima do timeout | `pong`; o servidor fecha com 1001 e limpa a presença |
 | RT-15 | server | Logout ou reset de senha com socket aberto; membership removida | 4401 na revalidação; `forbidden`, e a assinatura cai |
 | RT-16 | server | `pg_terminate_backend` na conexão de `LISTEN` e comando durante a queda | depois da reconexão, os assinantes recebem o snapshot novo |
 | RT-17 | server | `subscribe` seguido de `presence` sem esperar resposta | processados em ordem; a presença é aceita |
@@ -281,7 +280,7 @@ create trigger stage_session_states_notify
 | RT-22 | client | Queda (1006) | `RECONNECTING`, backoff, reassinatura, reenvio da última presença, `SUBSCRIBED` |
 | RT-23 | client | 4401; `forbidden` | não reconecta, `ERROR`; para o tópico |
 | RT-24 | client | `pong` não chega em 10 s | fecha e reconecta |
-| RT-25 | client | Mensagem `presence` recebida | participantes com `isMd` calculado do `md_user_id` do snapshot, em ordem. O payload enviado não contém `userId` |
+| RT-25 | client | Mensagem `presence` recebida | participantes com `isMd` calculado do `md_user_id` do snapshot, em ordem. O payload enviado não contém `userId` nem `displayName` |
 | RT-26 | client | Retorno da RPC do MD e, depois, snapshot com a mesma `revision` | aplicado uma vez, sem regressão |
 | RT-27 | client | Snapshot com `status = ended` | a página desconecta (comportamento atual) |
 | RT-28 | client | Sem rede | o último estado continua na tela e nada é enfileirado (ADR-042) |
@@ -295,11 +294,10 @@ Os testes de cliente mockam `src/platform/realtime.ts`, sem tocar no Supabase. O
    - O texto: o ADR-047 §Realtime e o ADR-043 descrevem broadcast publicado pelo cliente e `postgres_changes`. Este contrato elimina o broadcast do cliente.
    - Por que não é conflito: o ADR-059 §6 delega o realtime a este documento, e o ADR-043 já está marcado `superseded`.
    - **Recomendação:** o lead anota no índice que o ADR-047 teve o "Realtime alterado pelo ADR-059", sem editar o ADR.
-2. **Fonte do nome exibido na presença (decisão do owner).**
-   - Hoje o nome vem de `user_metadata.display_name`, que sai junto com o Supabase. O schema novo (`app.users`) não tem campo de nome.
-   - O contrato aceita `displayName` enviado pelo cliente, com a identidade vinda da sessão.
-   - O fallback atual é o prefixo do e-mail, que expõe esse prefixo aos membros da organização.
-   - **Recomendação:** criar `display_name` em `app.users` (ou em um perfil) no B2. Até lá, manter o prefixo do e-mail, que só membros da mesma organização veem. A alternativa, `"Participante"` para todos, deixa o painel de readiness inútil para o MD.
+2. **Fonte do nome exibido na presença (decidido, 2026-10-09).**
+   - O servidor lê o nome da sessão (§5); o cliente não envia `displayName`.
+   - Até o B2: prefixo do e-mail, visível só para membros da mesma organização.
+   - B2 (`docs/specs/VS-01-equipe.md`): `app.users.display_name not null`, obrigatório no `POST /auth/signup`; `displayNameFor` (`server/src/realtime.ts`) passa a ler essa coluna. Sem fallback.
 3. **Membro `inactive` no Stage (dependência do B2).**
    - Hoje `can_subscribe_stage_session` e `get_target_stage_snapshot` exigem só o vínculo com a organização.
    - O `PERMISSIONS.md` (§4, N11) nega o Stage a quem está `inactive` em todas as equipes.
