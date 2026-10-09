@@ -27,3 +27,9 @@ Leia `AI_CONTEXT.md`, `CLAUDE.md`, a spec da tarefa e os ADRs que o diff toca. P
 
 ## Entrega
 Lista ordenada por gravidade: `[BLOQUEANTE|ALTA|MÉDIA|BAIXA] arquivo:linha — problema — cenário que falha — correção sugerida`. Só achados com evidência; marque como "a confirmar" o que for incerto. Termine com o veredito **APROVADO**, **APROVADO COM RESSALVAS** ou **BLOQUEADO**, e com o que não foi possível verificar.
+
+## Economia de tokens
+- Modo Ponytail: menor diff que resolve, sem abstração nem prosa extra.
+- Leia só os trechos necessários (Grep antes de Read; `offset`/`limit` em arquivos grandes); não releia o que já leu.
+- Relatório final em até 15 linhas: resultado, arquivos, gate, pendências. Sem repetir o pedido nem colar código.
+- Revise só o diff e o contexto imediato; achado sem evidência não entra.

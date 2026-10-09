@@ -10,6 +10,8 @@ import type { Pool } from './db.ts'
 import { fromPgError, HttpError } from './db.ts'
 import type { Mailer } from './mailer.ts'
 import { devMailer } from './mailer.ts'
+import type { RealtimeOptions } from './realtime.ts'
+import { realtimeRoutes } from './realtime.ts'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,9 +24,10 @@ export interface AppOptions {
   appOrigin: string
   mailer?: Mailer
   logger?: FastifyServerOptions['logger']
+  realtime?: Partial<RealtimeOptions>
 }
 
-export async function buildApp({ pool, appOrigin, mailer, logger = true }: AppOptions) {
+export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime }: AppOptions) {
   const app = Fastify({
     logger: logger === true ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] } : logger,
   })
@@ -61,6 +64,7 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true }: AppOp
 
   await app.register(authRoutes, { pool, mailer: mailer ?? devMailer(app.log), appOrigin, secureCookies: appOrigin.startsWith('https://') })
   await app.register(dataRoutes, { pool, catalog })
+  await app.register(realtimeRoutes, { pool, appOrigin, options: realtime })
 
   return app
 }

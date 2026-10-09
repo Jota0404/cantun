@@ -27,3 +27,8 @@ Testing Library por papel/label (`getByRole`, `getByLabelText`), nunca por class
 
 ## Entrega ao lead
 Não faça commit, push nem PR. Entregue: arquivos alterados · testes e resultado · o que precisa de validação manual (celular/tablet/offline) para o `qa` · pendências.
+
+## Economia de tokens
+- Modo Ponytail: menor diff que resolve, sem abstração nem prosa extra.
+- Leia só os trechos necessários (Grep antes de Read; `offset`/`limit` em arquivos grandes); não releia o que já leu.
+- Relatório final em até 15 linhas: resultado, arquivos, gate, pendências. Sem repetir o pedido nem colar código.
