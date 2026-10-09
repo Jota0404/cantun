@@ -1,6 +1,7 @@
 import type { SalmodiaDatabase } from '../db/database'
 import type { Song } from '../domain/songs/song'
 import { selectRows, updateRows, upsertRows } from '../platform/sync'
+import { notifyRemoteDataApplied } from './remoteChanges'
 
 type EntityName = 'songs'
 type Entity = Song
@@ -66,6 +67,7 @@ export class SyncEngine {
       if (navigator.onLine) {
         await this.pushPending(userId)
         await this.pull(userId)
+        notifyRemoteDataApplied()
       }
     } finally {
       this.syncing = false

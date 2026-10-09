@@ -43,6 +43,13 @@ describe('platform auth', () => {
     expect(auth.getCurrentUser()).toBeNull()
   })
 
+  it('resends the verification e-mail', async () => {
+    apiRequest.mockResolvedValueOnce(undefined)
+    const auth = await loadAuth()
+    await auth.resendVerification()
+    expect(apiRequest).toHaveBeenCalledWith('POST', '/auth/verify-email/resend')
+  })
+
   it('keeps the user when logout cannot reach the server', async () => {
     apiRequest.mockResolvedValueOnce({ user })
     const auth = await loadAuth()

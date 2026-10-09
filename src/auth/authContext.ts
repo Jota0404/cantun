@@ -14,6 +14,8 @@ export interface AuthContextValue {
   refresh: () => Promise<void>
   /** Confirma o token do link de verificação e atualiza `user.emailVerified`. Lança `ApiError` se o token for inválido. */
   verifyEmail: (token: string) => Promise<void>
+  /** Reenvia o e-mail de verificação do usuário logado. */
+  resendVerification: () => Promise<void>
   /** Sempre resolve (o servidor não revela se a conta existe). */
   requestPasswordReset: (email: string) => Promise<void>
   /** Troca a senha; o servidor derruba todas as sessões, então `user` vira `null`. */

@@ -1,6 +1,5 @@
 import type { Organization } from '../../domain/organizations/organization'
 import { rpc } from '../../platform/rpc'
-import { db } from '../../db/database'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 
 export async function createOrganization(name: string, id = crypto.randomUUID()): Promise<Organization> {
@@ -9,8 +8,7 @@ export async function createOrganization(name: string, id = crypto.randomUUID())
   const row = Array.isArray(data) ? data[0] : data
   if (!row) throw new Error('Organização não foi criada.')
   const organization: Organization = { id: String(row.id), name: String(row.name), createdAt: String(row.created_at ?? now), updatedAt: String(row.updated_at ?? now) }
-  await db.transaction('rw', db.organizations, db.organizationMemberships, async () => {
-    await organizationRepository.create(organization)
-  })
+  // Sem transação: o repositório também grava em `targetSyncQueue` e dispara o sync.
+  await organizationRepository.create(organization)
   return organization
 }

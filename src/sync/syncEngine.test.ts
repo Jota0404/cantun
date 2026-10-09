@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Song } from '../domain/songs/song'
 import { SalmodiaDatabase } from '../db/database'
 import { SyncEngine } from './syncEngine'
+import { onRemoteDataApplied } from './remoteChanges'
 
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn() }))
 vi.mock('../platform/sync', () => remote)
@@ -50,6 +51,16 @@ describe('SyncEngine (songs)', () => {
 
     expect(remote.upsertRows).not.toHaveBeenCalled()
     expect((await db.songs.get('song-1'))?.title).toBe('Remota')
+  })
+
+  it('notifies listeners after pulling remote data', async () => {
+    remote.selectRows.mockResolvedValue([remoteRow('2026-10-03T00:00:00Z')])
+    const listener = vi.fn()
+    const off = onRemoteDataApplied(listener)
+    await new SyncEngine(db).sync('user-1')
+    off()
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(await db.songs.get('song-1')).toBeDefined()
   })
 
   it('keeps the item queued when the server is unreachable', async () => {

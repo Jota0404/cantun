@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SalmodiaDatabase } from '../db/database'
 import type { TargetSyncQueueItem } from './targetSyncEngine'
 import { TargetSyncEngine } from './targetSyncEngine'
+import { onRemoteDataApplied } from './remoteChanges'
 
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 vi.mock('../platform/sync', () => remote)
@@ -41,8 +42,12 @@ describe('TargetSyncEngine', () => {
       ? [{ id: 'stage-1', service_id: 'service-1', md_user_id: null, status: 'live', created_at: now, started_at: now, ended_at: null, updated_at: now }]
       : [])
 
+    const listener = vi.fn()
+    const off = onRemoteDataApplied(listener)
     await new TargetSyncEngine(db).sync()
+    off()
 
+    expect(listener).toHaveBeenCalledTimes(1)
     expect(await db.stageSessions.get('stage-1')).toMatchObject({ status: 'live', serviceId: 'service-1' })
   })
 })

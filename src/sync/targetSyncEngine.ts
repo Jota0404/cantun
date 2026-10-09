@@ -12,6 +12,7 @@ import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
 import { rpc } from '../platform/rpc'
+import { notifyRemoteDataApplied } from './remoteChanges'
 import { deleteRows, selectRows, updateRows, upsertRows } from '../platform/sync'
 import type { SalmodiaDatabase } from '../db/database'
 
@@ -234,6 +235,7 @@ export class TargetSyncEngine {
           await table.put(value as never)
         }
       }
+      notifyRemoteDataApplied()
     } finally {
       this.syncing = false
     }

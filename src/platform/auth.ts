@@ -72,6 +72,11 @@ export function verifyEmail(token: string): Promise<void> {
   return apiRequest('POST', '/auth/verify-email', { token })
 }
 
+/** Reenvia o link de verificação do usuário logado; o servidor sempre responde 204. */
+export function resendVerification(): Promise<void> {
+  return apiRequest('POST', '/auth/verify-email/resend')
+}
+
 /** O servidor sempre responde 204, exista ou não a conta. */
 export function requestPasswordReset(email: string): Promise<void> {
   return apiRequest('POST', '/auth/password-reset/request', { email })

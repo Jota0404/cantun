@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
   signOut: vi.fn(),
   verifyEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
+  resendVerification: vi.fn(),
   confirmPasswordReset: vi.fn(),
 }))
 vi.mock('../platform/auth', () => auth)
@@ -87,6 +88,12 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(result.current.user).toBeNull())
     unmount()
     expect(realtime.onSessionExpired).toBeNull()
+  })
+
+  it('resendVerification delegates to the server', async () => {
+    const { result } = await renderAuth()
+    await act(() => result.current.resendVerification())
+    expect(auth.resendVerification).toHaveBeenCalledTimes(1)
   })
 
   it('requestPasswordReset delegates to the server', async () => {

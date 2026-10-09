@@ -97,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await platformAuth.verifyEmail(token)
       await refresh()
     },
+    resendVerification: platformAuth.resendVerification,
     requestPasswordReset: platformAuth.requestPasswordReset,
     confirmPasswordReset: async (token, password) => {
       await platformAuth.confirmPasswordReset(token, password)
