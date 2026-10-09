@@ -4,7 +4,7 @@ import { ApiError } from './http'
 const apiRequest = vi.hoisted(() => vi.fn())
 vi.mock('./http', async (importOriginal) => ({ ...await importOriginal<typeof import('./http')>(), apiRequest }))
 
-const user = { id: 'user-1', email: 'a@example.com', emailVerified: true }
+const user = { id: 'user-1', email: 'a@example.com', emailVerified: true, displayName: 'Ana' }
 
 async function loadAuth() {
   vi.resetModules()

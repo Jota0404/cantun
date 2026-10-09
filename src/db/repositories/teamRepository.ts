@@ -20,6 +20,8 @@ export class TeamMembershipRepository {
   constructor(db: SalmodiaDatabase = defaultDb) {
     this.db = db
   }
+  /** Grava só no Dexie, sem enfileirar (vínculo otimista do criador, reconciliado no pull). */
+  async putLocal(value: TeamMembership) { await this.db.teamMemberships.put(value) }
   async create(value: TeamMembership) { await this.db.teamMemberships.add(value); await queueTargetUpsert('teamMemberships', value) }
   async getById(id: string) { return this.db.teamMemberships.get(id) }
   async listByTeamId(teamId: string) { return this.db.teamMemberships.where('teamId').equals(teamId).toArray() }

@@ -23,7 +23,7 @@ vi.mock('../sync/syncService', () => ({ syncEngine: { bootstrap: vi.fn(), sync: 
 import { AuthProvider } from './AuthContext.tsx'
 import { useAuth } from './authContext'
 
-const unverified = { id: 'user-1', email: 'a@example.com', emailVerified: false }
+const unverified = { id: 'user-1', email: 'a@example.com', emailVerified: false, displayName: 'Ana' }
 const verified = { ...unverified, emailVerified: true }
 
 function wrapper({ children }: { children: ReactNode }) {

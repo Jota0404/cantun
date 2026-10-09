@@ -108,3 +108,30 @@ describe('SalmodiaDatabase version 11 (legacy Band/Setlist removal)', () => {
     expect(stores).toEqual(expect.arrayContaining(['songs', 'syncQueue', 'targetSyncQueue', 'stageSessions', 'stageSessionStates']))
   })
 })
+
+describe('SalmodiaDatabase version 12 (team roles and status)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('defaults existing team memberships to member/active and indexes role and status', async () => {
+    await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ teamMemberships: 'id, teamId, userId, [teamId+userId], updatedAt' })
+    await legacy.table('teamMemberships').add({ id: 'tm-1', teamId: 'team-1', userId: 'user-a', createdAt: now, updatedAt: now })
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(await db.teamMemberships.get('tm-1')).toMatchObject({ role: 'member', status: 'active' })
+    expect(await db.teamMemberships.where('status').equals('active').count()).toBe(1)
+    expect(await db.teamMemberships.where('[teamId+userId]').equals(['team-1', 'user-a']).count()).toBe(1)
+  })
+})

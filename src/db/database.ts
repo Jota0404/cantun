@@ -176,6 +176,15 @@ export class SalmodiaDatabase extends Dexie {
     }).upgrade(async (transaction) => {
       await transaction.table('syncQueue').where('entity').anyOf('setlists', 'setlistSongs').delete()
     })
+    // B2 (VS-01): papel e status por equipe. O papel real chega no próximo pull (servidor é a autoridade).
+    this.version(12).stores({
+      teamMemberships: 'id, teamId, userId, [teamId+userId], role, status, updatedAt',
+    }).upgrade(async (transaction) => {
+      await transaction.table('teamMemberships').toCollection().modify((membership: Record<string, unknown>) => {
+        membership.role ??= 'member'
+        membership.status ??= 'active'
+      })
+    })
   }
 }
 
