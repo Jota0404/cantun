@@ -631,9 +631,13 @@ $$;
 -- 7. Nome de exibição (RN-15)
 -- ---------------------------------------------------------------------------
 
--- Sem backfill: os dados do Supabase não são migrados (ADR-059 §1).
+-- Contas existentes (bancos locais e de teste) recebem o prefixo do e-mail;
+-- cada pessoa troca depois por set_my_display_name.
 alter table app.users
-  add column display_name text not null check (char_length(btrim(display_name)) between 1 and 80);
+  add column display_name text check (char_length(btrim(display_name)) between 1 and 80);
+update app.users
+set display_name = coalesce(nullif(btrim(left(split_part(email, '@', 1), 80)), ''), 'Usuário');
+alter table app.users alter column display_name set not null;
 
 create function public.set_my_display_name(p_display_name text) returns text
   language plpgsql security definer

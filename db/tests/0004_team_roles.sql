@@ -1,6 +1,7 @@
 -- CANTUM — B2: papéis, status, permissões (docs/PERMISSIONS.md §5, N1–N18, com contrastes),
 -- convites, nome de exibição e stage.run.
 \set ON_ERROR_STOP on
+\o /dev/null
 begin;
 
 -- Helpers (invoker; rodam com o papel corrente)
