@@ -74,12 +74,13 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
 }
 
 /**
- * Nome exibido na presença. Até o B2 criar `display_name`, é o prefixo do e-mail,
- * visível só para membros da mesma organização (contrato, Pendência 2).
+ * Nome exibido na presença, sempre derivado da sessão (contrato §5): até o B2 criar
+ * `display_name`, é o prefixo do e-mail, visível só para membros da mesma organização.
+ * `null` quando o usuário não existe mais.
  */
-export async function displayNameFor(pool: Pool, userId: string): Promise<string> {
+export async function displayNameFor(pool: Pool, userId: string): Promise<string | null> {
   const { rows } = await pool.query<{ email: string }>('select email from app.users where id = $1', [userId])
-  return rows[0]?.email.split('@')[0].slice(0, 80) || 'Participante'
+  return rows[0] ? rows[0].email.split('@')[0].slice(0, 80) : null
 }
 
 function isAccessError(error: unknown): boolean {
@@ -102,7 +103,8 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
 
   /** Mensagens e entregas de uma conexão rodam em ordem, uma por vez (contrato §1). */
   const enqueue = (conn: Conn, task: () => Promise<void>) => {
-    conn.queue = conn.queue.then(task).catch((error: unknown) => {
+    // Depois do fechamento, nada mais roda: evita registrar assinatura de conexão morta.
+    conn.queue = conn.queue.then(() => (conn.socket.readyState === conn.socket.OPEN ? task() : undefined)).catch((error: unknown) => {
       app.log.error({ err: { code: (error as { code?: string }).code, message: (error as Error).message }, userId: conn.userId }, 'realtime: falha')
       sendError(conn, 'internal')
     })
@@ -314,14 +316,17 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
     if (userConns.size >= MAX_CONNECTIONS_PER_USER) return socket.close(4429, 'conexões demais')
 
     const conn: Conn = {
-      socket, userId, tokenHash: tokenHash(token), displayName: 'Participante', subs: new Map(),
+      socket, userId, tokenHash: tokenHash(token), displayName: '', subs: new Map(),
       queue: Promise.resolve(), windowStart: Date.now(), windowCount: 0,
     }
     userConns.add(conn)
     connsByUser.set(userId, userConns)
     app.log.info({ userId }, 'realtime: conexão aberta')
     enqueue(conn, async () => {
-      conn.displayName = await displayNameFor(pool, userId)
+      // Primeira tarefa da fila: toda presença desta conexão já sai com o nome.
+      const name = await displayNameFor(pool, userId)
+      if (name === null) return socket.close(4401, 'sessão inválida')
+      conn.displayName = name
     })
 
     const idle = setTimeout(() => socket.close(1001, 'inatividade'), opts.idleTimeoutMs)
