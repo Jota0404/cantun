@@ -70,7 +70,6 @@ describe('StageRealtime', () => {
     server.snapshot(raw(2), true)
     expect(revisions(onSnapshot)).toEqual([9, 2])
     expect(onSnapshot).toHaveBeenLastCalledWith(expect.anything(), 'reconnect')
-    expect(stage.revision).toBe(2)
   })
 
   it('RT-22: exposes RECONNECTING and SUBSCRIBED from the socket', async () => {
@@ -122,7 +121,6 @@ describe('StageRealtime', () => {
     server.snapshot(raw(4))
     server.snapshot(raw(3))
     expect(revisions(onSnapshot)).toEqual([3])
-    expect(stage.revision).toBe(4)
   })
 
   it('RT-27: an ended snapshot is delivered and presence stops being published', async () => {
@@ -137,16 +135,15 @@ describe('StageRealtime', () => {
   })
 
   it('RT-28: without network the last state stays and refresh failures do not reset it', async () => {
-    const { stage, server, onSnapshot } = setup()
+    const { stage, server, onSnapshot, onStatus } = setup()
     const connected = stage.connect()
     server.snapshot(raw(6, { key: 'D' }), true)
     await connected
     server.status('RECONNECTING')
     rpc.mockRejectedValueOnce(new TypeError('Failed to fetch'))
     await expect(stage.refresh()).rejects.toThrow('Failed to fetch')
-    expect(stage.revision).toBe(6)
-    expect(stage.status).toBe('RECONNECTING')
-    expect(onSnapshot).toHaveBeenCalledTimes(1)
+    expect(onStatus).toHaveBeenLastCalledWith('RECONNECTING')
+    expect(revisions(onSnapshot)).toEqual([6])
   })
 
   it('refresh reads the snapshot through /rpc and applies it by revision', async () => {

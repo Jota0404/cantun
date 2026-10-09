@@ -48,17 +48,15 @@ export async function getSession(): Promise<AuthUser | null> {
   }
 }
 
-export async function signUp(email: string, password: string): Promise<AuthUser> {
-  const { user } = await apiRequest<{ user: AuthUser }>('POST', '/auth/signup', { email, password })
+async function authenticate(path: string, email: string, password: string): Promise<AuthUser> {
+  const { user } = await apiRequest<{ user: AuthUser }>('POST', path, { email, password })
   setCurrentUser(user)
   return user
 }
 
-export async function signIn(email: string, password: string): Promise<AuthUser> {
-  const { user } = await apiRequest<{ user: AuthUser }>('POST', '/auth/login', { email, password })
-  setCurrentUser(user)
-  return user
-}
+export const signUp = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/signup', email, password)
+
+export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', email, password)
 
 /** Revoga a sessão no servidor. Sem rede, lança e mantém o usuário (o cookie continuaria válido). */
 export async function signOut(): Promise<void> {

@@ -56,9 +56,6 @@ export class StageRealtime {
     this.client = options.realtime ?? defaultRealtime
   }
 
-  get revision(): number { return this.currentRevision }
-  get status(): StageConnectionStatus { return this.connectionStatus }
-
   connect(): Promise<StageSnapshot> {
     if (this.connecting) return this.connecting
     this.connecting = new Promise<StageSnapshot>((resolve, reject) => {

@@ -23,7 +23,6 @@ export interface TopicSubscription {
 export const HEARTBEAT_MS = 25_000
 export const PONG_TIMEOUT_MS = 10_000
 const BACKOFF_MS = [500, 1000, 2000, 4000, 8000]
-const MAX_BACKOFF_MS = 10_000
 const CLOSE_NORMAL = 1000
 const CLOSE_UNAUTHORIZED = 4401
 
@@ -34,7 +33,7 @@ interface Topic {
 }
 
 export function backoffDelay(attempt: number, random: () => number = Math.random): number {
-  const base = Math.min(BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)], MAX_BACKOFF_MS)
+  const base = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)]
   return Math.round(base * (0.8 + random() * 0.4))
 }
 
@@ -179,9 +178,7 @@ export class RealtimeClient {
 
   private handleClose(socket: WebSocket, code: number) {
     if (this.socket !== socket) return
-    this.stopHeartbeat()
-    this.socket = null
-    socket.onopen = socket.onmessage = socket.onclose = null
+    this.detach()
     if (code === CLOSE_UNAUTHORIZED) {
       const entries = [...this.topics.values()]
       this.topics.clear()
@@ -204,17 +201,20 @@ export class RealtimeClient {
     this.pongTimer = undefined
   }
 
-  private close() {
+  /** Desmonta heartbeat, timer de reconexão e handlers; devolve o socket anterior. */
+  private detach(): WebSocket | null {
     const socket = this.socket
     this.stopHeartbeat()
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = undefined
     this.socket = null
+    if (socket) socket.onopen = socket.onmessage = socket.onclose = null
+    return socket
+  }
+
+  private close() {
+    this.detach()?.close(CLOSE_NORMAL)
     this.attempt = 0
-    if (socket) {
-      socket.onopen = socket.onmessage = socket.onclose = null
-      socket.close(CLOSE_NORMAL)
-    }
   }
 
   /** Volta ao primeiro plano ou à rede: confirma o socket na hora, ou reconecta sem esperar o backoff. */
