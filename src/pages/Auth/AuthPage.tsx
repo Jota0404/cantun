@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import './AuthPage.css'
 
@@ -12,13 +12,14 @@ export function AuthPage() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const destination = (location.state as { from?: string } | null)?.from ?? '/songs'
+  const state = location.state as { from?: string; notice?: string } | null
+  const destination = state?.from ?? '/songs'
 
   if (loading) return <main className="auth-page"><p>Carregando sessão…</p></main>
   if (user) return <Navigate to={destination} replace />
 
   if (!configured) {
-    return <main className="auth-page"><section className="auth-card"><p className="auth-card__eyebrow">MUSIC WORKSPACE</p><h1>CANTUM</h1><p className="auth-card__subtitle">Autenticação</p><p>O Supabase ainda não está configurado neste ambiente.</p></section></main>
+    return <main className="auth-page"><section className="auth-card"><p className="auth-card__eyebrow">MUSIC WORKSPACE</p><h1>CANTUM</h1><p className="auth-card__subtitle">Autenticação</p><p>O servidor ainda não está configurado neste ambiente.</p></section></main>
   }
 
   const submit = async (event: FormEvent) => {
@@ -37,9 +38,11 @@ export function AuthPage() {
         <p className="auth-card__subtitle">{mode === 'login' ? 'Entre para acessar suas músicas.' : 'Crie sua conta para começar.'}</p>
         <form className="auth-form" onSubmit={submit}>
           <label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
-          <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={6} /></label>
+          <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'login' ? undefined : 8} maxLength={128} /></label>
           <button className="auth-form__submit" type="submit">{mode === 'login' ? 'Entrar' : 'Criar conta'}</button>
         </form>
+        {mode === 'login' && <Link className="auth-link" to="/auth/forgot-password">Esqueci a senha</Link>}
+        {state?.notice && !message && !error && <p className="auth-message" role="status">{state.notice}</p>}
         {message && <p className="auth-message" role="status">{message}</p>}
         {error && <p className="auth-error" role="alert">{error}</p>}
         <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage(''); setError('') }}>
