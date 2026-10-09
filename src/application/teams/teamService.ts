@@ -14,6 +14,11 @@ export async function createTeam(organizationId: string, name: string, id = cryp
   return team
 }
 
+/** Lê do Dexie: funciona offline. */
+export function getTeam(teamId: string, repository = teamRepository): Promise<Team | undefined> {
+  return repository.getById(teamId)
+}
+
 export async function updateTeam(team: Team, patch: Pick<Partial<Team>, 'name'>): Promise<Team> {
   const updated: Team = { ...team, ...patch, name: patch.name?.trim() || team.name, updatedAt: new Date().toISOString() }
   await teamRepository.update(updated)

@@ -7,7 +7,7 @@ vi.mock('../../platform/rpc', () => ({ rpc: vi.fn() }))
 vi.mock('../../platform/sync', () => ({ selectRows: vi.fn(async () => []), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 
 import { db } from '../../db/database'
-import { createTeam } from './teamService'
+import { createTeam, getTeam } from './teamService'
 
 describe('createTeam', () => {
   it('stores an optimistic local leader membership that is never queued (RN-03)', async () => {
@@ -16,5 +16,10 @@ describe('createTeam', () => {
     expect(memberships).toEqual([expect.objectContaining({ userId: 'creator', role: 'leader', status: 'active' })])
     const queued = await db.targetSyncQueue.toArray()
     expect(queued.map((item) => item.entity)).not.toContain('teamMemberships')
+  })
+  it('getTeam reads the team from the local repository', async () => {
+    const team = await createTeam('org-1', 'Coral', '00000000-0000-4000-8000-000000000003')
+    await expect(getTeam(team.id)).resolves.toMatchObject({ name: 'Coral' })
+    await expect(getTeam('missing')).resolves.toBeUndefined()
   })
 })

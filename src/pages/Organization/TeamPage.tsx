@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { useAuth } from '../../auth/authContext'
-import { teamRepository } from '../../db/repositories/teamRepository'
-import { updateTeam } from '../../application/teams/teamService'
+import { updateTeam, getTeam } from '../../application/teams/teamService'
 import {
   demoteToMember, getMyAccessContext, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName,
   type TeamMemberView,
@@ -42,7 +41,7 @@ export function TeamPage() {
 
   const load = useCallback(async () => {
     try {
-      const currentTeam = await teamRepository.getById(teamId)
+      const currentTeam = await getTeam(teamId)
       if (!currentTeam || currentTeam.organizationId !== organizationId) { setError('Equipe não encontrada.'); return }
       const [context, teamMembers] = await Promise.all([
         getMyAccessContext({ organizationId, teamId }),

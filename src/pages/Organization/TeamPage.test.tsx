@@ -19,9 +19,8 @@ const service = vi.hoisted(() => ({
 }))
 vi.mock('../../application/teams/teamMemberService', () => service)
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
-vi.mock('../../application/teams/teamService', () => ({ updateTeam: vi.fn() }))
+vi.mock('../../application/teams/teamService', () => ({ updateTeam: vi.fn(), getTeam: async () => ({ id: 't1', organizationId: 'o1', name: 'Louvor', createdAt: '', updatedAt: '' }) }))
 vi.mock('../../application/organizations/organizationInviteService', () => ({ createOrganizationInvite: vi.fn(), buildOrganizationInviteUrl: vi.fn(), revokeOrganizationInvite: vi.fn() }))
-vi.mock('../../db/repositories/teamRepository', () => ({ teamRepository: { getById: async () => ({ id: 't1', organizationId: 'o1', name: 'Louvor', createdAt: '', updatedAt: '' }) } }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me', email: 'me@example.com', emailVerified: true, displayName: 'Eu' }, refresh: vi.fn() }) }))
 
 const members: TeamMemberView[] = [
