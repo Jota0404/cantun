@@ -30,7 +30,7 @@ describe('team member use cases', () => {
   it('promotes and demotes through the RPC and updates the local membership without queueing', async () => {
     rpc.mockResolvedValue({ updated_at: '2026-10-02T00:00:00.000Z' })
     await expect(promoteToLeader('tm-1', repository)).resolves.toMatchObject({ success: true, membership: { role: 'leader' } })
-    expect(rpc).toHaveBeenCalledWith('set_team_member_role', { p_membership_id: 'tm-1', p_role: 'leader' })
+    expect(rpc).toHaveBeenCalledWith('set_team_member_role', { p_team_membership_id: 'tm-1', p_role: 'leader' })
     expect((await db.teamMemberships.get('tm-1'))?.role).toBe('leader')
 
     await demoteToMember('tm-1', repository)
@@ -53,9 +53,9 @@ describe('team member use cases', () => {
 
   it('sets functions and the own display name through RPCs', async () => {
     rpc.mockResolvedValueOnce([{ musical_function: 'vocals' }, { musical_function: 'keys' }])
-    await expect(setMemberFunctions({ teamId: 'team-1', userId: 'u-1', musicalFunctions: [' vocals', 'keys', 'vocals'] }))
+    await expect(setMemberFunctions({ membershipId: 'tm-1', musicalFunctions: [' vocals', 'keys', 'vocals'] }))
       .resolves.toEqual({ success: true, musicalFunctions: ['vocals', 'keys'] })
-    expect(rpc).toHaveBeenCalledWith('set_team_member_functions', { p_team_id: 'team-1', p_user_id: 'u-1', p_musical_functions: ['vocals', 'keys'] })
+    expect(rpc).toHaveBeenCalledWith('set_team_member_functions', { p_team_membership_id: 'tm-1', p_musical_functions: ['vocals', 'keys'] })
 
     rpc.mockResolvedValueOnce(null)
     await expect(setMyDisplayName('  Ana ')).resolves.toEqual({ success: true, displayName: 'Ana' })

@@ -44,4 +44,16 @@ describe('apiRequest', () => {
     expect(isPlatformConfigured).toBe(false)
     await expect(apiRequest('GET', '/health')).rejects.toMatchObject({ status: 0 })
   })
+
+  it('parses a JSON scalar from /rpc and translates database messages to pt-BR', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify('Ana'), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'invite requires verified email' }), { status: 400 })))
+    const { apiRequest } = await loadHttp()
+
+    await expect(apiRequest('POST', '/rpc/set_my_display_name', { p_display_name: 'Ana' })).resolves.toBe('Ana')
+    await expect(apiRequest('POST', '/rpc/accept_organization_invite', {})).rejects.toMatchObject({
+      status: 400, message: 'Confirme seu e-mail antes de aceitar este convite.',
+    })
+  })
 })

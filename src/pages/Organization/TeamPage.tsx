@@ -97,9 +97,10 @@ export function TeamPage() {
   }
 
   async function toggleFunction(member: TeamMemberView, value: string) {
-    if (!member.userId) return
+    if (!member.membershipId) return
+    const membershipId = member.membershipId
     const next = member.musicalFunctions.includes(value) ? member.musicalFunctions.filter((item) => item !== value) : [...member.musicalFunctions, value]
-    await run(() => setMemberFunctions({ teamId, userId: member.userId ?? '', musicalFunctions: next }))
+    await run(() => setMemberFunctions({ membershipId, musicalFunctions: next }))
   }
 
   async function invite(event: FormEvent) {

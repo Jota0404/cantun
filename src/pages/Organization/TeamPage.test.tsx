@@ -115,6 +115,6 @@ describe('TeamPage', () => {
     renderAs(leader)
     await user.click(await screen.findByRole('button', { name: 'Editar funções de Ana' }))
     await user.click(within(screen.getByRole('group', { name: 'Funções de Ana' })).getByLabelText('Teclado'))
-    expect(service.setMemberFunctions).toHaveBeenCalledWith({ teamId: 't1', userId: 'u2', musicalFunctions: ['drums', 'keys'] })
+    expect(service.setMemberFunctions).toHaveBeenCalledWith({ membershipId: 'm2', musicalFunctions: ['drums', 'keys'] })
   })
 })

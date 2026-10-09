@@ -4,8 +4,8 @@ export interface AuthUser {
   id: string
   email: string
   emailVerified: boolean
-  /** RN-15. Ausente/`null` em sessões de antes do B2. */
-  displayName?: string | null
+  /** RN-15: sempre presente (1–80 caracteres). */
+  displayName: string
 }
 
 // Último usuário autenticado, para o app abrir offline (local-first, ADR-048).

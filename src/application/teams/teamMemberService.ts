@@ -28,7 +28,7 @@ async function changeMembership(
   const local = await repository.getById(membershipId)
   if (!local) return { success: false, errors: ['Membro não encontrado.'] }
   try {
-    const data = await rpc(rpcName, { p_membership_id: membershipId, ...params })
+    const data = await rpc(rpcName, { p_team_membership_id: membershipId, ...params })
     const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null
     const updatedAt = typeof row?.updated_at === 'string' ? row.updated_at : new Date().toISOString()
     const membership: TeamMembership = { ...local, ...patch, updatedAt }
@@ -60,13 +60,12 @@ export async function setMemberStatus(
 }
 
 export async function setMemberFunctions(input: {
-  teamId: string
-  userId: string
+  membershipId: string
   musicalFunctions: string[]
 }): Promise<{ success: true; musicalFunctions: string[] } | { success: false; errors: string[] }> {
   const musicalFunctions = [...new Set(input.musicalFunctions.map((value) => value.trim()).filter(Boolean))]
   try {
-    const data = await rpc('set_team_member_functions', { p_team_id: input.teamId, p_user_id: input.userId, p_musical_functions: musicalFunctions })
+    const data = await rpc('set_team_member_functions', { p_team_membership_id: input.membershipId, p_musical_functions: musicalFunctions })
     const saved = Array.isArray(data)
       ? data.flatMap((row) => row && typeof row === 'object' && 'musical_function' in row ? [String(row.musical_function)] : [])
       : musicalFunctions
