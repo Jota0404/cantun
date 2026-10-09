@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { requestPasswordReset } from '../../platform/auth'
+import { useAuth } from '../../auth/authContext'
 import './AuthPage.css'
 
 export function ForgotPasswordPage() {
+  const { requestPasswordReset } = useAuth()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')

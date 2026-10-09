@@ -4,10 +4,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { confirmPasswordReset } from '../../platform/auth'
 import { ResetPasswordPage } from './ResetPasswordPage'
 
-vi.mock('../../platform/auth', () => ({ confirmPasswordReset: vi.fn() }))
+const confirmPasswordReset = vi.fn()
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ confirmPasswordReset }) }))
 
 function LoginStub() {
   const state = useLocation().state as { notice?: string } | null
@@ -26,10 +26,10 @@ function renderAt(url: string) {
 }
 
 describe('ResetPasswordPage', () => {
-  beforeEach(() => { vi.mocked(confirmPasswordReset).mockReset() })
+  beforeEach(() => { confirmPasswordReset.mockReset() })
 
   it('saves the new password and sends the user to login', async () => {
-    vi.mocked(confirmPasswordReset).mockResolvedValue(undefined)
+    confirmPasswordReset.mockResolvedValue(undefined)
     const user = userEvent.setup()
     renderAt('/auth/reset-password?token=tok')
 
@@ -62,7 +62,7 @@ describe('ResetPasswordPage', () => {
   })
 
   it('shows the server error for an expired token', async () => {
-    vi.mocked(confirmPasswordReset).mockRejectedValue(new Error('Link inválido ou expirado.'))
+    confirmPasswordReset.mockRejectedValue(new Error('Link inválido ou expirado.'))
     const user = userEvent.setup()
     renderAt('/auth/reset-password?token=old')
 

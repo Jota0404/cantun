@@ -1,7 +1,8 @@
-import type { AuthUser } from '../../platform/auth'
+import { useAuth } from '../../auth/authContext'
 import './EmailVerificationNotice.css'
 
-export function EmailVerificationNotice({ user }: { user: AuthUser | null }) {
+export function EmailVerificationNotice() {
+  const { user } = useAuth()
   if (!user || user.emailVerified) return null
   return (
     <p className="email-verification-notice" role="note">

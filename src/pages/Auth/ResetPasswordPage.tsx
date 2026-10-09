@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { confirmPasswordReset } from '../../platform/auth'
+import { useAuth } from '../../auth/authContext'
 import './AuthPage.css'
 
 export function ResetPasswordPage() {
+  const { confirmPasswordReset } = useAuth()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
   const navigate = useNavigate()

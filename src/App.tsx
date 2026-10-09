@@ -82,7 +82,7 @@ function App() {
           <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
         </header>
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link></nav>
-        <EmailVerificationNotice user={user} />
+        <EmailVerificationNotice />
       </>}
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />

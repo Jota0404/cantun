@@ -4,16 +4,16 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { requestPasswordReset } from '../../platform/auth'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
 
-vi.mock('../../platform/auth', () => ({ requestPasswordReset: vi.fn() }))
+const requestPasswordReset = vi.fn()
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ requestPasswordReset }) }))
 
 describe('ForgotPasswordPage', () => {
-  beforeEach(() => { vi.mocked(requestPasswordReset).mockReset() })
+  beforeEach(() => { requestPasswordReset.mockReset() })
 
   it('always shows the neutral confirmation after requesting', async () => {
-    vi.mocked(requestPasswordReset).mockResolvedValue(undefined)
+    requestPasswordReset.mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(<MemoryRouter><ForgotPasswordPage /></MemoryRouter>)
 
@@ -26,7 +26,7 @@ describe('ForgotPasswordPage', () => {
   })
 
   it('shows network errors', async () => {
-    vi.mocked(requestPasswordReset).mockRejectedValue(new Error('Falha de rede.'))
+    requestPasswordReset.mockRejectedValue(new Error('Falha de rede.'))
     const user = userEvent.setup()
     render(<MemoryRouter><ForgotPasswordPage /></MemoryRouter>)
 

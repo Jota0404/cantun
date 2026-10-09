@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
-import { getSession, verifyEmail } from '../../platform/auth'
 import './AuthPage.css'
 
 type Status = 'verifying' | 'verified' | 'failed'
@@ -9,7 +8,7 @@ type Status = 'verifying' | 'verified' | 'failed'
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
-  const { user } = useAuth()
+  const { user, verifyEmail } = useAuth()
   const [status, setStatus] = useState<Status>('verifying')
   const [error, setError] = useState('')
   // O token é de uso único: evita a segunda chamada do StrictMode.
@@ -19,15 +18,12 @@ export function VerifyEmailPage() {
     if (!token || requestedToken.current === token) return
     requestedToken.current = token
     verifyEmail(token)
-      .then(async () => {
-        setStatus('verified')
-        await getSession()
-      })
+      .then(() => setStatus('verified'))
       .catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : 'Não foi possível confirmar o e-mail.')
         setStatus('failed')
       })
-  }, [token])
+  }, [token, verifyEmail])
 
   const failed = !token || status === 'failed'
 
