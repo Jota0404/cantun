@@ -1,15 +1,20 @@
-name: DB portability (PostgreSQL)
+name: DB (PostgreSQL)
 
-# Aplica todas as migrations em um PostgreSQL padrão + shim da plataforma
-# Supabase (ADR-049). Enquanto o baseline do schema de produção não existir
-# (Fase A0 de docs/BACKEND_MIGRATION_PLAN.md) a cadeia atual NÃO é
-# reproduzível, por isso o job é informativo (continue-on-error).
-# Remover `continue-on-error` assim que o baseline entrar em main.
+# Recria o schema do zero em PostgreSQL 16 padrão a partir de db/migrations,
+# confere a idempotência do runner e roda os testes SQL de db/tests (ADR-059).
+# Bloqueante: um PR que quebre o schema ou o isolamento não passa.
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'db/**'
+      - 'scripts/db/**'
+      - '.github/workflows/db-portability.yml'
   pull_request:
     paths:
-      - 'supabase/migrations/**'
+      - 'db/**'
       - 'scripts/db/**'
       - '.github/workflows/db-portability.yml'
   workflow_dispatch:
@@ -20,7 +25,6 @@ permissions:
 jobs:
   verify-migrations:
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16
@@ -38,10 +42,9 @@ jobs:
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgres
-      KEEP_GOING: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Apply migrations on vanilla PostgreSQL
+      - name: Apply migrations and run SQL tests
         run: ./scripts/db/verify-migrations.sh
