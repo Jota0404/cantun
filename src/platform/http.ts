@@ -23,7 +23,6 @@ export class ApiError extends Error {
 
 // Mensagens P0001 do banco (chegam como 400 `{ error }`) traduzidas para a UI.
 const SERVER_MESSAGES: Record<string, string> = {
-  'authentication required': 'Entre na sua conta para continuar.',
   'display name must have 1 to 80 characters': 'Informe um nome de 1 a 80 caracteres.',
   'invalid invite expiration': 'Validade do convite inválida.',
   'invalid invite role': 'Papel do convite inválido.',
@@ -37,20 +36,13 @@ const SERVER_MESSAGES: Record<string, string> = {
   'invite requires verified email': 'Confirme seu e-mail antes de aceitar este convite.',
   'invite revoked': 'Este convite foi revogado.',
   'invite without email can only grant member': 'Convite sem e-mail só pode conceder o papel de membro.',
-  'not authorized to change musical functions': 'Você não tem permissão para alterar estas funções.',
-  'not authorized to change team member status': 'Você não tem permissão para alterar o status deste membro.',
-  'not authorized to change team role': 'Você não tem permissão para alterar o papel deste membro.',
   'not authorized to invite organization members': 'Você não tem permissão para convidar pessoas.',
-  'repertoire owner and organization cannot change': 'O dono e a organização do repertório não podem mudar.',
-  'song owner cannot change': 'O dono da música não pode mudar.',
-  'stage session not found or not authorized': 'Sessão de palco não encontrada ou sem acesso.',
-  'stage session state not found': 'Estado da sessão de palco não encontrado.',
   'team does not belong to organization': 'A equipe não pertence a esta organização.',
   'team membership not found': 'Membro não encontrado.',
-  'team membership role and status change only through RPC': 'Papel e status só mudam pelas ações da equipe.',
 }
 
 export function translateServerMessage(message: string): string {
+  if (message.startsWith('not authorized to change')) return 'Você não tem permissão para esta ação.'
   return SERVER_MESSAGES[message] ?? message
 }
 
