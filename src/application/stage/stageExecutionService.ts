@@ -1,75 +1,50 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from '../../lib/supabase'
-import { getCurrentUser } from '../../platform/auth'
 import { rpc } from '../../platform/rpc'
-import { StageRealtime } from '../../sync/stageRealtime'
+import { StageRealtime, toStageSnapshot, type StageConnectionStatus, type StageSnapshotReason } from '../../sync/stageRealtime'
 import { normalizeStageAnnotation } from '../../domain/stage/stageAnnotation'
 import type { StageParticipant, StagePresencePayload } from '../../domain/stage/stagePresence'
-import type { StageCommandResult, StageEventType, StageSnapshot, StageSession } from '../../domain/stage/stage'
-import { createStageEvent, toStageSession, toStageSessionState } from '../../domain/stage/stage'
+import type { StageCommandResult, StageSnapshot, StageSession } from '../../domain/stage/stage'
+import { toStageSessionState } from '../../domain/stage/stage'
+
+export interface StageConnectionCallbacks {
+  onSnapshot?: (snapshot: StageSnapshot, reason: StageSnapshotReason) => void
+  onStatus?: (status: StageConnectionStatus) => void
+  onPresence?: (participants: StageParticipant[]) => void
+  /** @deprecated O estado chega completo em `onSnapshot`; não é mais chamado. Sai quando as páginas pararem de passá-lo. */
+  onEvent?: () => void
+}
+
+function firstRow(data: unknown, message: string): Record<string, unknown> {
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(message)
+  return row as Record<string, unknown>
+}
 
 export class StageExecutionService {
   private readonly realtimeByTarget = new Map<string, StageRealtime>()
 
-  // Só o canal realtime ainda usa o Supabase; sai no PR 3 do B1 (REALTIME_CONTRACT).
-  private realtimeClient(): SupabaseClient {
-    if (!supabase) throw new Error('Supabase não está configurado para o Modo Palco.')
-    return supabase as unknown as SupabaseClient
-  }
-
-  private realtime(stageSessionId: string, callbacks: {
-    onSnapshot?: (snapshot: StageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
-    onEvent?: (event: StageCommandResult['event']) => void
-    onStatus?: (status: string) => void
-    onPresence?: (participants: StageParticipant[]) => void
-  } = {}): StageRealtime {
+  private realtime(stageSessionId: string, callbacks: StageConnectionCallbacks = {}): StageRealtime {
     const existing = this.realtimeByTarget.get(stageSessionId)
     if (existing) return existing
-    const realtime = new StageRealtime({ client: this.realtimeClient(), sessionId: stageSessionId, ...callbacks })
+    const { onSnapshot, onStatus, onPresence } = callbacks
+    const realtime = new StageRealtime({ sessionId: stageSessionId, onSnapshot, onStatus, onPresence })
     this.realtimeByTarget.set(stageSessionId, realtime)
     return realtime
   }
 
-  private async command(
-    stageSessionId: string,
-    name: string,
-    eventType: StageEventType,
-    args: Record<string, unknown> = {},
-    payload: Record<string, unknown> = {},
-  ): Promise<StageCommandResult> {
-    await this.getSnapshot(stageSessionId)
-    const data = await rpc(name, { p_stage_session_id: stageSessionId, ...args })
-    const row = Array.isArray(data) ? data[0] : data
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
-    const state = toStageSessionState({ ...(row as Record<string, unknown>), stage_session_id: stageSessionId })
-    const snapshot = await this.getSnapshot(stageSessionId)
-    if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
-    const event = createStageEvent({
-      type: eventType,
-      sessionId: stageSessionId,
-      revision: state.revision,
-      actorUserId: getCurrentUser()?.id ?? '',
-      payload: { ...payload, state },
-    })
-    await this.realtimeByTarget.get(stageSessionId)?.publish(event).catch(() => undefined)
-    return { state, event }
+  // Mutação só por RPC; o snapshot de mesma revisão que chega pelo socket depois é no-op (REALTIME_CONTRACT §4).
+  private async command(stageSessionId: string, name: string, args: Record<string, unknown> = {}): Promise<StageCommandResult> {
+    const row = firstRow(await rpc(name, { p_stage_session_id: stageSessionId, ...args }), 'Resposta RPC de palco inválida.')
+    const state = toStageSessionState({ ...row, stage_session_id: stageSessionId })
+    this.realtimeByTarget.get(stageSessionId)?.acceptRevision(state.revision)
+    return { state }
   }
 
-  async connect(stageSessionId: string, callbacks: {
-    onSnapshot?: (snapshot: StageSnapshot, reason: 'initial' | 'event' | 'reconnect' | 'revision-gap') => void
-    onEvent?: (event: StageCommandResult['event']) => void
-    onStatus?: (status: string) => void
-    onPresence?: (participants: StageParticipant[]) => void
-  } = {}): Promise<StageSnapshot> {
+  async connect(stageSessionId: string, callbacks: StageConnectionCallbacks = {}): Promise<StageSnapshot> {
     return this.realtime(stageSessionId, callbacks).connect()
   }
 
   async trackPresence(stageSessionId: string, payload: StagePresencePayload): Promise<void> {
     return this.realtime(stageSessionId).trackPresence(payload)
-  }
-
-  async reconnect(stageSessionId: string): Promise<StageSnapshot> {
-    return this.realtime(stageSessionId).reconnect()
   }
 
   async refresh(stageSessionId: string): Promise<StageSnapshot> {
@@ -84,71 +59,47 @@ export class StageExecutionService {
 
   async getSnapshot(stageSessionId: string): Promise<StageSnapshot> {
     const data = await rpc('get_target_stage_snapshot', { p_stage_session_id: stageSessionId })
-    const row = Array.isArray(data) ? data[0] : data
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Snapshot de palco inválido.')
-    const value = row as Record<string, unknown>
-    if (!value.session || typeof value.session !== 'object' || Array.isArray(value.session)) throw new Error('Snapshot de palco inválido: sessão ausente.')
-    if (!value.state || typeof value.state !== 'object' || Array.isArray(value.state)) throw new Error('Snapshot de palco inválido: estado ausente.')
-    return {
-      session: toStageSession(value.session as Record<string, unknown>),
-      state: toStageSessionState(value.state as Record<string, unknown>),
-    }
+    return toStageSnapshot(firstRow(data, 'Snapshot de palco inválido.'))
   }
 
   async play(stageSessionId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_play', 'stage.play', {}, { isRunning: true })
+    return this.command(stageSessionId, 'target_stage_play')
   }
 
   async pause(stageSessionId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_pause', 'stage.pause', {}, { isRunning: false })
+    return this.command(stageSessionId, 'target_stage_pause')
   }
 
   async next(stageSessionId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_next', 'stage.next')
+    return this.command(stageSessionId, 'target_stage_next')
   }
 
   async previous(stageSessionId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_previous', 'stage.previous')
+    return this.command(stageSessionId, 'target_stage_previous')
   }
 
   async goto(stageSessionId: string, index: number, songId?: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_goto', 'stage.goto', { p_index: index, p_song_id: songId ?? null })
+    return this.command(stageSessionId, 'target_stage_goto', { p_index: index, p_song_id: songId ?? null })
   }
 
   async setKey(stageSessionId: string, key: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_set_key', 'stage.set-key', { p_key: key }, { currentKey: key })
+    return this.command(stageSessionId, 'target_stage_set_key', { p_key: key })
   }
 
   async prepareNext(stageSessionId: string, index: number, songId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_prepare_next', 'stage.prepare-next', { p_index: index, p_song_id: songId })
+    return this.command(stageSessionId, 'target_stage_prepare_next', { p_index: index, p_song_id: songId })
   }
 
   async clearPrepared(stageSessionId: string): Promise<StageCommandResult> {
-    return this.command(stageSessionId, 'target_stage_clear_prepared', 'stage.clear-prepared')
+    return this.command(stageSessionId, 'target_stage_clear_prepared')
   }
 
   async setAnnotation(stageSessionId: string, annotation: string | null | undefined): Promise<StageCommandResult> {
-    const value = normalizeStageAnnotation(annotation)
-    return this.command(stageSessionId, 'target_stage_set_annotation', 'stage.annotation-updated', { p_annotation: value }, { annotation: value })
-  }
-
-  async startSession(stageSessionId: string): Promise<StageSession> {
-    const data = await rpc('target_stage_start', { p_stage_session_id: stageSessionId })
-    const snapshot = await this.getSnapshot(stageSessionId)
-    const row = Array.isArray(data) ? data[0] : data
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
-    const state = toStageSessionState({ ...(row as Record<string, unknown>), stage_session_id: stageSessionId })
-    if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
-    return snapshot.session
+    return this.command(stageSessionId, 'target_stage_set_annotation', { p_annotation: normalizeStageAnnotation(annotation) })
   }
 
   async endSession(stageSessionId: string): Promise<StageSession> {
-    const data = await rpc('target_stage_end', { p_stage_session_id: stageSessionId })
-    const snapshot = await this.getSnapshot(stageSessionId)
-    const row = Array.isArray(data) ? data[0] : data
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
-    const state = toStageSessionState({ ...(row as Record<string, unknown>), stage_session_id: stageSessionId })
-    if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
-    return snapshot.session
+    await this.command(stageSessionId, 'target_stage_end')
+    return (await this.getSnapshot(stageSessionId)).session
   }
 }

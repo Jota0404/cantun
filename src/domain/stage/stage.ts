@@ -4,30 +4,6 @@ import { toStageSessionState } from './stageSessionState'
 
 export type { StageSession, StageSessionState, StageSessionStatus }
 
-export type StageEventType =
-  | 'stage.snapshot'
-  | 'stage.play'
-  | 'stage.pause'
-  | 'stage.next'
-  | 'stage.previous'
-  | 'stage.goto'
-  | 'stage.set-key'
-  | 'stage.prepare-next'
-  | 'stage.clear-prepared'
-  | 'stage.annotation-updated'
-  | 'stage.session-ended'
-  | 'stage.md-changed'
-
-export interface StageEvent<T = unknown> {
-  type: StageEventType
-  sessionId: string
-  revision: number
-  actorUserId: string
-  eventId: string
-  sentAt: string
-  payload: T
-}
-
 export interface StageSnapshot {
   session: StageSession
   state: StageSessionState
@@ -35,7 +11,6 @@ export interface StageSnapshot {
 
 export interface StageCommandResult {
   state: StageSessionState
-  event: StageEvent
 }
 
 export function toStageSession(row: Record<string, unknown>): StageSession {
@@ -52,13 +27,3 @@ export function toStageSession(row: Record<string, unknown>): StageSession {
 }
 
 export { toStageSessionState }
-
-export function createStageEvent<T>(input: {
-  type: StageEventType
-  sessionId: string
-  revision: number
-  actorUserId: string
-  payload: T
-}): StageEvent<T> {
-  return { ...input, eventId: crypto.randomUUID(), sentAt: new Date().toISOString() }
-}

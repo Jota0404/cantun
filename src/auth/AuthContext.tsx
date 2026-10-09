@@ -11,6 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => platformAuth.getCurrentUser())
   const [loading, setLoading] = useState(isPlatformConfigured)
   const mounted = useRef(true)
+  const currentUserId = useRef(user?.id ?? null)
 
   // Os dados locais precisam pertencer ao usuário da sessão ANTES de a UI ler
   // ou de a sincronização enviar qualquer coisa (Blueprint §50.3, ADR-048).
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     if (!mounted.current) return
+    currentUserId.current = nextUser?.id ?? null
     setUser(nextUser)
     setLoading(false)
     if (nextUser) void syncEngine?.bootstrap(nextUser.id)
@@ -44,6 +46,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted.current = false
       window.removeEventListener('online', onOnline)
+    }
+  }, [applyUser])
+
+  // Mesmo usuário: só atualiza os dados (ex.: `emailVerified`), sem refazer isolamento e bootstrap.
+  const refresh = useCallback(async () => {
+    const nextUser = await platformAuth.getSession()
+    if (nextUser && nextUser.id === currentUserId.current) {
+      if (mounted.current) setUser(nextUser)
+    } else {
+      await applyUser(nextUser)
     }
   }, [applyUser])
 
@@ -70,9 +82,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         signOutRemote: platformAuth.signOut,
       }, options)
+      currentUserId.current = null
       setUser(null)
     },
-  }), [applyUser, loading, user])
+    refresh,
+    verifyEmail: async (token) => {
+      await platformAuth.verifyEmail(token)
+      await refresh()
+    },
+    requestPasswordReset: platformAuth.requestPasswordReset,
+    confirmPasswordReset: async (token, password) => {
+      await platformAuth.confirmPasswordReset(token, password)
+      await refresh()
+    },
+  }), [applyUser, loading, refresh, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

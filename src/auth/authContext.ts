@@ -16,6 +16,14 @@ export interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<void>
   /** Lança `PendingLocalChangesError` se houver alterações não sincronizadas e `discardPendingChanges` não for informado. */
   signOut: (options?: SignOutOptions) => Promise<void>
+  /** Reconsulta a sessão no servidor; 401 deixa `user = null`. Sem rede, mantém o usuário. */
+  refresh: () => Promise<void>
+  /** Confirma o token do link de verificação e atualiza `user.emailVerified`. Lança `ApiError` se o token for inválido. */
+  verifyEmail: (token: string) => Promise<void>
+  /** Sempre resolve (o servidor não revela se a conta existe). */
+  requestPasswordReset: (email: string) => Promise<void>
+  /** Troca a senha; o servidor derruba todas as sessões, então `user` vira `null`. */
+  confirmPasswordReset: (token: string, password: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

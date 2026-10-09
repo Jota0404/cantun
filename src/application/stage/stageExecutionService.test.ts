@@ -1,21 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }))
 
-vi.mock('../../lib/supabase', () => ({ supabase: {} }))
 vi.mock('../../platform/rpc', () => ({ rpc: mocks.rpc }))
-vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'user-1', email: 'md@example.com', emailVerified: true }) }))
-
-vi.mock('../../sync/stageRealtime', () => ({
-  StageRealtime: class {
-    async connect() { return null }
-    async disconnect() {}
-    async trackPresence() {}
-    async reconnect() { return null }
-    async refresh() { return null }
-    async publish() {}
-  },
-}))
 
 import { StageExecutionService } from './stageExecutionService'
 
@@ -43,6 +30,8 @@ function snapshot() {
 }
 
 describe('StageExecutionService', () => {
+  beforeEach(() => mocks.rpc.mockReset())
+
   it('reads snapshots from the target Stage RPC', async () => {
     mocks.rpc.mockResolvedValueOnce(snapshot())
 
@@ -56,36 +45,14 @@ describe('StageExecutionService', () => {
     expect(result.state.stageSessionId).toBe('stage-1')
   })
 
-  it('executes commands through target RPCs', async () => {
-    mocks.rpc
-      .mockResolvedValueOnce(snapshot())
-      .mockResolvedValueOnce({
-        stage_session_id: 'stage-1',
-        revision: 3,
-        current_index: 0,
-        current_service_item_id: 'item-1',
-        current_song_id: 'song-1',
-        current_key: 'C',
-        is_running: true,
-        updated_at: '2026-10-01T12:00:01Z',
-      })
-      .mockResolvedValueOnce({
-        ...snapshot(),
-        state: {
-          ...snapshot().state,
-          revision: 3,
-          is_running: true,
-          updated_at: '2026-10-01T12:00:01Z',
-        },
-      })
+  it('executes commands through target RPCs and returns the new state', async () => {
+    mocks.rpc.mockResolvedValueOnce({ ...snapshot().state, revision: 3, is_running: true })
 
     const service = new StageExecutionService()
     const result = await service.play('stage-1')
 
-    expect(mocks.rpc).toHaveBeenCalledWith('target_stage_play', {
-      p_stage_session_id: 'stage-1',
-    })
-    expect(result.state.revision).toBe(3)
-    expect(result.state.isRunning).toBe(true)
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).toHaveBeenCalledWith('target_stage_play', { p_stage_session_id: 'stage-1' })
+    expect(result).toEqual({ state: expect.objectContaining({ revision: 3, isRunning: true }) })
   })
 })
