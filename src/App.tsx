@@ -13,6 +13,10 @@ import { StagePage } from './pages/Stage/StagePage'
 import { ServiceStagePage } from './pages/Stage/ServiceStagePage'
 import { ServiceStageMusicianPage } from './pages/Stage/ServiceStageMusicianPage'
 import { AuthPage } from './pages/Auth/AuthPage'
+import { VerifyEmailPage } from './pages/Auth/VerifyEmailPage'
+import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/Auth/ResetPasswordPage'
+import { EmailVerificationNotice } from './components/auth/EmailVerificationNotice'
 import { OrganizationPage } from './pages/Organization/OrganizationPage'
 import { OrganizationDetailPage } from './pages/Organization/OrganizationDetailPage'
 import { TeamPage } from './pages/Organization/TeamPage'
@@ -35,7 +39,8 @@ function App() {
   const navigate = useNavigate()
   const { user, loading, signOut } = useAuth()
   const isStageMode = location.pathname.startsWith('/stage/')
-  const isAuthRoute = location.pathname === '/auth'
+  // /auth/* abre sem sessão: os links de verificação e redefinição chegam por e-mail.
+  const isAuthRoute = location.pathname === '/auth' || location.pathname.startsWith('/auth/')
   const isInviteRoute = location.pathname.startsWith('/organization/invite/')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
@@ -77,9 +82,11 @@ function App() {
           <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
         </header>
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link></nav>
+        <EmailVerificationNotice />
       </>}
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
+        <Route path="/auth/verify-email" element={<VerifyEmailPage />} /><Route path="/auth/forgot-password" element={<ForgotPasswordPage />} /><Route path="/auth/reset-password" element={<ResetPasswordPage />} />
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/service-session/:stageSessionId" element={<ServiceStagePage />} /><Route path="/stage/service-session/:stageSessionId/musician" element={<ServiceStageMusicianPage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />

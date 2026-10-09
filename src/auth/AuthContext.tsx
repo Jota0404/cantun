@@ -1,97 +1,109 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { db } from '../db/database'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import * as platformAuth from '../platform/auth'
+import type { AuthUser } from '../platform/auth'
+import { isPlatformConfigured } from '../platform/http'
+import { realtime } from '../platform/realtime'
 import { syncEngine, syncTargetDomain } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(isSupabaseConfigured)
-  const currentUserId = useRef<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(() => platformAuth.getCurrentUser())
+  const [loading, setLoading] = useState(isPlatformConfigured)
+  const mounted = useRef(true)
+  const currentUserId = useRef(user?.id ?? null)
+
+  // Os dados locais precisam pertencer ao usuário da sessão ANTES de a UI ler
+  // ou de a sincronização enviar qualquer coisa (Blueprint §50.3, ADR-048).
+  const applyUser = useCallback(async (nextUser: AuthUser | null) => {
+    if (nextUser) {
+      try {
+        await ensureLocalDataOwner(db, nextUser.id)
+      } catch {
+        // Falha no IndexedDB não deve bloquear o login; a sincronização segue normalmente.
+      }
+    }
+    if (!mounted.current) return
+    currentUserId.current = nextUser?.id ?? null
+    setUser(nextUser)
+    setLoading(false)
+    if (nextUser) void syncEngine?.bootstrap(nextUser.id)
+  }, [])
 
   useEffect(() => {
-    if (!supabase) return
-    const client = supabase
-    let mounted = true
-    const synchronize = (userId: string) => {
-      void syncEngine?.bootstrap(userId)
-    }
-
-    // Os dados locais precisam pertencer ao usuário da sessão ANTES de a UI ler
-    // ou de a sincronização enviar qualquer coisa (Blueprint §50.3, ADR-048).
-    const applySession = async (nextSession: Session | null) => {
-      if (nextSession) {
-        try {
-          await ensureLocalDataOwner(db, nextSession.user.id)
-        } catch {
-          // Falha no IndexedDB não deve bloquear o login; a sincronização segue normalmente.
-        }
-      }
-      if (!mounted) return
-      currentUserId.current = nextSession?.user.id ?? null
-      setSession(nextSession)
-      setLoading(false)
-      if (nextSession) synchronize(nextSession.user.id)
-    }
-
-    void client.auth.getSession().then(({ data }) => applySession(data.session))
-
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (!mounted) return
-      if (nextSession && nextSession.user.id !== currentUserId.current) setLoading(true)
-      // Não aguardar dentro do callback do Supabase Auth.
-      void applySession(nextSession)
-    })
+    mounted.current = true
+    if (!isPlatformConfigured) return
+    void platformAuth.getSession().then(applyUser)
 
     const onOnline = () => {
-      void client.auth.getUser().then(({ data: authData }) => {
-        if (authData.user) void syncEngine?.sync(authData.user.id)
+      void platformAuth.getSession().then((sessionUser) => {
+        if (sessionUser) void syncEngine?.sync(sessionUser.id)
+        else void applyUser(null)
       })
     }
 
     window.addEventListener('online', onOnline)
     return () => {
-      mounted = false
-      data.subscription.unsubscribe()
+      mounted.current = false
       window.removeEventListener('online', onOnline)
     }
-  }, [])
+  }, [applyUser])
+
+  // Mesmo usuário: só atualiza os dados (ex.: `emailVerified`), sem refazer isolamento e bootstrap.
+  const refresh = useCallback(async () => {
+    const nextUser = await platformAuth.getSession()
+    if (nextUser && nextUser.id === currentUserId.current) {
+      if (mounted.current) setUser(nextUser)
+    } else {
+      await applyUser(nextUser)
+    }
+  }, [applyUser])
+
+  // Socket fechado com 4401: confirma no servidor e, se a sessão caiu, sai (user = null).
+  useEffect(() => {
+    realtime.onSessionExpired = () => { void refresh().catch(() => undefined) }
+    return () => { realtime.onSessionExpired = null }
+  }, [refresh])
 
   const value = useMemo<AuthContextValue>(() => ({
-    session,
-    user: session?.user ?? null,
+    user,
     loading,
-    configured: isSupabaseConfigured,
+    configured: isPlatformConfigured,
     signIn: async (email, password) => {
-      if (!supabase) throw new Error('Supabase não está configurado.')
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      const nextUser = await platformAuth.signIn(email, password)
+      if (nextUser.id !== user?.id) setLoading(true)
+      await applyUser(nextUser)
     },
     signUp: async (email, password) => {
-      if (!supabase) throw new Error('Supabase não está configurado.')
-      const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
-      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } })
-      if (error) throw error
+      await applyUser(await platformAuth.signUp(email, password))
     },
     signOut: async (options) => {
-      if (!supabase) return
-      const client = supabase
-      const userId = session?.user.id ?? null
+      if (!isPlatformConfigured) return
+      const userId = user?.id ?? null
       await signOutWithLocalCleanup({
         db,
         flushPendingChanges: async () => {
           if (!userId || !navigator.onLine) return
           await Promise.allSettled([syncEngine?.sync(userId), syncTargetDomain()])
         },
-        signOutRemote: async () => {
-          const { error } = await client.auth.signOut({ scope: 'local' })
-          if (error) throw error
-        },
+        signOutRemote: platformAuth.signOut,
       }, options)
+      currentUserId.current = null
+      setUser(null)
     },
-  }), [loading, session])
+    refresh,
+    verifyEmail: async (token) => {
+      await platformAuth.verifyEmail(token)
+      await refresh()
+    },
+    resendVerification: platformAuth.resendVerification,
+    requestPasswordReset: platformAuth.requestPasswordReset,
+    confirmPasswordReset: async (token, password) => {
+      await platformAuth.confirmPasswordReset(token, password)
+      await refresh()
+    },
+  }), [applyUser, loading, refresh, user])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

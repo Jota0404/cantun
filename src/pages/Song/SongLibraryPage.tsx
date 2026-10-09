@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
 import { SongList } from '../../components/song/SongList'
 import type { Song } from '../../domain/songs/song'
@@ -28,8 +29,10 @@ export function SongLibraryPage({ repository }: SongLibraryPageProps) {
     }
 
     void loadSongs()
+    const unsubscribe = onRemoteDataApplied(() => { void loadSongs() })
     return () => {
       cancelled = true
+      unsubscribe()
     }
   }, [repository])
 

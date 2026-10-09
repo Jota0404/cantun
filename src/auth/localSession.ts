@@ -59,7 +59,7 @@ export function getBrowserStorage(): KeyValueStorage | null {
   }
 }
 
-/** Quantidade de operações locais ainda não enviadas ao Supabase, em todas as filas. */
+/** Quantidade de operações locais ainda não enviadas ao servidor, em todas as filas. */
 export async function countPendingLocalChanges(db: SalmodiaDatabase): Promise<number> {
   const [songs, target] = await Promise.all([
     db.syncQueue.count(),

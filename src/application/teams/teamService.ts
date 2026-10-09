@@ -1,13 +1,13 @@
 import type { Team } from '../../domain/teams/team'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
 import { teamRepository, teamMembershipRepository } from '../../db/repositories/teamRepository'
-import { supabase } from '../../lib/supabase'
+import { getCurrentUser } from '../../platform/auth'
 
 export async function createTeam(organizationId: string, name: string, id = crypto.randomUUID()): Promise<Team> {
   const now = new Date().toISOString()
   const team: Team = { id, organizationId, name: name.trim(), createdAt: now, updatedAt: now }
   await teamRepository.create(team)
-  const user = (await supabase?.auth.getUser())?.data.user
+  const user = getCurrentUser()
   if (user) await addTeamMember(team.id, user.id)
   return team
 }

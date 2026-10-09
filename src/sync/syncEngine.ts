@@ -1,6 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SalmodiaDatabase } from '../db/database'
 import type { Song } from '../domain/songs/song'
+import { selectRows, updateRows, upsertRows } from '../platform/sync'
+import { notifyRemoteDataApplied } from './remoteChanges'
 
 type EntityName = 'songs'
 type Entity = Song
@@ -30,11 +31,9 @@ export class SyncEngine {
   private syncing = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
-  private readonly client: SupabaseClient
 
-  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+  constructor(db: SalmodiaDatabase) {
     this.db = db
-    this.client = client
   }
 
   async queueUpsert(userId: string, entity: EntityName, payload: Entity) {
@@ -51,8 +50,8 @@ export class SyncEngine {
 
   async bootstrap(userId: string) {
     if (!navigator.onLine) return
-    const { count, error } = await this.client.from('songs').select('id', { count: 'exact', head: true }).eq('user_id', userId)
-    const remoteIsEmpty = !error && (count ?? 0) === 0
+    // ponytail: baixa as linhas só para contar; trocar por contagem no servidor se a biblioteca crescer.
+    const remoteIsEmpty = await selectRows('songs', { user_id: userId }).then((rows) => rows.length === 0, () => false)
     if (!remoteIsEmpty) return this.sync(userId)
 
     const songs = await this.db.songs.toArray()
@@ -68,6 +67,7 @@ export class SyncEngine {
       if (navigator.onLine) {
         await this.pushPending(userId)
         await this.pull(userId)
+        notifyRemoteDataApplied()
       }
     } finally {
       this.syncing = false
@@ -109,31 +109,23 @@ export class SyncEngine {
 
   private async pushItem(userId: string, item: SyncQueueItem) {
     const table = tables[item.entity]
-    const { data: remote, error: readError } = await this.client
-      .from(table)
-      .select('id, updated_at, deleted_at')
-      .eq('user_id', userId)
-      .eq('id', item.entityId)
-      .maybeSingle()
-    if (readError) throw readError
+    const [remote] = await selectRows<RemoteRow>(table, { user_id: userId, id: item.entityId })
 
-    const remoteUpdatedAt = remote ? getRemoteUpdatedAt(remote as RemoteRow) : undefined
+    const remoteUpdatedAt = remote ? getRemoteUpdatedAt(remote) : undefined
     if (remoteUpdatedAt && remoteUpdatedAt >= item.updatedAt) return
 
     if (item.operation === 'delete') {
-      const { error } = await this.client.from(table).update({ deleted_at: item.updatedAt }).eq('user_id', userId).eq('id', item.entityId)
-      if (error) throw error
+      await updateRows(table, { user_id: userId, id: item.entityId }, { deleted_at: item.updatedAt })
       return
     }
-    const { error } = await this.client.from(table).upsert({ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }, { onConflict: 'user_id,id' })
-    if (error) throw error
+    await upsertRows(table, [{ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }])
   }
 
   private async pull(userId: string) {
     for (const entity of Object.keys(tables) as EntityName[]) {
-      const { data, error } = await this.client.from(tables[entity]).select('*').eq('user_id', userId)
-      if (error) continue
-      for (const row of (data ?? []) as RemoteRow[]) await this.applyRemote(userId, entity, row)
+      const rows = await selectRows<RemoteRow>(tables[entity], { user_id: userId }).catch(() => null)
+      if (!rows) continue
+      for (const row of rows) await this.applyRemote(userId, entity, row)
     }
   }
 

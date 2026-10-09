@@ -1,6 +1,6 @@
 # CANTUM — banco PostgreSQL
 
-Schema do backend próprio (ADR-059). Substitui `supabase/migrations`, que está congelado e sai no fim do B1.
+Schema do backend próprio (ADR-059). Única fonte do schema: as migrations do Supabase foram removidas no fim do B1 e ficam só no histórico do Git.
 
 ## Estrutura
 
@@ -30,7 +30,7 @@ PGUSER=postgres scripts/db/verify-migrations.sh
 
 ## Como o baseline foi gerado (2026-10-08)
 
-1. As 37 migrations de `supabase/migrations` foram aplicadas em PostgreSQL 16 puro, com o shim da plataforma e 6 correções de causa-raiz:
+1. As 37 migrations da antiga pasta `supabase/migrations` (removida no B1; ver o histórico do Git) foram aplicadas em PostgreSQL 16 puro, com o shim da plataforma e 6 correções de causa-raiz:
    - coluna `"position"` sem aspas em `returns table` (3 arquivos);
    - `get_band_stage_setlist` recriada com outro tipo de retorno sem `drop`;
    - trigger `band_stage_states_protect_invariants` recriado sem `drop`;

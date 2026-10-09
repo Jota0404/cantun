@@ -40,8 +40,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
 
       - name: Configure SPA fallback
         run: cp dist/index.html dist/404.html

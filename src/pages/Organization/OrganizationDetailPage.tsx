@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { useAuth } from '../../auth/authContext'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 import { organizationSongRepository } from '../../db/repositories/organizationSongRepository'
@@ -50,7 +51,10 @@ export function OrganizationDetailPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a organização.') }
   }, [organizationId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   async function createTeamForOrganization() {
     const name = window.prompt('Nome da equipe')

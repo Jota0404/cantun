@@ -1,7 +1,7 @@
 # CANTUM — AI Context
 
 > Contexto operacional para agentes de IA que trabalham no CANTUM. Curto de propósito: carregue sempre; consulte os documentos-fonte para detalhes.
-> Última revisão: 2026-10-08 (B0 concluído; B1 = saída do Supabase, ADR-059).
+> Última revisão: 2026-10-09 (B1 concluído: Supabase removido, ADR-059).
 
 ## 1. Identidade
 
@@ -22,13 +22,14 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 ## 3. Estado atual (atualizar ao fechar cada fase)
 
 - **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras; **B0 Fundação** (CI em `main`, isolamento local ADR-048, portabilidade ADR-049, governança da IA ADR-050/058, templates, plano de blocos); spec do **B2 Equipe** (VS-01, ADR-051, `docs/PERMISSIONS.md`).
-- **Em andamento:** **B1 Backend próprio** (ADR-059): sai o Supabase de uma vez; entra PostgreSQL (`db/`) + servidor Node.js (`server/`). Plano em `docs/BACKEND_MIGRATION_PLAN.md`. O SQL do B2 (#57) espera o baseline; domínio e UI do B2 (#58–#60) podem andar.
+- **Concluído também:** **B1 Backend próprio** (ADR-059): PostgreSQL (`db/`) + servidor Node.js (`server/`), cliente em `src/platform`, legado removido, Supabase fora do projeto.
+- **Em andamento:** **B2 Equipe** (spec VS-01; issues #57–#60). Hospedagem de produção ainda não definida (owner, antes do primeiro usuário real).
 - **Próximo:** B3 Serviço (VS-02) → B4 Escala (VS-03); B5 Navegação/Design System em paralelo; B8 Privacidade antes de qualquer usuário real.
 - **Legado:** `Band*`/`Setlist*`, `BandSyncEngine`, `bandStageRealtime` e as rotas `/bands*`, `/stage/setlist`, `/stage/session` foram **removidos** no B1 (ADR-059), não portados. Não recriar.
 
 ## 4. Stack
 
-React 19 · React Router 7 · TypeScript · Vite + PWA · Dexie/IndexedDB · remoto hoje no Supabase; destino (B1): PostgreSQL 16 + servidor Node.js/TypeScript (Fastify, `pg`) com auth, RPC e WebSocket próprios · Vitest + Testing Library + fake-indexeddb · GitHub Actions/Pages.
+React 19 · React Router 7 · TypeScript · Vite + PWA · Dexie/IndexedDB · PostgreSQL 16 + servidor Node.js/TypeScript (Fastify, `pg`) com auth, RPC e WebSocket próprios · Vitest + Testing Library + fake-indexeddb · GitHub Actions/Pages.
 Sem Redux (ADR-008). Nova dependência só com justificativa; nova lib de estado/UI só com ADR.
 
 ## 5. Arquitetura (resumo)
