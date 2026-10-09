@@ -27,3 +27,6 @@ dist-ssr
 *.sw?
 # Local HTTPS certificates
 *.pem
+
+# Cópias isoladas dos agentes do Claude Code
+.claude/worktrees/

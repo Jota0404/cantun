@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { toBandStageState } from './bandStage'
+import { toStageSessionState } from './stageSessionState'
 import { toSharedExecutionState } from './sharedExecution'
 
 describe('stage transitions', () => {
   it('maps prepared next from the authoritative state', () => {
-    const state = toBandStageState({
+    const state = toStageSessionState({
       session_id: 'session-1',
       revision: 7,
       current_index: 2,
@@ -27,7 +27,7 @@ describe('stage transitions', () => {
   })
 
   it('represents a cleared preparation without changing current selection', () => {
-    const state = toBandStageState({
+    const state = toStageSessionState({
       session_id: 'session-1',
       revision: 8,
       current_index: 2,

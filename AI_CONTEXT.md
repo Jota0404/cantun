@@ -24,7 +24,7 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 - **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras; **B0 Fundação** (CI em `main`, isolamento local ADR-048, portabilidade ADR-049, governança da IA ADR-050/058, templates, plano de blocos); spec do **B2 Equipe** (VS-01, ADR-051, `docs/PERMISSIONS.md`).
 - **Em andamento:** **B1 Backend próprio** (ADR-059): sai o Supabase de uma vez; entra PostgreSQL (`db/`) + servidor Node.js (`server/`). Plano em `docs/BACKEND_MIGRATION_PLAN.md`. O SQL do B2 (#57) espera o baseline; domínio e UI do B2 (#58–#60) podem andar.
 - **Próximo:** B3 Serviço (VS-02) → B4 Escala (VS-03); B5 Navegação/Design System em paralelo; B8 Privacidade antes de qualquer usuário real.
-- **Legado:** `Band*`, `Setlist*`, `BandSyncEngine`, `bandStageRealtime`, rotas `/bands*`, `/stage/setlist`, `/stage/session`. Nada de feature nova; será **removido** no B1 (ADR-059), não portado.
+- **Legado:** `Band*`/`Setlist*`, `BandSyncEngine`, `bandStageRealtime` e as rotas `/bands*`, `/stage/setlist`, `/stage/session` foram **removidos** no B1 (ADR-059), não portados. Não recriar.
 
 ## 4. Stack
 

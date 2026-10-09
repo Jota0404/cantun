@@ -1,1 +1,1 @@
-export type EntityName = 'songs' | 'setlists' | 'setlistSongs'
+export type EntityName = 'songs'

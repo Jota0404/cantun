@@ -1,13 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Setlist } from '../domain/repertoires/setlist'
-import type { SetlistSong } from '../domain/repertoires/setlistSong'
 import type { Song } from '../domain/songs/song'
-import type { Band } from '../domain/bands/band'
-import type { BandMember } from '../domain/bands/bandMember'
-import type { BandSong } from '../domain/bands/bandSong'
-import type { BandSongMemberState } from '../domain/bands/bandSongMemberState'
-import type { BandSetlist } from '../domain/bands/bandSetlist'
-import type { BandSetlistSong } from '../domain/bands/bandSetlistSong'
 import type { Organization } from '../domain/organizations/organization'
 import type { OrganizationMembership } from '../domain/organizations/organizationMembership'
 import type { Team } from '../domain/teams/team'
@@ -21,21 +13,11 @@ import type { Assignment } from '../domain/services/assignment'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import type { SyncQueueItem } from '../sync/syncEngine'
-import type { BandSyncQueueItem } from '../sync/bandSyncEngine'
 import type { TargetSyncQueueItem } from '../sync/targetSyncEngine'
 
 export class SalmodiaDatabase extends Dexie {
   songs!: Table<Song, string>
-  setlists!: Table<Setlist, string>
-  setlistSongs!: Table<SetlistSong, string>
   syncQueue!: Table<SyncQueueItem, number>
-  bands!: Table<Band, string>
-  bandMembers!: Table<BandMember, string>
-  bandSongs!: Table<BandSong, string>
-  bandSongMemberStates!: Table<BandSongMemberState, string>
-  bandSetlists!: Table<BandSetlist, string>
-  bandSetlistSongs!: Table<BandSetlistSong, string>
-  bandSyncQueue!: Table<BandSyncQueueItem, number>
   organizations!: Table<Organization, string>
   organizationMemberships!: Table<OrganizationMembership, string>
   teams!: Table<Team, string>
@@ -69,7 +51,7 @@ export class SalmodiaDatabase extends Dexie {
       syncQueue: '++id, userId, entity, entityId, updatedAt, [userId+entity], [userId+entity+entityId]',
     }).upgrade(async (transaction) => {
       const now = new Date().toISOString()
-      await transaction.table<SetlistSong, string>('setlistSongs').toCollection().modify((entry) => {
+      await transaction.table<{ updatedAt?: string }, string>('setlistSongs').toCollection().modify((entry) => {
         if (!entry.updatedAt) entry.updatedAt = now
       })
     })
@@ -179,8 +161,21 @@ export class SalmodiaDatabase extends Dexie {
       stageSessions: 'id, serviceId, status, updatedAt',
       stageSessionStates: 'stageSessionId, revision, currentIndex, currentSongId, updatedAt',
     })
-
-
+    // ADR-059 §8: o legado Band/Setlist foi removido. As stores saem aqui; as versões 1–10
+    // ficam intactas (ADR-011). A fila de `songs` é preservada, a de setlists não faz mais sentido.
+    this.version(11).stores({
+      setlists: null,
+      setlistSongs: null,
+      bands: null,
+      bandMembers: null,
+      bandSongs: null,
+      bandSongMemberStates: null,
+      bandSetlists: null,
+      bandSetlistSongs: null,
+      bandSyncQueue: null,
+    }).upgrade(async (transaction) => {
+      await transaction.table('syncQueue').where('entity').anyOf('setlists', 'setlistSongs').delete()
+    })
   }
 }
 

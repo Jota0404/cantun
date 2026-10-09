@@ -61,12 +61,11 @@ export function getBrowserStorage(): KeyValueStorage | null {
 
 /** Quantidade de operações locais ainda não enviadas ao Supabase, em todas as filas. */
 export async function countPendingLocalChanges(db: SalmodiaDatabase): Promise<number> {
-  const [legacy, band, target] = await Promise.all([
+  const [songs, target] = await Promise.all([
     db.syncQueue.count(),
-    db.bandSyncQueue.count(),
     db.targetSyncQueue.count(),
   ])
-  return legacy + band + target
+  return songs + target
 }
 
 /** Apaga todos os dados de domínio e filas do IndexedDB (o schema é mantido). */

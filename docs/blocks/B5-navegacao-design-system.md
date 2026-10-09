@@ -28,7 +28,7 @@ A navegação reflete o modelo mental da equipe (não o banco) e o visual segue 
 4. **Início contextual** (§52.1): próximo serviço relevante, pendências (confirmar escala, lacunas), situação da escala e atalhos. O bloco de atividade entra no B7.
 5. Badges de estado (§53) para serviço, escala e membro.
 6. `eslint-plugin-jsx-a11y` + `axe` nos testes de páginas principais.
-7. Aposentar `/bands*` quando os gates do ADR-038/041 permitirem (verificar com `legacyDexieCompatibility`).
+7. ~~Aposentar `/bands*`~~: feito no B1 (ADR-059, PR 5).
 8. Apêndice B em toda tela nova: tarefa principal, informação prioritária, ação óbvia.
 
 **Não entra:** redesign do Stage (D6) além de tokens compatíveis; identidade visual comercial (logo, marca).

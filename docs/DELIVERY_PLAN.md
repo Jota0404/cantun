@@ -74,9 +74,9 @@ Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados
 
 - [ ] **PR 1 — baseline:** `db/migrations/0001_baseline.sql` (PostgreSQL puro, sem legado), runner, CI `db` bloqueante, testes de RLS multiusuário.
 - [ ] **PR 2 — servidor:** `server/` (Node.js + TS, Fastify, `pg`): auth própria, `/rpc/:name`, `/sync/:table`.
-- [ ] **PR 3 — realtime:** `docs/REALTIME_CONTRACT.md` + WebSocket.
+- [ ] **PR 3 — realtime:** `docs/REALTIME_CONTRACT.md` + WebSocket. Inclui `POST /auth/verify-email/resend` (pré-requisito do convite com e-mail verificado no B2).
 - [ ] **PR 4 — cliente:** `src/platform/{auth,rpc,realtime}.ts` no lugar de `src/lib/supabase.ts`.
-- [ ] **PR 5 — legado:** remover `Band*`, `Setlist*` e rotas legadas; nova `version()` do Dexie.
+- [x] **PR 5 — legado:** remover `Band*`, `Setlist*` e rotas legadas; nova `version()` do Dexie.
 - [ ] **PR 6 — limpeza:** remover `@supabase/supabase-js`, `supabase/` e o shim; atualizar CI, deploy e docs.
 
 **Regra para os blocos B2+:** SQL novo vai para `db/migrations/` depois do PR 1 e passa no job `db`.
@@ -120,7 +120,7 @@ Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados
 - [ ] Navegação: **Início · Serviços · Músicas · Equipe · Mais** (Repertórios, Ensaios, Histórico, Configurações). Sidebar no desktop, bottom nav no mobile. Remover "Nova música/Importar" do topo e "Organizações" no plural; tirar "MUSIC WORKSPACE".
 - [ ] Início contextual (§52.1): próximo serviço, pendências, situação da escala.
 - [ ] Acessibilidade: `eslint-plugin-jsx-a11y`, alvos ≥ 24 px (≥ 44 px no Stage), foco visível.
-- [ ] Aposentar rotas legadas `/bands*` quando os gates do ADR-038/041 permitirem.
+- [x] Aposentar rotas legadas `/bands*` (feito no B1, ADR-059).
 
 ### B6 — Música no serviço + Ensaio + Materiais (VS-04/05 · RF-REP-004, RF-REH-*, RF-MUS-005)
 
@@ -133,7 +133,7 @@ Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados
 
 - [ ] Registro do serviço executado (repertório, equipe, tons) e derivados por música (última vez tocada, tons usados).
 - [ ] `ActivityLog` somente leitura no Início (§52.1): sem comentários nem reações.
-- [ ] Encerrar o freeze do Stage (D6) e refatorar `StagePage.tsx` e `bandStageRealtime.ts`.
+- [ ] Encerrar o freeze do Stage (D6) e refatorar `ServiceStagePage.tsx` e renomear o que ainda diz "Band" no Stage canônico (`BandStagePresencePanel`, classes `band-stage-*`, textos "MODO BANDA"/"Setlist").
 
 ### B8 — Privacidade mínima (antes de qualquer igreja real usar)
 
