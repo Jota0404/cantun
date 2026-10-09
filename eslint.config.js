@@ -28,7 +28,6 @@ export default defineConfig([
       'src/pages/Organization/TeamPage.tsx',
       'src/pages/Repertoire/RepertoireDetailPage.tsx',
       'src/pages/Repertoire/RepertoireListPage.tsx',
-      'src/pages/Stage/BandStagePage.tsx',
       'src/pages/Stage/ServiceStagePage.tsx',
     ],
     rules: {

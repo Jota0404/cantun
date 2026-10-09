@@ -1,8 +1,4 @@
 import {
-  setlistSongRepository,
-  type SetlistSongRepository,
-} from '../../db/repositories/setlistSongRepository'
-import {
   songRepository,
   type SongRepository,
 } from '../../db/repositories/songRepository'
@@ -20,7 +16,6 @@ export type DeleteSongResult =
 export async function deleteSong(
   id: string,
   repository: SongRepository = songRepository,
-  setlistSongs: SetlistSongRepository = setlistSongRepository,
 ): Promise<DeleteSongResult> {
   const existingSong = await repository.getById(id)
 
@@ -33,12 +28,6 @@ export async function deleteSong(
       },
     }
   }
-
-  const relationships = await setlistSongs.listBySongId(id)
-
-  await Promise.all(
-    relationships.map((relationship) => setlistSongs.remove(relationship.id)),
-  )
 
   await repository.remove(id)
 

@@ -14,7 +14,6 @@ function map(value: Record<string, unknown>): StageSession {
   return {
     id: String(value.id),
     serviceId: String(value.service_id),
-    legacyBandStageSessionId: value.legacy_band_stage_session_id ? String(value.legacy_band_stage_session_id) : undefined,
     mdUserId: value.md_user_id ? String(value.md_user_id) : undefined,
     status: value.status as StageSession['status'],
     createdAt: String(value.created_at),

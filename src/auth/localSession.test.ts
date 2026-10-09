@@ -63,11 +63,10 @@ describe('localSession', () => {
   })
 
   describe('countPendingLocalChanges', () => {
-    it('sums the legacy, band and target sync queues', async () => {
+    it('sums the song and target sync queues', async () => {
       await seedPendingChanges()
-      await db.bandSyncQueue.add({ userId: 'user-a', entity: 'bands', entityId: 'band-a', operation: 'delete', updatedAt: now, attempts: 0 })
 
-      expect(await countPendingLocalChanges(db)).toBe(3)
+      expect(await countPendingLocalChanges(db)).toBe(2)
     })
   })
 

@@ -11,7 +11,7 @@ import type { StageParticipant } from '../../domain/stage/stagePresence'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
-import './BandMusicianStagePage.css'
+import './ServiceStageMusicianPage.css'
 
 type ReadMode = 'scroll' | 'pages'
 

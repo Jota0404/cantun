@@ -2,12 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getStageSong } from '../../application/stage/getStageSong'
-import { getStageSongs } from '../../application/stage/getStageSongs'
 import {
   getSemitoneDistance,
   transposeSongLyrics,
 } from '../../domain/music/transpose'
-import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import type { Song } from '../../domain/songs/song'
 import {
@@ -20,7 +18,6 @@ import './StagePage.css'
 
 type StagePageProps = {
   repository?: SongRepository
-  setlistSongRepository?: SetlistSongRepository
 }
 
 type ParsedStageLine = {
@@ -243,21 +240,12 @@ function StagePagedLyrics({
   )
 }
 
-export function StagePage({
-  repository,
-  setlistSongRepository,
-}: StagePageProps) {
-  const { setlistId, songId } = useParams<{
-    setlistId?: string
-    songId?: string
-  }>()
+export function StagePage({ repository }: StagePageProps) {
+  const { songId } = useParams<{ songId?: string }>()
 
   const navigate = useNavigate()
-  const isSetlistMode = Boolean(setlistId) && !songId
 
-  const [songs, setSongs] = useState<Song[]>([])
   const [currentSong, setCurrentSong] = useState<Song | undefined>()
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [fontSize, setFontSize] = useState(22)
   const [error, setError] = useState<string>()
   const [loading, setLoading] = useState(true)
@@ -286,33 +274,11 @@ export function StagePage({
       setError(undefined)
       setLoading(true)
 
-      if (isSetlistMode && setlistId) {
-        const result = await getStageSongs(setlistId, {
-          songs: repository,
-          setlistSongs: setlistSongRepository,
-        })
-
-        if (!cancelled) {
-          const loadedSongs = result.map(({ song }) => song)
-
-          setSongs(loadedSongs)
-          setCurrentSong(loadedSongs[0])
-          setCurrentIndex(0)
-          setPageIndex(0)
-          setPageCount(1)
-          setLoading(false)
-        }
-
-        return
-      }
-
       if (songId) {
         const song = await getStageSong(songId, repository)
 
         if (!cancelled) {
-          setSongs(song ? [song] : [])
           setCurrentSong(song)
-          setCurrentIndex(0)
           setPageIndex(0)
           setPageCount(1)
           setLoading(false)
@@ -337,13 +303,7 @@ export function StagePage({
     return () => {
       cancelled = true
     }
-  }, [
-    isSetlistMode,
-    repository,
-    setlistId,
-    setlistSongRepository,
-    songId,
-  ])
+  }, [repository, songId])
 
   useEffect(() => {
     if (!currentSong) return
@@ -385,15 +345,6 @@ export function StagePage({
     setPageCount(count)
   }, [])
 
-  function selectSong(index: number) {
-    if (index < 0 || index >= songs.length) return
-
-    setCurrentIndex(index)
-    setCurrentSong(songs[index])
-    setPageIndex(0)
-    setPageCount(1)
-  }
-
   function selectPage(index: number) {
     if (index < 0 || index >= pageCount) return
 
@@ -416,27 +367,10 @@ export function StagePage({
     const horizontalSwipe =
       Math.abs(deltaX) >= 64 && Math.abs(deltaX) > Math.abs(deltaY)
 
-    if (readMode === 'pages') {
-      if (horizontalSwipe) {
-        selectPage(deltaX < 0 ? activePageIndex + 1 : activePageIndex - 1)
-        return
-      }
-
-      if (Math.abs(deltaX) < 18 && Math.abs(deltaY) < 18) {
-        const width = window.innerWidth
-
-        if (event.clientX >= width * 0.78) {
-          selectPage(activePageIndex + 1)
-        } else if (event.clientX <= width * 0.22) {
-          selectPage(activePageIndex - 1)
-        }
-      }
-
-      return
-    }
+    if (readMode !== 'pages') return
 
     if (horizontalSwipe) {
-      selectSong(deltaX < 0 ? currentIndex + 1 : currentIndex - 1)
+      selectPage(deltaX < 0 ? activePageIndex + 1 : activePageIndex - 1)
       return
     }
 
@@ -444,9 +378,9 @@ export function StagePage({
       const width = window.innerWidth
 
       if (event.clientX >= width * 0.78) {
-        selectSong(currentIndex + 1)
+        selectPage(activePageIndex + 1)
       } else if (event.clientX <= width * 0.22) {
-        selectSong(currentIndex - 1)
+        selectPage(activePageIndex - 1)
       }
     }
   }
@@ -506,9 +440,6 @@ export function StagePage({
     )
   }
 
-  const hasPrevious = currentIndex > 0
-  const hasNext = currentIndex < songs.length - 1
-
   const autoScrollSpeedIndex = AUTO_SCROLL_SPEEDS.findIndex(
     (option) => option.value === autoScrollSpeed,
   )
@@ -524,20 +455,13 @@ export function StagePage({
       <header className="stage-toolbar">
         <button
           type="button"
-          onClick={() =>
-            navigate(
-              isSetlistMode
-                ? `/repertoires/${setlistId}`
-                : `/songs/${currentSong.id}`,
-            )
-          }
+          onClick={() => navigate(`/songs/${currentSong.id}`)}
         >
           Sair
         </button>
 
         <div className="stage-toolbar__title">
           <strong>{currentSong.title}</strong>
-          {songs.length > 1 && <span>{currentIndex + 1}/{songs.length}</span>}
           {readMode === 'pages' && (
             <span aria-live="polite">Página {activePageIndex + 1}/{pageCount}</span>
           )}
@@ -600,15 +524,6 @@ export function StagePage({
           </button>
         </div>
 
-        <button
-          type="button"
-          disabled={!hasPrevious}
-          onClick={() => selectSong(currentIndex - 1)}
-          aria-label="Música anterior"
-        >
-          ←
-        </button>
-
         {readMode === 'scroll' ? (
           <div className="stage-controls__auto-scroll" aria-label="Controles de auto-scroll">
             <div className="stage-controls__auto-scroll-row">
@@ -660,15 +575,6 @@ export function StagePage({
             aria-label="Tamanho da fonte"
           />
         </label>
-
-        <button
-          type="button"
-          disabled={!hasNext}
-          onClick={() => selectSong(currentIndex + 1)}
-          aria-label="Próxima música"
-        >
-          →
-        </button>
       </footer>
     </main>
   )

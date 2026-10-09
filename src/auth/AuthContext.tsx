@@ -3,7 +3,6 @@ import type { Session } from '@supabase/supabase-js'
 import { db } from '../db/database'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { syncEngine, syncTargetDomain } from '../sync/syncService'
-import { bootstrapBandSync, syncBands } from '../sync/bandSyncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
@@ -18,7 +17,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
     const synchronize = (userId: string) => {
       void syncEngine?.bootstrap(userId)
-      void bootstrapBandSync()
     }
 
     // Os dados locais precisam pertencer ao usuário da sessão ANTES de a UI ler
@@ -49,10 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const onOnline = () => {
       void client.auth.getUser().then(({ data: authData }) => {
-        if (authData.user) {
-          void syncEngine?.sync(authData.user.id)
-          void syncBands()
-        }
+        if (authData.user) void syncEngine?.sync(authData.user.id)
       })
     }
 
@@ -88,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         db,
         flushPendingChanges: async () => {
           if (!userId || !navigator.onLine) return
-          await Promise.allSettled([syncEngine?.sync(userId), syncBands(), syncTargetDomain()])
+          await Promise.allSettled([syncEngine?.sync(userId), syncTargetDomain()])
         },
         signOutRemote: async () => {
           const { error } = await client.auth.signOut({ scope: 'local' })

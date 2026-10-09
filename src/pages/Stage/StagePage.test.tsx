@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StagePage } from './StagePage'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
-import type { SetlistSongRepository } from '../../db/repositories/setlistSongRepository'
 
 function song(id: string, title: string, lyrics = `[C]${title}`): Song {
   return {
@@ -24,38 +23,21 @@ function song(id: string, title: string, lyrics = `[C]${title}`): Song {
   }
 }
 
-function renderStage(
-  songs: Song[],
-  entries: Array<{
-    id: string
-    setlistId: string
-    songId: string
-    position: number
-  }>,
-) {
+function renderStage(songs: Song[], songId = songs[0]?.id ?? 'missing') {
   const songRepository = {
-    list: vi.fn(async () => songs),
     getById: vi.fn(async (id: string) =>
       songs.find((item) => item.id === id),
     ),
   } as unknown as SongRepository
 
-  const setlistSongRepository = {
-    listBySetlistId: vi.fn(async () => entries),
-  } as unknown as SetlistSongRepository
-
   return render(
-    <MemoryRouter initialEntries={['/stage/setlist/setlist-1']}>
+    <MemoryRouter initialEntries={[`/stage/song/${songId}`]}>
       <Routes>
         <Route
-          path="/stage/setlist/:setlistId"
-          element={
-            <StagePage
-              repository={songRepository}
-              setlistSongRepository={setlistSongRepository}
-            />
-          }
+          path="/stage/song/:songId"
+          element={<StagePage repository={songRepository} />}
         />
+        <Route path="/songs/:songId" element={<h1>Detalhe da música</h1>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -134,17 +116,7 @@ describe('StagePage', () => {
       value: vi.fn().mockRejectedValue(new Error('Not supported')),
     })
 
-    renderStage(
-      [song('song-1', 'Primeira')],
-      [
-        {
-          id: 'entry-1',
-          setlistId: 'setlist-1',
-          songId: 'song-1',
-          position: 1,
-        },
-      ],
-    )
+    renderStage([song('song-1', 'Primeira')])
 
     expect(await screen.findByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
 
@@ -156,30 +128,27 @@ describe('StagePage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('shows the first repertoire song and navigates to the next song', async () => {
+  it('opens the requested library song and returns to its detail page', async () => {
     const user = userEvent.setup()
 
-    renderStage(
-      [song('song-1', 'Primeira'), song('song-2', 'Segunda')],
-      [
-        { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-        { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
-      ],
-    )
+    renderStage([song('song-1', 'Primeira'), song('song-2', 'Segunda')], 'song-2')
 
-    expect(await screen.findByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
+    expect(await screen.findByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.queryByText('Primeira', { selector: 'strong' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
+    await user.click(screen.getByRole('button', { name: 'Sair' }))
 
-    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Música anterior' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Próxima música' })).toBeDisabled()
+    expect(screen.getByRole('heading', { name: 'Detalhe da música' })).toBeInTheDocument()
+  })
+
+  it('shows an alert when the song does not exist', async () => {
+    renderStage([song('song-1', 'Primeira')], 'song-404')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nenhuma música disponível para o Modo Palco.')
   })
 
   it('changes the displayed font size with the range control', async () => {
-    renderStage([song('song-1', 'Primeira')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-    ])
+    renderStage([song('song-1', 'Primeira')])
 
     const range = await screen.findByRole('slider', { name: 'Tamanho da fonte' })
     expect(range).toHaveValue('22')
@@ -189,9 +158,7 @@ describe('StagePage', () => {
 
   it('starts, pauses, and resumes auto-scroll without creating duplicate frames', async () => {
     const user = userEvent.setup()
-    renderStage([song('song-1', 'Primeira')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-    ])
+    renderStage([song('song-1', 'Primeira')])
 
     expect(await screen.findByText('Auto-scroll: Pausado')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Iniciar' }))
@@ -212,9 +179,7 @@ describe('StagePage', () => {
 
   it('scrolls according to the selected speed and stops at the end', async () => {
     const user = userEvent.setup()
-    renderStage([song('song-1', 'Primeira')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-    ])
+    renderStage([song('song-1', 'Primeira')])
 
     const speed = await screen.findByRole('slider', { name: 'Velocidade do auto-scroll' })
     expect(speed).toHaveValue('1')
@@ -237,32 +202,8 @@ describe('StagePage', () => {
     expect(callbacks.size).toBe(0)
   })
 
-  it('keeps auto-scroll active and returns to the top when changing songs', async () => {
-    const user = userEvent.setup()
-    renderStage([song('song-1', 'Primeira'), song('song-2', 'Segunda')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-      { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
-    ])
-
-    await screen.findByText('Primeira', { selector: 'strong' })
-    await user.click(screen.getByRole('button', { name: 'Iniciar' }))
-    const fontRange = screen.getByRole('slider', { name: 'Tamanho da fonte' })
-    fireEvent.change(fontRange, { target: { value: '30' } })
-    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
-    expect(callbacks.size).toBe(1)
-
-    scrollPosition = 300
-    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
-    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
-    expect(scrollPosition).toBe(0)
-    expect(screen.getByText('Auto-scroll: Ativo')).toBeInTheDocument()
-    expect(callbacks.size).toBe(1)
-  })
-
   it('renders legacy chord lines with highlighted chords', async () => {
-    renderStage([song('song-1', 'Legado', 'Intro\n>G\nC    D    Em\n>Em\nVerso')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-    ])
+    renderStage([song('song-1', 'Legado', 'Intro\n>G\nC    D    Em\n>Em\nVerso')])
 
     await screen.findByText('Legado', { selector: 'strong' })
 
@@ -272,16 +213,13 @@ describe('StagePage', () => {
     expect(screen.getAllByText('Em', { selector: '.stage-chord' })).toHaveLength(2)
   })
 
-  it('switches to page mode and navigates pages without affecting song navigation', async () => {
+  it('switches to page mode and navigates pages', async () => {
     const user = userEvent.setup()
     const lyrics = Array.from({ length: 25 }, (_, index) =>
       index === 0 ? '>G' : `Linha ${index + 1}`,
     ).join('\n')
 
-    renderStage([song('song-1', 'Primeira', lyrics), song('song-2', 'Segunda')], [
-      { id: 'entry-1', setlistId: 'setlist-1', songId: 'song-1', position: 1 },
-      { id: 'entry-2', setlistId: 'setlist-1', songId: 'song-2', position: 2 },
-    ])
+    renderStage([song('song-1', 'Primeira', lyrics)])
 
     await screen.findByText('Primeira', { selector: 'strong' })
     await user.click(screen.getByRole('button', { name: 'Páginas' }))
@@ -300,14 +238,9 @@ describe('StagePage', () => {
     fireEvent.pointerUp(stage, { clientX: 500, clientY: 300 })
 
     expect(screen.getByText('Página 2/2')).toBeInTheDocument()
-    expect(screen.getByText('Primeira', { selector: 'strong' })).toBeInTheDocument()
-    expect(screen.queryByText('Segunda', { selector: 'strong' })).not.toBeInTheDocument()
 
     fireEvent.pointerDown(stage, { clientX: 500, clientY: 300 })
     fireEvent.pointerUp(stage, { clientX: 1000, clientY: 300 })
     expect(screen.getByText('Página 1/2')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Próxima música' }))
-    expect(screen.getByText('Segunda', { selector: 'strong' })).toBeInTheDocument()
   })
 })
