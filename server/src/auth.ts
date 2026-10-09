@@ -58,12 +58,16 @@ interface UserRow {
   id: string
   email: string
   email_verified_at: Date | null
+  display_name: string
 }
 
-const toUser = (row: UserRow) => ({ id: row.id, email: row.email, emailVerified: row.email_verified_at !== null })
+const toUser = (row: UserRow) => ({ id: row.id, email: row.email, emailVerified: row.email_verified_at !== null, displayName: row.display_name })
+const USER_COLUMNS = 'id, email, email_verified_at, display_name'
 
 const emailSchema = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' }
 const passwordSchema = { type: 'string', minLength: 8, maxLength: 128 }
+// 1–80 caracteres depois do trim (mesmo check de app.users.display_name).
+const displayNameSchema = { type: 'string', minLength: 1, maxLength: 80, pattern: '\\S' }
 const tokenSchema = { type: 'string', minLength: 20, maxLength: 200 }
 const authLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } }
 /** Intervalo mínimo entre e-mails de verificação do mesmo usuário (além do limite por IP). */
@@ -122,17 +126,17 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     return rows[0].user_id
   }
 
-  app.post<{ Body: { email: string; password: string } }>('/auth/signup', {
+  app.post<{ Body: { email: string; password: string; displayName: string } }>('/auth/signup', {
     config: authLimit,
-    schema: { body: { type: 'object', required: ['email', 'password'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema } } },
+    schema: { body: { type: 'object', required: ['email', 'password', 'displayName'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema } } },
   }, async (request, reply) => {
     const email = request.body.email.trim().toLowerCase()
     const passwordHash = await hashPassword(request.body.password)
     const { rows } = await pool.query<UserRow>(
-      `insert into app.users (email, password_hash) values ($1, $2)
+      `insert into app.users (email, password_hash, display_name) values ($1, $2, $3)
        on conflict (email) do nothing
-       returning id, email, email_verified_at`,
-      [email, passwordHash],
+       returning ${USER_COLUMNS}`,
+      [email, passwordHash, request.body.displayName.trim()],
     )
     if (!rows[0]) throw new HttpError(409, 'e-mail já cadastrado')
     await sendEmailToken(rows[0].id, email, 'verify_email')
@@ -145,7 +149,7 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     schema: { body: { type: 'object', required: ['email', 'password'], additionalProperties: false, properties: { email: emailSchema, password: { type: 'string', maxLength: 128 } } } },
   }, async (request, reply) => {
     const { rows } = await pool.query<UserRow & { password_hash: string | null }>(
-      'select id, email, email_verified_at, password_hash from app.users where email = $1',
+      `select ${USER_COLUMNS}, password_hash from app.users where email = $1`,
       [request.body.email.trim().toLowerCase()],
     )
     const user = rows[0]
@@ -164,7 +168,7 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
 
   app.get('/auth/session', async (request) => {
     if (!request.userId) throw new HttpError(401, 'sessão inválida')
-    const { rows } = await pool.query<UserRow>('select id, email, email_verified_at from app.users where id = $1', [request.userId])
+    const { rows } = await pool.query<UserRow>(`select ${USER_COLUMNS} from app.users where id = $1`, [request.userId])
     if (!rows[0]) throw new HttpError(401, 'sessão inválida')
     return { user: toUser(rows[0]) }
   })
@@ -183,7 +187,7 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     if (!userId) throw new HttpError(401, 'sessão inválida')
     const mail = await transaction(pool, async (client) => {
       // `for update` serializa reenvios simultâneos do mesmo usuário: um link válido por vez.
-      const { rows } = await client.query<UserRow>('select id, email, email_verified_at from app.users where id = $1 for update', [userId])
+      const { rows } = await client.query<UserRow>(`select ${USER_COLUMNS} from app.users where id = $1 for update`, [userId])
       const user = rows[0]
       if (!user) throw new HttpError(401, 'sessão inválida')
       if (user.email_verified_at) return null

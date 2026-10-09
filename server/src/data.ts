@@ -44,7 +44,7 @@ export interface DataOptions {
 }
 
 export async function dataRoutes(app: FastifyInstance, { pool, catalog }: DataOptions) {
-  app.post<{ Params: { name: string }; Body: Record<string, unknown> | undefined }>('/rpc/:name', async (request) => {
+  app.post<{ Params: { name: string }; Body: Record<string, unknown> | undefined }>('/rpc/:name', async (request, reply) => {
     const userId = requireUser(request)
     const fn = catalog.functions.get(request.params.name)
     if (!fn) throw new HttpError(404, 'função não encontrada')
@@ -65,7 +65,9 @@ export async function dataRoutes(app: FastifyInstance, { pool, catalog }: DataOp
     if (fn.returns === 'void') return null
     if (fn.returns === 'row') return fn.returnsSet ? rows : (rows[0] ?? null)
     const values = rows.map((row) => row[fn.name])
-    return fn.returnsSet ? values : (values[0] ?? null)
+    if (fn.returnsSet) return values
+    // Fastify envia string crua como text/plain; o contrato é JSON.
+    return reply.type('application/json; charset=utf-8').send(JSON.stringify(values[0] ?? null))
   })
 
   app.get<{ Params: { table: string }; Querystring: Record<string, string> }>('/sync/:table', async (request) => {
