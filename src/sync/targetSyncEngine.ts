@@ -43,7 +43,11 @@ export type TargetEntity =
   | StageSession
   | StageSessionState
 
-export type TargetWritableEntityName = Exclude<TargetEntityName, 'stageSessionStates'>
+// Sessão e estado do Palco só mudam por RPC (`create_target_stage_session`, `target_stage_*`);
+// o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull.
+const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates'] as const
+
+export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
 
 export type TargetWritableEntity =
   | Organization
@@ -56,7 +60,6 @@ export type TargetWritableEntity =
   | Service
   | ServiceItem
   | Assignment
-  | StageSession
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -83,7 +86,7 @@ const tables: Record<TargetEntityName, string> = {
   stageSessionStates: 'stage_session_states',
 }
 
-function toRemoteRow(entity: TargetEntityName, value: TargetEntity) {
+function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEntity) {
   switch (entity) {
     case 'organizations': {
       const v = value as Organization
@@ -124,14 +127,6 @@ function toRemoteRow(entity: TargetEntityName, value: TargetEntity) {
     case 'assignments': {
       const v = value as Assignment
       return { id: v.id, service_id: v.serviceId, user_id: v.userId, musical_function: v.musicalFunction, service_item_id: v.serviceItemId ?? null, status: v.status, created_at: v.createdAt, updated_at: v.updatedAt }
-    }
-    case 'stageSessions': {
-      const v = value as StageSession
-      return { id: v.id, service_id: v.serviceId, md_user_id: v.mdUserId ?? null, status: v.status, created_at: v.createdAt, started_at: v.startedAt ?? null, ended_at: v.endedAt ?? null, updated_at: v.updatedAt }
-    }
-    case 'stageSessionStates': {
-      const v = value as StageSessionState
-      return { stage_session_id: v.stageSessionId, revision: v.revision, current_index: v.currentIndex, current_service_item_id: v.currentServiceItemId ?? null, current_song_id: v.currentSongId ?? null, current_key: v.currentKey ?? null, prepared_index: v.preparedIndex ?? null, prepared_service_item_id: v.preparedServiceItemId ?? null, prepared_song_id: v.preparedSongId ?? null, is_running: v.isRunning, md_annotation: v.mdAnnotation ?? null, updated_at: v.updatedAt }
     }
   }
 }
@@ -200,6 +195,8 @@ export class TargetSyncEngine {
     if (this.syncing || !navigator.onLine) return
     this.syncing = true
     try {
+      // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
+      await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES]).delete()
       const pending = await this.db.targetSyncQueue.orderBy('id').toArray()
       for (const item of pending) {
         try {
