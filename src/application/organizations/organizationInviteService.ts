@@ -1,5 +1,8 @@
 import type { OrganizationAccessRole } from '../../domain/organizations/organizationMembership'
-import { supabase } from '../../lib/supabase'
+import { rpc } from '../../platform/rpc'
+import { selectRows } from '../../platform/sync'
+
+type Row = Record<string, unknown>
 
 export type OrganizationInviteRole = Exclude<OrganizationAccessRole, 'owner'>
 export type OrganizationInviteStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
@@ -27,11 +30,6 @@ export interface CreatedOrganizationInvite extends OrganizationInvite {
   token: string
 }
 
-function requireSupabase() {
-  if (!supabase) throw new Error('Supabase não está configurado.')
-  return supabase
-}
-
 function mapInvite(row: Record<string, unknown>): OrganizationInvite {
   return {
     id: row.id as string,
@@ -53,22 +51,20 @@ export async function createOrganizationInvite(
   role: OrganizationInviteRole,
   inviteeEmail?: string,
 ): Promise<CreatedOrganizationInvite> {
-  const { data, error } = await requireSupabase().rpc('create_organization_invite', {
+  const data = await rpc<Row | Row[] | null>('create_organization_invite', {
     p_organization_id: organizationId,
     p_team_id: teamId,
     p_role: role,
     p_invitee_email: inviteeEmail?.trim() || null,
     p_expires_in_hours: 168,
   })
-  if (error) throw error
   const row = Array.isArray(data) ? data[0] : data
   if (!row) throw new Error('Convite não foi criado.')
   return { ...mapInvite(row), token: row.token as string }
 }
 
 export async function getOrganizationInvite(token: string): Promise<OrganizationInvitePreview | null> {
-  const { data, error } = await requireSupabase().rpc('get_organization_invite', { p_token: token })
-  if (error) throw error
+  const data = await rpc<Row | Row[] | null>('get_organization_invite', { p_token: token })
   const row = Array.isArray(data) ? data[0] : data
   if (!row) return null
   return {
@@ -80,8 +76,7 @@ export async function getOrganizationInvite(token: string): Promise<Organization
 }
 
 export async function acceptOrganizationInvite(token: string) {
-  const { data, error } = await requireSupabase().rpc('accept_organization_invite', { p_token: token })
-  if (error) throw error
+  const data = await rpc<Row | Row[] | null>('accept_organization_invite', { p_token: token })
   const row = Array.isArray(data) ? data[0] : data
   if (!row) throw new Error('O convite não pôde ser aceito.')
   return {
@@ -100,47 +95,39 @@ export async function acceptOrganizationInvite(token: string) {
 export async function listOrganizationInvites(
   organizationId: string,
 ): Promise<Array<OrganizationInvite & { status: OrganizationInviteStatus }>> {
-  const { data, error } = await requireSupabase()
-    .from('organization_invites')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false })
+  const rows = await selectRows('organization_invites', { organization_id: organizationId })
+  rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
 
-  if (error) throw error
-
-  return (data ?? []).map((row) => ({
+  return rows.map((row) => ({
     ...mapInvite(row),
     status: row.revoked_at
       ? 'revoked'
       : row.accepted_at
         ? 'accepted'
-        : new Date(row.expires_at).getTime() <= Date.now()
+        : new Date(String(row.expires_at)).getTime() <= Date.now()
           ? 'expired'
           : 'pending',
   }))
 }
 
 export async function revokeOrganizationInvite(inviteId: string) {
-  const { error } = await requireSupabase().rpc('revoke_organization_invite', { p_invite_id: inviteId })
-  if (error) throw error
+  await rpc('revoke_organization_invite', { p_invite_id: inviteId })
 }
 
 export async function updateOrganizationMemberRole(
   membershipId: string,
   role: Exclude<OrganizationAccessRole, 'owner'>,
 ) {
-  const { error } = await requireSupabase().rpc('update_organization_member_role', {
+  await rpc('update_organization_member_role', {
     p_membership_id: membershipId,
     p_role: role,
   })
-  if (error) throw error
 }
 
 export async function removeOrganizationMember(membershipId: string) {
-  const { error } = await requireSupabase().rpc('remove_organization_member', {
+  await rpc('remove_organization_member', {
     p_membership_id: membershipId,
   })
-  if (error) throw error
 }
 
 export function buildOrganizationInviteUrl(token: string) {

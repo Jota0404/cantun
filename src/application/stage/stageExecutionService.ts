@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { getCurrentUser } from '../../platform/auth'
+import { rpc } from '../../platform/rpc'
 import { StageRealtime } from '../../sync/stageRealtime'
 import { normalizeStageAnnotation } from '../../domain/stage/stageAnnotation'
 import type { StageParticipant, StagePresencePayload } from '../../domain/stage/stagePresence'
@@ -9,7 +11,8 @@ import { createStageEvent, toStageSession, toStageSessionState } from '../../dom
 export class StageExecutionService {
   private readonly realtimeByTarget = new Map<string, StageRealtime>()
 
-  private client(): SupabaseClient {
+  // Só o canal realtime ainda usa o Supabase; sai no PR 3 do B1 (REALTIME_CONTRACT).
+  private realtimeClient(): SupabaseClient {
     if (!supabase) throw new Error('Supabase não está configurado para o Modo Palco.')
     return supabase as unknown as SupabaseClient
   }
@@ -22,33 +25,30 @@ export class StageExecutionService {
   } = {}): StageRealtime {
     const existing = this.realtimeByTarget.get(stageSessionId)
     if (existing) return existing
-    const realtime = new StageRealtime({ client: this.client(), sessionId: stageSessionId, ...callbacks })
+    const realtime = new StageRealtime({ client: this.realtimeClient(), sessionId: stageSessionId, ...callbacks })
     this.realtimeByTarget.set(stageSessionId, realtime)
     return realtime
   }
 
   private async command(
     stageSessionId: string,
-    rpc: string,
+    name: string,
     eventType: StageEventType,
     args: Record<string, unknown> = {},
     payload: Record<string, unknown> = {},
   ): Promise<StageCommandResult> {
-    const client = this.client()
     await this.getSnapshot(stageSessionId)
-    const { data, error } = await client.rpc(rpc, { p_stage_session_id: stageSessionId, ...args })
-    if (error) throw new Error(error.message)
+    const data = await rpc(name, { p_stage_session_id: stageSessionId, ...args })
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
     const state = toStageSessionState({ ...(row as Record<string, unknown>), stage_session_id: stageSessionId })
     const snapshot = await this.getSnapshot(stageSessionId)
     if (snapshot.state.revision !== state.revision) throw new Error('Estado de palco mudou durante a publicação; reconciliação necessária.')
-    const user = await client.auth.getUser()
     const event = createStageEvent({
       type: eventType,
       sessionId: stageSessionId,
       revision: state.revision,
-      actorUserId: user.data.user?.id ?? '',
+      actorUserId: getCurrentUser()?.id ?? '',
       payload: { ...payload, state },
     })
     await this.realtimeByTarget.get(stageSessionId)?.publish(event).catch(() => undefined)
@@ -83,9 +83,7 @@ export class StageExecutionService {
   }
 
   async getSnapshot(stageSessionId: string): Promise<StageSnapshot> {
-    const client = this.client()
-    const { data, error } = await client.rpc('get_target_stage_snapshot', { p_stage_session_id: stageSessionId })
-    if (error) throw new Error(error.message)
+    const data = await rpc('get_target_stage_snapshot', { p_stage_session_id: stageSessionId })
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Snapshot de palco inválido.')
     const value = row as Record<string, unknown>
@@ -135,9 +133,7 @@ export class StageExecutionService {
   }
 
   async startSession(stageSessionId: string): Promise<StageSession> {
-    const client = this.client()
-    const { data, error } = await client.rpc('target_stage_start', { p_stage_session_id: stageSessionId })
-    if (error) throw new Error(error.message)
+    const data = await rpc('target_stage_start', { p_stage_session_id: stageSessionId })
     const snapshot = await this.getSnapshot(stageSessionId)
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')
@@ -147,9 +143,7 @@ export class StageExecutionService {
   }
 
   async endSession(stageSessionId: string): Promise<StageSession> {
-    const client = this.client()
-    const { data, error } = await client.rpc('target_stage_end', { p_stage_session_id: stageSessionId })
-    if (error) throw new Error(error.message)
+    const data = await rpc('target_stage_end', { p_stage_session_id: stageSessionId })
     const snapshot = await this.getSnapshot(stageSessionId)
     const row = Array.isArray(data) ? data[0] : data
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Resposta RPC de palco inválida.')

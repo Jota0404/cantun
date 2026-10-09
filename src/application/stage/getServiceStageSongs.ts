@@ -3,7 +3,9 @@ import { stageSessionRepository } from '../../db/repositories/stageSessionReposi
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { songRepository } from '../../db/repositories/songRepository'
 import { assignmentRepository } from '../../db/repositories/assignmentRepository'
-import { supabase } from '../../lib/supabase'
+import { getCurrentUser } from '../../platform/auth'
+import { isPlatformConfigured } from '../../platform/http'
+import { rpc } from '../../platform/rpc'
 
 export type ServiceStageSong = {
   position: number
@@ -41,9 +43,10 @@ function key(value: unknown, fallback: MusicalKey = 'C'): MusicalKey {
 async function getLocalServiceStageSongs(stageSessionId: string): Promise<ServiceStageSong[]> {
   const session = await stageSessionRepository.getById(stageSessionId)
   if (!session) throw new Error('Sessão de palco não disponível offline.')
+  const user = getCurrentUser()
   const [items, assignments] = await Promise.all([
     serviceItemRepository.listByServiceId(session.serviceId),
-    supabase?.auth.getUser().then(({ data }) => data.user ? assignmentRepository.listByUserId(data.user.id) : []) ?? Promise.resolve([]),
+    user ? assignmentRepository.listByUserId(user.id) : Promise.resolve([]),
   ])
   const serviceAssignments = assignments.filter((assignment) => assignment.serviceId === session.serviceId)
   const result: ServiceStageSong[] = []
@@ -70,12 +73,11 @@ async function getLocalServiceStageSongs(stageSessionId: string): Promise<Servic
 }
 
 export async function getServiceStageSongs(stageSessionId: string): Promise<ServiceStageSong[]> {
-  if (!supabase) return getLocalServiceStageSongs(stageSessionId)
+  if (!isPlatformConfigured) return getLocalServiceStageSongs(stageSessionId)
   try {
-    const { data, error } = await supabase.rpc('get_service_stage_songs', {
+    const data = await rpc<Row[] | null>('get_service_stage_songs', {
     p_stage_session_id: stageSessionId,
     })
-    if (error) throw error
 
     return ((data ?? []) as Row[]).map((row) => ({
     position: Number(row.position),

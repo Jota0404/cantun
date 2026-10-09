@@ -11,7 +11,8 @@ import type { Assignment } from '../domain/services/assignment'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { rpc } from '../platform/rpc'
+import { deleteRows, selectRows, updateRows, upsertRows } from '../platform/sync'
 import type { SalmodiaDatabase } from '../db/database'
 
 export type TargetEntityName =
@@ -174,10 +175,8 @@ export class TargetSyncEngine {
   private syncing = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
-  private readonly client: SupabaseClient
-  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+  constructor(db: SalmodiaDatabase) {
     this.db = db
-    this.client = client
   }
 
   async queueUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity): Promise<void> {
@@ -193,8 +192,7 @@ export class TargetSyncEngine {
   }
 
   async createOrganization(value: Organization): Promise<void> {
-    const { error } = await this.client.rpc('create_organization', { p_id: value.id, p_name: value.name })
-    if (error) throw error
+    await rpc('create_organization', { p_id: value.id, p_name: value.name })
     await this.db.organizations.put(value)
   }
 
@@ -207,22 +205,17 @@ export class TargetSyncEngine {
         try {
           const table = tables[item.entity]
           if (item.operation === 'delete') {
-            const { error } = await this.client.from(table).delete().eq('id', item.entityId)
-            if (error) throw error
+            await deleteRows(table, { id: item.entityId })
           } else if (item.entity === 'organizations') {
             const organization = item.payload as Organization
-            const { data: existing, error: readError } = await this.client.from(table).select('id').eq('id', item.entityId).maybeSingle()
-            if (readError) throw readError
+            const [existing] = await selectRows(table, { id: item.entityId })
             if (existing) {
-              const { error } = await this.client.from(table).update({ name: organization.name, updated_at: organization.updatedAt }).eq('id', item.entityId)
-              if (error) throw error
+              await updateRows(table, { id: item.entityId }, { name: organization.name, updated_at: organization.updatedAt })
             } else {
-              const { error } = await this.client.rpc('create_organization', { p_id: item.entityId, p_name: organization.name })
-              if (error) throw error
+              await rpc('create_organization', { p_id: item.entityId, p_name: organization.name })
             }
           } else {
-            const { error } = await this.client.from(table).upsert(toRemoteRow(item.entity, item.payload!) as never, { onConflict: 'id' })
-            if (error) throw error
+            await upsertRows(table, [toRemoteRow(item.entity, item.payload!)])
           }
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
         } catch {
@@ -231,10 +224,10 @@ export class TargetSyncEngine {
       }
 
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
-        const { data, error } = await this.client.from(tables[entity]).select('*')
-        if (error) continue
+        const rows = await selectRows(tables[entity]).catch(() => null)
+        if (!rows) continue
         const table = localTable(this.db, entity)
-        for (const row of (data ?? []) as Record<string, unknown>[]) {
+        for (const row of rows) {
           const value = fromRemoteRow(entity, row)
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId

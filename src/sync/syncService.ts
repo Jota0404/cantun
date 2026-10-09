@@ -1,11 +1,11 @@
 import type { EntityName } from './types'
 import { db } from '../db/database'
-import { supabase } from '../lib/supabase'
+import { isPlatformConfigured } from '../platform/http'
 import { SyncEngine } from './syncEngine'
 import { TargetSyncEngine, type TargetWritableEntity, type TargetWritableEntityName } from './targetSyncEngine'
 
-export const syncEngine = supabase ? new SyncEngine(db, supabase) : null
-export const targetSyncEngine = supabase ? new TargetSyncEngine(db, supabase) : null
+export const syncEngine = isPlatformConfigured ? new SyncEngine(db) : null
+export const targetSyncEngine = isPlatformConfigured ? new TargetSyncEngine(db) : null
 
 export async function queueLocalUpsert(userId: string | null, entity: EntityName, payload: Parameters<SyncEngine['queueUpsert']>[2]) {
   if (!userId || !syncEngine) return

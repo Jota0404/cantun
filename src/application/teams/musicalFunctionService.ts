@@ -1,11 +1,6 @@
-import { supabase } from '../../lib/supabase'
+import { rpc } from '../../platform/rpc'
 
 export type MusicalFunction = string
-
-function requireSupabase() {
-  if (!supabase) throw new Error('Supabase não está configurado.')
-  return supabase
-}
 
 function functions(data: unknown): string[] {
   if (!Array.isArray(data)) return []
@@ -13,16 +8,12 @@ function functions(data: unknown): string[] {
 }
 
 export async function getMyTeamMusicalFunctions(teamId: string): Promise<string[]> {
-  const { data, error } = await requireSupabase().rpc('get_my_team_musical_functions', { p_team_id: teamId })
-  if (error) throw error
-  return functions(data)
+  return functions(await rpc('get_my_team_musical_functions', { p_team_id: teamId }))
 }
 
 export async function setMyTeamMusicalFunctions(teamId: string, musicalFunctions: string[]): Promise<string[]> {
-  const { data, error } = await requireSupabase().rpc('set_my_team_musical_functions', {
+  return functions(await rpc('set_my_team_musical_functions', {
     p_team_id: teamId,
     p_musical_functions: musicalFunctions,
-  })
-  if (error) throw error
-  return functions(data)
+  }))
 }
