@@ -82,13 +82,12 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
 }
 
 /**
- * Nome exibido na presença, sempre derivado da sessão (contrato §5): até o B2 criar
- * `display_name`, é o prefixo do e-mail, visível só para membros da mesma organização.
- * `null` quando o usuário não existe mais.
+ * Nome exibido na presença, sempre derivado da sessão (contrato §5): `app.users.display_name`
+ * (RN-15), nunca o e-mail. `null` quando o usuário não existe mais.
  */
 export async function displayNameFor(pool: Pool, userId: string): Promise<string | null> {
-  const { rows } = await pool.query<{ email: string }>('select email from app.users where id = $1', [userId])
-  return rows[0] ? rows[0].email.split('@')[0].slice(0, 80) : null
+  const { rows } = await pool.query<{ display_name: string }>('select display_name from app.users where id = $1', [userId])
+  return rows[0]?.display_name ?? null
 }
 
 function isAccessError(error: unknown): boolean {

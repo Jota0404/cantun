@@ -2,10 +2,10 @@
 \set ON_ERROR_STOP on
 begin;
 
-insert into app.users (id, email) values
-  ('00000000-0000-0000-0000-0000000003a1', 'ana.rt@teste.local'),
-  ('00000000-0000-0000-0000-0000000003b1', 'bruno.rt@teste.local'),
-  ('00000000-0000-0000-0000-0000000003c1', 'carla.rt@teste.local');
+insert into app.users (id, email, display_name) values
+  ('00000000-0000-0000-0000-0000000003a1', 'ana.rt@teste.local', 'Ana'),
+  ('00000000-0000-0000-0000-0000000003b1', 'bruno.rt@teste.local', 'Bruno'),
+  ('00000000-0000-0000-0000-0000000003c1', 'carla.rt@teste.local', 'Carla');
 
 -- Ana: organização, serviço e sessão de palco. Bruno: outra organização. Carla: sem vínculo.
 set local role cantum_user;

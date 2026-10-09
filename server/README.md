@@ -25,7 +25,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 
 | Rota | Corpo | Resposta |
 |---|---|---|
-| `POST /auth/signup` | `{ email, password }` (senha 8–128) | 201 `{ user }` + cookie; envia link de verificação |
+| `POST /auth/signup` | `{ email, password, displayName }` (senha 8–128; nome 1–80 sem contar espaços nas pontas) | 201 `{ user }` + cookie; envia link de verificação |
 | `POST /auth/login` | `{ email, password }` | 200 `{ user }` + cookie |
 | `POST /auth/logout` | — | 204; revoga a sessão |
 | `GET /auth/session` | — | 200 `{ user }` ou 401 |
@@ -34,7 +34,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 | `POST /auth/password-reset/request` | `{ email }` | sempre 204 |
 | `POST /auth/password-reset/confirm` | `{ token, password }` | 204; derruba todas as sessões |
 
-`user = { id, email, emailVerified }`. As rotas de autenticação aceitam 10 requisições por minuto por IP.
+`user = { id, email, emailVerified, displayName }`. O nome muda por `POST /rpc/set_my_display_name`; os nomes dos membros de uma organização vêm de `POST /rpc/get_organization_member_profiles` (sem e-mail). As rotas de autenticação aceitam 10 requisições por minuto por IP.
 
 ### RPC
 
@@ -45,7 +45,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 | `void` | `null` |
 | linha (`returns tabela`) | objeto |
 | `setof` linha / `returns table` | array de objetos |
-| escalar | o valor |
+| escalar | o valor, em JSON (texto vem entre aspas) |
 | `setof` escalar | array de valores |
 
 ### Tabelas (`/sync/:table`)
@@ -72,7 +72,7 @@ WebSocket do Modo Palco; o contrato completo (mensagens, erros, códigos de fech
 - **Handshake:** `Origin` obrigatório e igual a `APP_ORIGIN` (senão HTTP 403, sem upgrade); cookie `cantum_session` válido (senão o upgrade completa e fecha com 4401).
 - **Tópico:** `stage-session:<uuid>` (minúsculo). Autorizado por `app.can_subscribe_stage_session(uuid)` no `subscribe` e a cada revalidação; o `snapshot` é sempre lido por `get_target_stage_snapshot` com a identidade do assinante.
 - **Mudanças:** trigger `stage_session_states_notify` → `pg_notify('stage_state_changed', {"stage_session_id","revision"})` → `LISTEN` numa conexão dedicada (`application_name = cantum-realtime-listener`), com reconexão e resync dos tópicos assinados.
-- **Presença:** em memória, por conexão e tópico, deduplicada por usuário. `userId` e `displayName` vêm da sessão; o cliente só escolhe `musicalRole` e `readiness`. Até o B2, `displayName` é o prefixo do e-mail (`displayNameFor` em `src/realtime.ts`).
+- **Presença:** em memória, por conexão e tópico, deduplicada por usuário. `userId` e `displayName` vêm da sessão; o cliente só escolhe `musicalRole` e `readiness`. O `displayName` é `app.users.display_name`, lido uma vez por conexão (`displayNameFor` em `src/realtime.ts`). Assinar exige `stage.run`: membro `inactive` em todas as equipes recebe `forbidden`, também na revalidação.
 - **Limites:** 4 KiB por mensagem (1009), 30 mensagens a cada 10 s (1008), 4 tópicos por conexão, 10 conexões por usuário (4429), 60 s sem mensagem encerra com 1001, revalidação a cada 60 s. Os intervalos são opções de `buildApp({ realtime })` para os testes.
 - **Uma instância só:** assinaturas e presença são locais ao processo (ADR-059 §6).
 
