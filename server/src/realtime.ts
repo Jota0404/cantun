@@ -152,8 +152,11 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
       (await client.query<{ ok: boolean }>('select app.can_subscribe_stage_session($1) as ok', [id])).rows[0].ok)
   }
 
-  /** Entrega a mudança de revision; nunca reenvia revision já enviada (contrato §4). */
-  async function deliver(conn: Conn, topic: string) {
+  /**
+   * Entrega a mudança de revision; nunca reenvia revision já enviada (contrato §4).
+   * `initial` (subscribe): envia o snapshot atual mesmo sem revision nova, seguido da presença.
+   */
+  async function deliver(conn: Conn, topic: string, initial = false) {
     const sub = conn.subs.get(topic)
     if (!sub) return
     const snapshot = await readSnapshot(conn, topic)
@@ -162,9 +165,11 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
       dropSubscription(conn, topic)
       return sendError(conn, 'forbidden', topic)
     }
-    if (snapshot.state.revision <= sub.lastRevision) return
-    sub.lastRevision = snapshot.state.revision
+    if (!initial && snapshot.state.revision <= sub.lastRevision) return
+    sub.lastRevision = Math.max(sub.lastRevision, snapshot.state.revision)
+    if (initial) app.log.info({ userId: conn.userId, topic, ok: true }, 'realtime: subscribe')
     send(conn, { type: 'snapshot', topic, snapshot })
+    if (initial) send(conn, { type: 'presence', topic, participants: participants(topic) })
   }
 
   function fanOut(topic: string) {
@@ -183,17 +188,7 @@ export async function realtimeRoutes(app: FastifyInstance, { pool, appOrigin, op
       if (!topics.has(topic)) topics.set(topic, new Set())
       topics.get(topic)?.add(conn)
     }
-    const snapshot = await readSnapshot(conn, topic)
-    const sub = conn.subs.get(topic)
-    if (!sub) return
-    if (!snapshot) {
-      dropSubscription(conn, topic)
-      return sendError(conn, 'forbidden', topic)
-    }
-    sub.lastRevision = Math.max(sub.lastRevision, snapshot.state.revision)
-    app.log.info({ userId: conn.userId, topic, ok: true }, 'realtime: subscribe')
-    send(conn, { type: 'snapshot', topic, snapshot })
-    send(conn, { type: 'presence', topic, participants: participants(topic) })
+    return deliver(conn, topic, true)
   }
 
   function setPresence(conn: Conn, topic: string, message: Record<string, unknown>) {
