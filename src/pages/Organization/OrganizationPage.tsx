@@ -14,14 +14,16 @@ export function OrganizationPage() {
   const [teams, setTeams] = useState<Record<string, Team[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Decidido na primeira carga: o assistente segue aberto mesmo depois que a organização entra na lista.
+  const [onboarding, setOnboarding] = useState<boolean>()
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const orgs = await organizationRepository.list()
       const grouped: Record<string, Team[]> = {}
       await Promise.all(orgs.map(async (org) => { grouped[org.id] = await teamRepository.listByOrganizationId(org.id) }))
       setOrganizations(orgs)
+      setOnboarding((current) => current ?? orgs.length === 0)
       setTeams(grouped)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar as organizações.')
@@ -54,8 +56,8 @@ export function OrganizationPage() {
 
         {error && <p role="alert" className="organization-error">{error}</p>}
 
-        {organizations.length === 0 ? (
-          <TeamOnboarding />
+        {onboarding ? (
+          <TeamOnboarding onFinished={() => setOnboarding(false)} />
         ) : (
           <div className="organization-list">
             {organizations.map((organization) => (
