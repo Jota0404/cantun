@@ -1,6 +1,6 @@
 # CANTUM — Contrato de tempo real do Modo Palco
 
-- **Status:** Proposto (revisão do lead e do owner)
+- **Status:** Aceito (implementado no B1, PR 3)
 - **Decisão:** [ADR-059](adr/ADR-059-own-backend-now.md) §6 · Bloco [B1](blocks/B1-portabilidade-postgres.md), PR 3 (`feat/server-realtime`) · Plano: [`BACKEND_MIGRATION_PLAN.md`](BACKEND_MIGRATION_PLAN.md) §3
 - **Implementam:** `backend-engineer` (`server/`, `db/migrations/`) e `core-engineer` (`src/platform/realtime.ts`, `src/sync/stageRealtime.ts`)
 - **Atualizado:** 2026-10-09
@@ -118,7 +118,7 @@ grant execute on function app.can_subscribe_stage_session(uuid) to cantum_user;
 ## 4. Consistência
 
 - **Fonte da `revision`:** `stage_session_states.revision`, um inteiro por sessão. Só as RPCs `target_stage_*` (`security definer`) a alteram, sempre com `revision + 1` sob o lock de linha do `UPDATE`. `cantum_user` só tem `SELECT` nas tabelas do Stage. Logo, a `revision` é estritamente crescente por sessão. Uma RPC sem efeito (ex.: `next` no último item) não incrementa e não notifica.
-- **Invariante:** toda mudança visível no palco em `stage_sessions` (status, `md_user_id`) incrementa a `revision` na mesma transação. `target_stage_start` e `target_stage_end` já fazem isso. Uma RPC futura, como a troca de MD, precisa manter a regra, senão o servidor não notifica.
+- **Invariante:** toda mudança visível no palco em `stage_sessions` (status, `md_user_id`) incrementa a `revision` na mesma transação. `target_stage_start` e `target_stage_end` já fazem isso. Uma RPC futura, como a troca de MD, precisa manter a regra, senão o servidor não notifica. Exceção conhecida: apagar a música ou o item em execução zera `current_song_id`/`current_service_item_id` por `ON DELETE SET NULL` sem incrementar a `revision`; os assinantes só veem a mudança na próxima revisão ou reassinatura.
 - **Servidor:** guarda, por conexão e tópico, a `lastRevision` enviada, e nunca envia `snapshot` com `revision <= lastRevision`. A exceção é a resposta a `subscribe`, que é sempre enviada.
 - **Cliente:** guarda a `revision` atual por tópico. Um `snapshot` com `revision` menor é descartado, um com `revision` igual é idempotente e um com `revision` maior é aplicado. Como todo snapshot é completo, não existe buraco de revisão: pular de 5 para 8 é normal e não pede reconciliação.
 - **Entrada e reconexão:** o primeiro `snapshot` depois de cada `subscribe` substitui o estado local sem comparar `revision`. O servidor é a autoridade, e isso cobre o estado vindo do Dexie (ADR-042) e o banco recriado em desenvolvimento.
@@ -126,7 +126,7 @@ grant execute on function app.can_subscribe_stage_session(uuid) to cantum_user;
 - **Ordem:** o NOTIFY é entregue só depois do commit, e o servidor lê o snapshot depois disso. Por isso nunca envia estado não confirmado. Leituras concorrentes podem terminar fora de ordem, e a regra da `lastRevision` resolve.
 - **NOTIFY perdido:** o PostgreSQL entrega o NOTIFY, no commit, a toda sessão que está escutando. A perda só acontece com a conexão de `LISTEN` caída. A cobertura é esta:
   1. ao reconectar o `LISTEN`, o servidor faz o **resync**: relê e envia o snapshot de todo tópico que tem assinantes;
-  2. um `select 1` na conexão de `LISTEN` a cada 30 s detecta conexão morta;
+  2. um `select 1` na conexão de `LISTEN` a cada 30 s, com `query_timeout` igual ao intervalo, detecta conexão morta ou meio aberta;
   3. quando o WebSocket cai, o cliente reassina e recebe um snapshot;
   4. o botão "Sincronizar" continua chamando `get_target_stage_snapshot` por `/rpc`.
 
