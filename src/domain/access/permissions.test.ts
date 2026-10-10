@@ -10,7 +10,7 @@ function matrixFromDocs() {
     const match = /^\| `([a-z_.]+)`[^|]*\|[^|]*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|/.exec(line)
     if (!match) continue
     rows[match[1]] = match.slice(2, 6).map((cell) => {
-      const rule = SYMBOLS[cell.trim()]
+      const rule = SYMBOLS[cell.replace(/\(.*\)/, '').trim()]
       if (rule === undefined) throw new Error(`Símbolo desconhecido em ${match[1]}: ${cell}`)
       return rule
     })
