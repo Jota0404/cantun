@@ -25,12 +25,14 @@ export function OrganizationDetailPage() {
   const [organizationSongIds, setOrganizationSongIds] = useState<Set<string>>(new Set())
   const [repertoires, setRepertoires] = useState<Repertoire[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
       const org = await organizationRepository.getById(organizationId)
-      if (!org) { setError('Organização não encontrada.'); return }
+      // Sem a organização local (ainda não sincronizada ou sem acesso): só vira "não encontrada" se nunca carregou.
+      if (!org) { setNotFound(true); return }
       const [allSongs, ownedSongs, reps, currentTeams] = await Promise.all([
         songRepository.list(),
         organizationSongRepository.listByOrganizationId(organizationId),
@@ -38,10 +40,13 @@ export function OrganizationDetailPage() {
         teamRepository.listByOrganizationId(organizationId),
       ])
       setOrganization(org)
+      setNotFound(false)
+      setError('')
       setSongs(allSongs)
       setOrganizationSongIds(new Set(ownedSongs.map((item) => item.songId)))
       setRepertoires(reps)
-      setTeams(currentTeams)
+      // Mantém a referência quando nada mudou: a recarga ao vivo não deve recarregar o painel de serviços.
+      setTeams((current) => JSON.stringify(current) === JSON.stringify(currentTeams) ? current : currentTeams)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a organização.') }
   }, [organizationId])
 
@@ -80,7 +85,7 @@ export function OrganizationDetailPage() {
 
 
 
-  if (!organization) return <main className="organization-page"><p>{error || 'Carregando organização…'}</p></main>
+  if (!organization) return <main className="organization-page"><p role={error || notFound ? 'alert' : undefined}>{error || (notFound ? 'Organização não encontrada.' : 'Carregando organização…')}</p></main>
 
   return <main className="organization-page"><section className="organization-card">
     <header><Link to="/organizations">← Organizações</Link><span>ORGANIZAÇÃO</span><h2>{organization.name}</h2><p>Biblioteca, repertórios e serviços.</p></header>

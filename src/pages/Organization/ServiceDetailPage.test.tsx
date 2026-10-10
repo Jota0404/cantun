@@ -113,10 +113,10 @@ describe('ServiceDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Excluir serviço' })).not.toBeInTheDocument()
   })
 
-  it('owner deletes and starts the stage; final service hides the roster button', async () => {
+  it('final service hides stage start and roster, owner still deletes', async () => {
     renderWith({ status: 'completed' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
   })
 
@@ -124,5 +124,10 @@ describe('ServiceDetailPage', () => {
     renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
     await screen.findByText('1. Boas-vindas')
     expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
+  })
+
+  it('owner starts the stage on an open service', async () => {
+    renderWith({ status: 'ready' }, { organizationRole: 'owner' })
+    expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
   })
 })

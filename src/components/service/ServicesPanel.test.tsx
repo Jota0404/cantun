@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -13,7 +13,8 @@ vi.mock('../../application/services/serviceService', () => ({
   createService,
   listServices: async () => ({ upcoming: [svc('a', 'Culto pronto', 'ready')], planning: [svc('b', 'Culto rascunho', 'draft')], past: [] }),
 }))
-vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
+const listeners = vi.hoisted(() => [] as Array<() => void>)
+vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (listener: () => void) => { listeners.push(listener); return () => undefined } }))
 vi.mock('../../application/teams/teamMemberService', () => ({
   getMyAccessContext: async ({ teamId }: { teamId: string }) => teamId === 't2'
     ? { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active' }
@@ -45,5 +46,25 @@ describe('ServicesPanel', () => {
     await user.type(within(form).getByLabelText('Data e hora'), '2026-10-11T19:00')
     await user.click(within(form).getByRole('button', { name: 'Criar serviço' }))
     expect(createService).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'o1', teamId: 't2', name: 'Culto de domingo' }))
+  })
+
+  it('keeps the open form through live reloads and submits once', async () => {
+    const user = userEvent.setup()
+    let resolve: (value: { success: true }) => void = () => undefined
+    createService.mockClear()
+    createService.mockImplementationOnce(() => new Promise((done) => { resolve = done }))
+    render(<MemoryRouter><ServicesPanel organizationId="o1" teams={teams} /></MemoryRouter>)
+    await user.click(await screen.findByRole('button', { name: 'Novo serviço' }))
+    const form = screen.getByRole('form', { name: 'Novo serviço' })
+    await user.type(within(form).getByLabelText('Nome'), 'Culto')
+    await act(async () => { listeners.forEach((listener) => listener()) })
+    expect(within(form).getByLabelText('Nome')).toHaveValue('Culto')
+
+    await user.type(within(form).getByLabelText('Data e hora'), '2026-10-11T19:00')
+    await user.click(within(form).getByRole('button', { name: 'Criar serviço' }))
+    expect(within(form).getByRole('button', { name: 'Criando…' })).toBeDisabled()
+    await user.click(within(form).getByRole('button', { name: 'Criando…' }))
+    expect(createService).toHaveBeenCalledTimes(1)
+    await act(async () => { resolve({ success: true }) })
   })
 })

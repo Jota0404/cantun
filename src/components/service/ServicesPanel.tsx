@@ -25,6 +25,7 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const [reloadKey, setReloadKey] = useState(0)
 
@@ -50,7 +51,9 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (submitting) return
     setError('')
+    setSubmitting(true)
     const result = await createService({
       organizationId,
       teamId: teamId || creatableTeams[0]?.id || '',
@@ -58,7 +61,8 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
       startsAt: new Date(startsAt).toISOString(),
       location: location || undefined,
       notes: notes || undefined,
-    })
+    }).catch((err: unknown) => ({ success: false as const, errors: [err instanceof Error ? err.message : 'Não foi possível criar o serviço.'] }))
+    setSubmitting(false)
     if (!result.success) { setError(result.errors.join(' ')); return }
     setName(''); setStartsAt(''); setLocation(''); setNotes(''); setCreating(false)
     setReloadKey((key) => key + 1)
@@ -84,7 +88,7 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
           <label>Data e hora<input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required /></label>
           <label>Local (opcional)<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
           <label>Observações (opcional)<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></label>
-          <button type="submit">Criar serviço</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Criando…' : 'Criar serviço'}</button>
         </form>
       )}
       {GROUPS.map((group) => (
