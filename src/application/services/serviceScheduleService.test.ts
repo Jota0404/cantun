@@ -1,48 +1,94 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { ServiceItem } from '../../domain/services/serviceItem'
+import 'fake-indexeddb/auto'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('serviceScheduleService', () => {
-  it('adds songs after the current service order', async () => {
-    vi.resetModules()
-    const items: ServiceItem[] = [
-      { id: 'i1', serviceId: 's1', songId: 'song1', position: 0, updatedAt: 'old' },
-    ]
-    const service = { id: 's1', organizationId: 'o1', name: 'Culto', startsAt: '2026-09-21T12:00:00Z', status: 'planned' as const, createdByUserId: 'u1', createdAt: 'old', updatedAt: 'old' }
-    const itemRepository = {
-      listByServiceId: vi.fn(async () => [...items]),
-      create: vi.fn(async (value: ServiceItem) => items.push(value)),
-      getById: vi.fn(),
-      remove: vi.fn(),
-      update: vi.fn(),
-    }
-    const serviceRepository = {
-      getById: vi.fn(async () => service),
-      update: vi.fn(),
-    }
-    vi.doMock('../../db/repositories/serviceItemRepository', () => ({ serviceItemRepository: itemRepository }))
-    vi.doMock('../../db/repositories/serviceRepository', () => ({ serviceRepository }))
-    const { addSongToService } = await import('./serviceScheduleService')
+const rpc = vi.hoisted(() => vi.fn())
+const deleteRows = vi.hoisted(() => vi.fn())
+vi.mock('../../platform/rpc', () => ({ rpc }))
+vi.mock('../../platform/sync', () => ({ deleteRows }))
+vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'u1', email: 'u@example.com', emailVerified: true, displayName: 'U' }) }))
 
-    const created = await addSongToService('s1', 'song2', undefined, '00000000-0000-4000-8000-000000000002')
+import { db } from '../../db/database'
+import type { Service } from '../../domain/services/service'
+import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from './serviceScheduleService'
+import { createService, deleteService, getService, listServices, transitionService, updateServiceInfo } from './serviceService'
 
-    expect(created.position).toBe(1)
-    expect(itemRepository.create).toHaveBeenCalledWith(expect.objectContaining({ id: '00000000-0000-4000-8000-000000000002', position: 1 }))
-    expect(serviceRepository.update).toHaveBeenCalled()
+const now = '2026-10-01T00:00:00.000Z'
+const base: Service = { id: 's1', organizationId: 'o1', teamId: 't1', name: 'Culto', startsAt: now, status: 'draft', createdByUserId: 'u1', createdAt: now, updatedAt: now }
+
+describe('service use cases', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    await Promise.all([db.services.clear(), db.serviceItems.clear()])
+    await db.services.put(base)
   })
 
-  it('rejects reorder payloads that do not contain the exact service items', async () => {
-    vi.resetModules()
-    const items: ServiceItem[] = [
-      { id: 'i1', serviceId: 's1', songId: 'song1', position: 0, updatedAt: 'old' },
-      { id: 'i2', serviceId: 's1', songId: 'song2', position: 1, updatedAt: 'old' },
-    ]
-    const itemRepository = { listByServiceId: vi.fn(async () => items), update: vi.fn() }
-    const serviceRepository = { getById: vi.fn(), update: vi.fn() }
-    vi.doMock('../../db/repositories/serviceItemRepository', () => ({ serviceItemRepository: itemRepository }))
-    vi.doMock('../../db/repositories/serviceRepository', () => ({ serviceRepository }))
-    const { reorderService } = await import('./serviceScheduleService')
+  it('creates a draft service with team and validates input', async () => {
+    const result = await createService({ organizationId: 'o1', teamId: 't1', name: ' Ceia ', startsAt: now, location: ' ' }, undefined, '00000000-0000-4000-8000-000000000001')
+    expect(result).toMatchObject({ success: true, service: { status: 'draft', teamId: 't1', name: 'Ceia', createdByUserId: 'u1', location: undefined } })
+    await expect(createService({ organizationId: 'o1', teamId: '', name: '', startsAt: 'x' })).resolves.toEqual({
+      success: false, errors: ['Informe o nome do serviço.', 'Informe data e hora válidas.', 'Escolha a equipe do serviço.'],
+    })
+  })
 
-    await expect(reorderService('s1', ['i1'])).rejects.toThrow('exatamente os itens atuais')
-    expect(itemRepository.update).not.toHaveBeenCalled()
+  it('adds mixed items, moves them and renumbers on removal', async () => {
+    await addServiceItem('s1', { type: 'opening', title: 'Abertura' }, undefined, '00000000-0000-4000-8000-00000000000a')
+    await addServiceItem('s1', { type: 'song', songId: 'song-1' }, undefined, '00000000-0000-4000-8000-00000000000b')
+    await addServiceItem('s1', { type: 'prayer', title: 'Oração' }, undefined, '00000000-0000-4000-8000-00000000000c')
+    const invalid = await addServiceItem('s1', { type: 'song' })
+    expect(invalid).toEqual({ success: false, errors: ['Escolha a música.'] })
+
+    const moved = await moveServiceItem('s1', '00000000-0000-4000-8000-00000000000c', 0)
+    expect(moved.success && moved.items.map((i) => [i.type, i.position])).toEqual([['prayer', 0], ['opening', 1], ['song', 2]])
+
+    expect((await listServiceItems('s1')).map((i) => i.position)).toEqual([0, 1, 2])
+    expect(await getService('s1')).toMatchObject({ id: 's1' })
+    const removed = await removeServiceItem('00000000-0000-4000-8000-00000000000a')
+    expect(removed.success && removed.items.map((i) => [i.type, i.position])).toEqual([['prayer', 0], ['song', 1]])
+  })
+
+  it('blocks edits on final services (RN-06)', async () => {
+    await db.services.put({ ...base, status: 'completed' })
+    await expect(updateServiceInfo('s1', { name: 'Novo' })).resolves.toEqual({ success: false, errors: ['Serviço encerrado não pode ser editado.'] })
+    await expect(addServiceItem('s1', { type: 'other', title: 'x' })).resolves.toMatchObject({ success: false })
+    await expect(moveServiceItem('s1', 'any', 0)).resolves.toMatchObject({ success: false })
+  })
+
+  it('transitions only through the RPC and keeps local state when refused', async () => {
+    await expect(transitionService('s1', 'completed')).resolves.toEqual({ success: false, errors: ['Mudança de estado não permitida.'] })
+    expect(rpc).not.toHaveBeenCalled()
+
+    rpc.mockRejectedValueOnce(new Error('Você não tem permissão para esta ação.'))
+    await expect(transitionService('s1', 'ready')).resolves.toMatchObject({ success: false })
+    expect((await db.services.get('s1'))?.status).toBe('draft')
+
+    rpc.mockResolvedValueOnce({ id: 's1', status: 'ready', updated_at: '2026-10-02T00:00:00.000Z' })
+    await expect(transitionService('s1', 'ready')).resolves.toMatchObject({ success: true, service: { status: 'ready' } })
+    expect(rpc).toHaveBeenLastCalledWith('transition_service', { p_service_id: 's1', p_to: 'ready' })
+    expect((await db.services.get('s1'))?.status).toBe('ready')
+  })
+
+  it('groups services into upcoming, planning and past', async () => {
+    await db.services.bulkPut([
+      { ...base, id: 'a', status: 'ready', startsAt: '2026-10-05T00:00:00Z' },
+      { ...base, id: 'b', status: 'in_progress', startsAt: '2026-10-03T00:00:00Z' },
+      { ...base, id: 'c', status: 'completed', startsAt: '2026-09-01T00:00:00Z' },
+      { ...base, id: 'd', status: 'cancelled', startsAt: '2026-09-10T00:00:00Z' },
+    ])
+    const groups = await listServices('o1')
+    expect(groups.upcoming.map((s) => s.id)).toEqual(['b', 'a'])
+    expect(groups.planning.map((s) => s.id)).toEqual(['s1'])
+    expect(groups.past.map((s) => s.id)).toEqual(['d', 'c'])
+  })
+  it('deletes a service only when the server accepts', async () => {
+    await db.serviceItems.put({ id: 'it', serviceId: 's1', type: 'other', title: 'x', position: 0, updatedAt: now })
+    deleteRows.mockResolvedValueOnce({ count: 0 })
+    await expect(deleteService('s1')).resolves.toEqual({ success: false, errors: ['Você não tem permissão para excluir este serviço.'] })
+    expect(await db.services.get('s1')).toBeDefined()
+
+    deleteRows.mockResolvedValueOnce({ count: 1 })
+    await expect(deleteService('s1')).resolves.toEqual({ success: true })
+    expect(deleteRows).toHaveBeenLastCalledWith('services', { id: 's1' })
+    expect(await db.services.get('s1')).toBeUndefined()
+    expect(await db.serviceItems.get('it')).toBeUndefined()
   })
 })

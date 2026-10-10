@@ -272,4 +272,31 @@ describe('dados sob RLS', () => {
     const outsider = await app.inject({ method: 'POST', url: '/rpc/get_organization_member_profiles', headers: { cookie: bruno }, payload: { p_organization_id: orgId } })
     assert.deepEqual(outsider.json(), [])
   })
+
+  test('serviço: itens renumerados num lote do /sync; status só por RPC', async () => {
+    const anaId = (await app.inject({ method: 'GET', url: '/auth/session', headers: { cookie: ana } })).json().user.id
+    const teamId = crypto.randomUUID()
+    const serviceId = crypto.randomUUID()
+    const team = await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: ana }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })
+    assert.equal(team.statusCode, 200, team.body)
+    const service = { id: serviceId, organization_id: orgId, team_id: teamId, name: 'Culto', starts_at: new Date().toISOString(), created_by_user_id: anaId }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: ana }, payload: { rows: [service] } })).statusCode, 200)
+
+    const opening = { id: crypto.randomUUID(), service_id: serviceId, type: 'opening', title: 'Abertura', position: 0 }
+    const prayer = { id: crypto.randomUUID(), service_id: serviceId, type: 'prayer', title: 'Oração', position: 1 }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/service_items', headers: { cookie: ana }, payload: { rows: [opening, prayer] } })).statusCode, 200)
+    const swapped = await app.inject({ method: 'POST', url: '/sync/service_items', headers: { cookie: ana }, payload: { rows: [{ ...opening, position: 1 }, { ...prayer, position: 0 }] } })
+    assert.equal(swapped.statusCode, 200, swapped.body)
+    const items = await app.inject({ method: 'GET', url: `/sync/service_items?service_id=${serviceId}`, headers: { cookie: ana } })
+    assert.deepEqual(items.json().map((item: { type: string; position: number }) => [item.type, item.position]).sort((a: [string, number], b: [string, number]) => a[1] - b[1]), [['prayer', 0], ['opening', 1]])
+
+    const withStatus = await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: ana }, payload: { rows: [{ ...service, status: 'completed' }] } })
+    assert.equal(withStatus.statusCode, 403)
+    const ready = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie: ana }, payload: { p_service_id: serviceId, p_to: 'ready' } })
+    assert.equal(ready.statusCode, 200, ready.body)
+    assert.equal(ready.json().status, 'ready')
+    const invalid = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie: ana }, payload: { p_service_id: serviceId, p_to: 'completed' } })
+    assert.equal(invalid.statusCode, 400)
+    assert.equal(invalid.json().error, 'invalid service transition')
+  })
 })

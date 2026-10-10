@@ -5,17 +5,14 @@ import { useAuth } from '../../auth/authContext'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 import { organizationSongRepository } from '../../db/repositories/organizationSongRepository'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
-import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { songRepository } from '../../db/repositories/songRepository'
 import { createRepertoire, addSongToRepertoire } from '../../application/repertoires/repertoireService'
 import { addSongToOrganization } from '../../application/organizations/organizationSongService'
-import { createService } from '../../application/services/serviceService'
-import { addSongToService } from '../../application/services/serviceScheduleService'
+import { ServicesPanel } from '../../components/service/ServicesPanel'
 import { createTeam } from '../../application/teams/teamService'
 import { teamRepository } from '../../db/repositories/teamRepository'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
-import type { Service } from '../../domain/services/service'
 import type { Song } from '../../domain/songs/song'
 import type { Team } from '../../domain/teams/team'
 import './OrganizationPage.css'
@@ -27,34 +24,37 @@ export function OrganizationDetailPage() {
   const [songs, setSongs] = useState<Song[]>([])
   const [organizationSongIds, setOrganizationSongIds] = useState<Set<string>>(new Set())
   const [repertoires, setRepertoires] = useState<Repertoire[]>([])
-  const [services, setServices] = useState<Service[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
       const org = await organizationRepository.getById(organizationId)
-      if (!org) { setError('Organização não encontrada.'); return }
-      const [allSongs, ownedSongs, reps, currentServices, currentTeams] = await Promise.all([
+      // Sem a organização local (ainda não sincronizada ou sem acesso): só vira "não encontrada" se nunca carregou.
+      if (!org) { setNotFound(true); return }
+      const [allSongs, ownedSongs, reps, currentTeams] = await Promise.all([
         songRepository.list(),
         organizationSongRepository.listByOrganizationId(organizationId),
         repertoireRepository.listByOrganizationId(organizationId),
-        serviceRepository.listByOrganizationId(organizationId),
         teamRepository.listByOrganizationId(organizationId),
       ])
       setOrganization(org)
+      setNotFound(false)
+      setError('')
       setSongs(allSongs)
       setOrganizationSongIds(new Set(ownedSongs.map((item) => item.songId)))
       setRepertoires(reps)
-      setServices(currentServices)
-      setTeams(currentTeams)
+      // Mantém a referência quando nada mudou: a recarga ao vivo não deve recarregar o painel de serviços.
+      setTeams((current) => JSON.stringify(current) === JSON.stringify(currentTeams) ? current : currentTeams)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a organização.') }
   }, [organizationId])
 
   useEffect(() => {
     void load()
     return onRemoteDataApplied(() => { void load() })
-  }, [load])
+    // Troca de usuário: os dados locais mudam de dono (ADR-048), então recarrega.
+  }, [load, user?.id])
 
   async function createTeamForOrganization() {
     const name = window.prompt('Nome da equipe')
@@ -73,16 +73,6 @@ export function OrganizationDetailPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar o repertório.') }
   }
 
-  async function createSvc() {
-    if (!user) return
-    const name = window.prompt('Nome do serviço')
-    if (!name?.trim()) return
-    try {
-      await createService({ organizationId, name: name.trim(), startsAt: new Date().toISOString(), status: 'planned', createdByUserId: user.id })
-      await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar o serviço.') }
-  }
-
   async function addOrgSong(songId: string) {
     try { await addSongToOrganization(organizationId, songId); await load() }
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível adicionar a música à organização.') }
@@ -93,12 +83,9 @@ export function OrganizationDetailPage() {
     catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível adicionar ao repertório.') }
   }
 
-  async function addServiceSong(serviceId: string, songId: string) {
-    try { await addSongToService(serviceId, songId); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível adicionar ao serviço.') }
-  }
 
-  if (!organization) return <main className="organization-page"><p>{error || 'Carregando organização…'}</p></main>
+
+  if (!organization) return <main className="organization-page"><p role={error || notFound ? 'alert' : undefined}>{error || (notFound ? 'Organização não encontrada.' : 'Carregando organização…')}</p></main>
 
   return <main className="organization-page"><section className="organization-card">
     <header><Link to="/organizations">← Organizações</Link><span>ORGANIZAÇÃO</span><h2>{organization.name}</h2><p>Biblioteca, repertórios e serviços.</p></header>
@@ -117,8 +104,6 @@ export function OrganizationDetailPage() {
       <div className="organization-list">{repertoires.map((rep) => <article className="organization-item" key={rep.id}><div><strong>{rep.name}</strong><p>{rep.version}ª versão</p><Link to={`/organizations/${organizationId}/repertoires/${rep.id}`}>Abrir</Link></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addRepSong(rep.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
     </section>
 
-    <section><header><h3>Serviços</h3><button type="button" onClick={() => void createSvc()}>Novo serviço</button></header>
-      <div className="organization-list">{services.map((service) => <article className="organization-item" key={service.id}><div><strong>{service.name}</strong><p>{new Date(service.startsAt).toLocaleString('pt-BR')}</p><Link to={`/services/${service.id}`}>Abrir serviço</Link></div><div>{songs.filter((song) => organizationSongIds.has(song.id)).slice(0, 5).map((song) => <button key={song.id} type="button" onClick={() => void addServiceSong(service.id, song.id)}>+ {song.title}</button>)}</div></article>)}</div>
-    </section>
+    <ServicesPanel organizationId={organizationId} teams={teams} />
   </section></main>
 }

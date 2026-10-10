@@ -101,7 +101,8 @@ export function ServiceStageMusicianPage() {
     if (snapshot?.session.status === 'ended') void service.disconnect(sessionId)
   }, [service, sessionId, snapshot?.session.status])
 
-  const activeIndex = executionState?.currentIndex ?? 0
+  // `currentIndex` é a `position` do item no serviço (itens não musicais ficam de fora de `songs`).
+  const activeIndex = Math.max(0, songs.findIndex((song) => song.position === executionState?.currentIndex))
   const activeSong = songs[activeIndex]
   const experience = getStageMusicalRoleExperience(musicalRole)
   const displayedLyrics = useMemo(() => {

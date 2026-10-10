@@ -80,7 +80,12 @@ async function createLiveStage(owner: User, organizationId: string): Promise<str
   const serviceId = crypto.randomUUID()
   const stageId = crypto.randomUUID()
   await asUser(pool, owner.id, async (client) => {
-    await client.query(`insert into public.services (id, organization_id, name, starts_at, created_by_user_id) values ($1, $2, 'Culto', now(), $3)`, [serviceId, organizationId, owner.id])
+    const teamId = crypto.randomUUID()
+    await client.query(`insert into public.teams (id, organization_id, name) values ($1, $2, 'Louvor')`, [teamId, organizationId])
+    await client.query(
+      `insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values ($1, $2, $3, 'Culto', now(), $4)`,
+      [serviceId, organizationId, teamId, owner.id],
+    )
     for (const position of [0, 1, 2]) {
       const songId = crypto.randomUUID()
       await client.query(
