@@ -18,6 +18,7 @@ const m = vi.hoisted(() => ({
   addServiceItem: vi.fn(),
   moveServiceItem: vi.fn(),
   removeServiceItem: vi.fn(),
+  deleteService: vi.fn(),
 }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
@@ -26,7 +27,7 @@ vi.mock('../../application/stage/stageSessionService', () => ({ createStageSessi
 vi.mock('../../application/services/serviceService', () => ({
   createAssignment: vi.fn(), removeAssignment: vi.fn(), updateAssignment: vi.fn(),
   getService: async () => m.service, listServiceAssignments: async () => [],
-  transitionService: m.transitionService, updateServiceInfo: m.updateServiceInfo,
+  transitionService: m.transitionService, updateServiceInfo: m.updateServiceInfo, deleteService: m.deleteService,
 }))
 vi.mock('../../application/services/serviceScheduleService', () => ({
   listServiceItems: async () => m.items, addServiceItem: m.addServiceItem, moveServiceItem: m.moveServiceItem, removeServiceItem: m.removeServiceItem,
@@ -93,5 +94,35 @@ describe('ServiceDetailPage', () => {
     expect(screen.queryByRole('button', { name: /Subir|Remover|Editar informações/ })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Materiais' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Ensaio' })).toBeInTheDocument()
+  })
+
+  it('leader deletes only drafts, after confirming; stage start and roster are role-gated', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    m.deleteService.mockResolvedValue({ success: true })
+    renderWith({}, leader)
+    expect(await screen.findByRole('button', { name: 'Adicionar à escala' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Excluir serviço' }))
+    expect(m.deleteService).toHaveBeenCalledWith('sv1')
+  })
+
+  it('leader cannot delete a ready service', async () => {
+    renderWith({ status: 'ready' }, leader)
+    await screen.findByText('Pronto')
+    expect(screen.queryByRole('button', { name: 'Excluir serviço' })).not.toBeInTheDocument()
+  })
+
+  it('owner deletes and starts the stage; final service hides the roster button', async () => {
+    renderWith({ status: 'completed' }, { organizationRole: 'owner' })
+    expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
+  })
+
+  it('member does not see the roster button', async () => {
+    renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
+    await screen.findByText('1. Boas-vindas')
+    expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
   })
 })

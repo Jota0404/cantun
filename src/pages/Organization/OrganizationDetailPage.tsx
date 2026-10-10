@@ -48,7 +48,8 @@ export function OrganizationDetailPage() {
   useEffect(() => {
     void load()
     return onRemoteDataApplied(() => { void load() })
-  }, [load])
+    // Troca de usuário: os dados locais mudam de dono (ADR-048), então recarrega.
+  }, [load, user?.id])
 
   async function createTeamForOrganization() {
     const name = window.prompt('Nome da equipe')

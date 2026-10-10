@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
-import { createAssignment, getService, listServiceAssignments, removeAssignment, transitionService, updateAssignment, updateServiceInfo } from '../../application/services/serviceService'
+import { createAssignment, deleteService, getService, listServiceAssignments, removeAssignment, transitionService, updateAssignment, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
@@ -10,11 +10,10 @@ import { hasPermission, type AccessContext } from '../../domain/access/permissio
 import type { Assignment } from '../../domain/services/assignment'
 import type { Service } from '../../domain/services/service'
 import { SERVICE_ITEM_TYPES, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
-import { isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
+import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
 import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
 import './OrganizationPage.css'
-import '../../components/service/ServicesPanel.css'
 import './ServiceDetailPage.css'
 
 type Result = { success: true } | { success: false; errors: string[] }
@@ -123,6 +122,13 @@ export function ServiceDetailPage() {
     setDragged(undefined)
   }
 
+  async function handleDelete() {
+    if (!service || !window.confirm(`Excluir o serviço "${service.name}"? A ordem e a escala também serão removidas.`)) return
+    const result = await deleteService(serviceId)
+    if (!result.success) { setError(result.errors.join(' ')); return }
+    navigate(`/organizations/${service.organizationId}`, { replace: true })
+  }
+
   async function assign() {
     const userId = window.prompt('ID do usuário')
     const musicalFunction = window.prompt('Função musical (ex.: vocals, guitar)')
@@ -153,6 +159,9 @@ export function ServiceDetailPage() {
   const final = isFinalStatus(service.status)
   const canEdit = !final && hasPermission(access, 'service.edit')
   const canTransition = hasPermission(access, 'service.transition')
+  const isOrgAdmin = access.organizationRole === 'owner' || access.organizationRole === 'admin'
+  const canDelete = canDeleteService(service.status, hasPermission(access, 'service.delete'), isOrgAdmin)
+  const canAssign = !final && hasPermission(access, 'service.edit')
   const itemLabel = (item: ServiceItem) => item.type === 'song'
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
@@ -164,6 +173,7 @@ export function ServiceDetailPage() {
       <h2>{service.name}</h2>
       <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>
       <p>Status: <strong className={`service-status service-status--${service.status}`}>{SERVICE_STATUS_LABEL[service.status]}</strong></p>
+      {canDelete && <p><button type="button" onClick={() => void handleDelete()}>Excluir serviço</button></p>}
       {final && <p role="note">Serviço {SERVICE_STATUS_LABEL[service.status].toLowerCase()}: informações e ordem não podem mais ser editadas.</p>}
     </header>
     {error && <p role="alert" className="organization-error">{error}</p>}
@@ -196,7 +206,7 @@ export function ServiceDetailPage() {
     <section aria-labelledby="service-order-title">
       <header className="service-actions">
         <h3 id="service-order-title">Ordem do serviço</h3>
-        <button type="button" onClick={() => void startStage()} disabled={!items.some((item) => item.type === 'song')}>Iniciar palco</button>
+        {isOrgAdmin && <button type="button" onClick={() => void startStage()} disabled={!items.some((item) => item.type === 'song')}>Iniciar palco</button>}
       </header>
       {items.length === 0 ? <p>Nenhum item na ordem.</p> : (
         <ol className="service-order">
@@ -244,7 +254,7 @@ export function ServiceDetailPage() {
     </section>
 
     <section>
-      <header><h3>Escala</h3><button type="button" onClick={() => void assign()}>Adicionar à escala</button></header>
+      <header><h3>Escala</h3>{canAssign && <button type="button" onClick={() => void assign()}>Adicionar à escala</button>}</header>
       <div className="organization-list">
         {assignments.map((item) => <article className="organization-item" key={item.id}>
           <div><strong>{item.userId}</strong><p>{item.musicalFunction} · {item.status}</p></div>
