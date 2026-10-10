@@ -11,6 +11,8 @@ export class ServiceRepository {
   async create(value: Service): Promise<void> { await this.db.services.add(value); await queueTargetUpsert('services', value) }
   async getById(id: string): Promise<Service | undefined> { return this.db.services.get(id) }
   async listByOrganizationId(organizationId: string): Promise<Service[]> { return this.db.services.where('organizationId').equals(organizationId).sortBy('startsAt') }
+  /** Só Dexie, sem fila: `status` muda por RPC (RN-03). */
+  async putLocal(value: Service): Promise<void> { await this.db.services.put(value) }
   async update(value: Service): Promise<void> { await this.db.services.put(value); await queueTargetUpsert('services', value) }
   async remove(id: string): Promise<void> { await this.db.services.delete(id); await queueTargetDelete('services', id) }
 }

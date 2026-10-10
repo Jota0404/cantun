@@ -78,7 +78,8 @@ export function OrganizationDetailPage() {
     const name = window.prompt('Nome do serviço')
     if (!name?.trim()) return
     try {
-      await createService({ organizationId, name: name.trim(), startsAt: new Date().toISOString(), status: 'planned', createdByUserId: user.id })
+      const result = await createService({ organizationId, teamId: teams[0]?.id ?? '', name: name.trim(), startsAt: new Date().toISOString() })
+      if (!result.success) { setError(result.errors.join(' ')); return }
       await load()
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar o serviço.') }
   }

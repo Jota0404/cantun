@@ -185,6 +185,24 @@ export class SalmodiaDatabase extends Dexie {
         membership.status ??= 'active'
       })
     })
+    // B3 (VS-02, ADR-052): equipe e estados novos do serviço; itens genéricos. O pull corrige `teamId`.
+    this.version(13).stores({
+      services: 'id, organizationId, teamId, startsAt, status, updatedAt',
+    }).upgrade(async (transaction) => {
+      const teams = await transaction.table('teams').toArray() as Array<{ id: string; organizationId: string; createdAt: string }>
+      const oldestTeam = new Map<string, string>()
+      for (const team of [...teams].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+        if (!oldestTeam.has(team.organizationId)) oldestTeam.set(team.organizationId, team.id)
+      }
+      const statusMap: Record<string, string> = { planned: 'draft', confirmed: 'ready' }
+      await transaction.table('services').toCollection().modify((service: Record<string, unknown>) => {
+        service.status = statusMap[String(service.status)] ?? service.status
+        service.teamId ??= oldestTeam.get(String(service.organizationId)) ?? null
+      })
+      await transaction.table('serviceItems').toCollection().modify((item: Record<string, unknown>) => {
+        item.type ??= 'song'
+      })
+    })
   }
 }
 

@@ -31,6 +31,11 @@ export const PERMISSION_MATRIX = {
   'repertoire.delete': { scope: 'organization', owner: true, admin: true, leader: false, member: false },
   'repertoire.delete_own': { scope: 'own', owner: true, admin: true, leader: true, member: 'P' },
   'stage.run': { scope: 'organization', owner: true, admin: true, leader: true, member: true },
+  // §3.4: equipe = equipe do serviço. `service.delete` do Líder vale só em `draft` (ver `canDeleteService`).
+  'service.create': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  'service.edit': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  'service.transition': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  'service.delete': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
 } as const satisfies Record<string, Row>
 
 export type Capability = keyof typeof PERMISSION_MATRIX
