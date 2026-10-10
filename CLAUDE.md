@@ -25,7 +25,7 @@ npm run build               # tsc -b (inclui arquivos de teste) + vite build
 
 **Gate antes de declarar qualquer tarefa concluída:** `npm test && npm run lint && npm run build`. Teste que não compila quebra o build. O CI (`cantum-ci.yml`) roda o mesmo gate.
 
-Config local: `.env.local` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Nunca commitar `.env*` (exceto `.env.example`) nem `*.pem`. Nunca usar `service_role` no frontend. Não peça, leia nem manipule senhas, connection strings ou chaves privadas (ADR-050).
+Config local: `.env.local` com `VITE_API_URL` (front) e `server/.env` (servidor). Nunca commitar `.env*` (exceto `.env.example`) nem `*.pem`. Não peça, leia nem manipule senhas, connection strings ou chaves privadas (ADR-050).
 
 ## Mapa do código
 
@@ -33,15 +33,14 @@ Config local: `.env.local` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_
 |---|---|---|
 | `src/pages`, `src/components` | UI | `application/`, hooks, `domain/` (tipos) |
 | `src/application/<contexto>` | casos de uso / serviços | `domain/`, repositórios, sync |
-| `src/domain/<contexto>` | regras puras | nada de React, Dexie ou Supabase |
+| `src/domain/<contexto>` | regras puras | nada de React, Dexie ou rede |
 | `src/db`, `src/db/repositories` | Dexie | `domain/` |
-| `src/sync`, `src/lib/supabase.ts` | Supabase, filas, Realtime | `domain/`, `db/` |
-| `src/auth` | sessão | `lib/supabase` |
-| `supabase/migrations` | schema atual no Supabase; **congelado** (ADR-059) | — |
+| `src/sync` | filas de sync e Realtime do Palco | `domain/`, `db/`, `platform/` |
+| `src/auth` | sessão | `platform/` |
 | `scripts/db` | verificação de migrations em PostgreSQL puro | — |
-| `db/migrations` *(B1)* | schema PostgreSQL próprio: baseline + migrations numeradas | — |
-| `server/` *(B1)* | backend Node.js + TS: auth, `/rpc`, `/sync`, `/realtime` | só `pg` e o próprio `server/` |
-| `src/platform` *(B1)* | cliente HTTP/WS do `server/`; substitui `src/lib/supabase.ts` | — |
+| `db/migrations` | schema PostgreSQL próprio: baseline + migrations numeradas | — |
+| `server/` | backend Node.js + TS: auth, `/rpc`, `/sync`, `/realtime` | só `pg` e o próprio `server/` |
+| `src/platform` | cliente HTTP/WS do `server/` | — |
 
 O legado Band/Setlist foi removido no B1 (ADR-059, PR 5); não recriar.
 
@@ -51,16 +50,16 @@ O legado Band/Setlist foi removido no B1 (ADR-059, PR 5); não recriar.
 - Named exports (exceto `App`); `import type` para tipos; sem `any`, sem `!` injustificado, sem `console.log` em produção.
 - Use cases recebem repositório por parâmetro com default (`fn(input, repository = defaultRepository)`) e retornam `{ success: true, … } | { success: false, errors }` para validação.
 - Componente/página: `Foo.tsx` + `Foo.css` + `Foo.test.tsx` lado a lado.
-- Testes de UI por papel/label acessível (`getByRole`, `getByLabelText`), não por classe CSS. Remoto sempre mockado (`src/lib/supabase` hoje, `src/platform` depois do B1); repositórios com `fake-indexeddb`.
+- Testes de UI por papel/label acessível (`getByRole`, `getByLabelText`), não por classe CSS. Remoto sempre mockado (`src/platform`); repositórios com `fake-indexeddb`.
 - Arquivos grandes (`ServiceStagePage.tsx`, `StagePage.tsx`): extrair hooks/serviços em vez de crescer.
 - `react-hooks/set-state-in-effect` está ativa; só 7 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
 
 ## Persistência
 
 - **Dexie:** toda mudança de schema é um novo `this.version(N+1)` em `src/db/database.ts`, com `upgrade()` quando houver transformação e teste de upgrade. Nunca editar versões existentes. Não renomear banco, tabelas ou chaves de storage (ADR-011).
-- **PostgreSQL (ADR-049, ADR-059):** o Supabase sai no B1. Nenhuma migration nova em `supabase/migrations`; depois do baseline, SQL novo vai para `db/migrations/NNNN_descricao.sql`, aditivo, nunca editando migration aplicada. Tabela nova = RLS + políticas na mesma migration. Mutação sensível via função `security definer` + `set search_path = ''` + checagem de autorização interna. SQL usa `app.current_user_id()` (nunca `auth.uid()`) e PostgreSQL padrão, sem recurso exclusivo de provedor. Toda migration passa no job `db` (`scripts/db/verify-migrations.sh`).
+- **PostgreSQL (ADR-049, ADR-059):** SQL novo vai para `db/migrations/NNNN_descricao.sql`, aditivo, nunca editando migration aplicada. Tabela nova = RLS + políticas na mesma migration. Mutação sensível via função `security definer` + `set search_path = ''` + checagem de autorização interna. SQL usa `app.current_user_id()` (nunca `auth.uid()`) e PostgreSQL padrão, sem recurso exclusivo de provedor. Toda migration passa no job `db` (`scripts/db/verify-migrations.sh`).
 - **Servidor:** a autorização mora no banco; o `server/` só abre a transação com `set local role cantum_user` + `app.user_id` e chama funções de uma allowlist. Não reimplementar regra de permissão em TypeScript. Dependência nova no `server/` exige justificativa no PR.
-- Nenhum arquivo novo importa `src/lib/supabase` ou `@supabase/supabase-js`. Mudou contrato de RPC/Realtime → atualizar tipos TS, testes e doc de contrato no mesmo PR.
+- Mudou contrato de RPC/Realtime → atualizar tipos TS, testes e doc de contrato no mesmo PR.
 - Permissões são verificadas no banco (RLS/RPC); a UI nunca é o mecanismo de segurança (Blueprint NFR-005, §49–50).
 
 ## Git (ADR-009, revisado pelos ADR-050 e ADR-058)
@@ -77,7 +76,7 @@ Equipe em `.claude/agents/`. A sessão principal é o **lead**: fatia o trabalho
 | Agente | Quando usar | Dono de | Esforço |
 |---|---|---|---|
 | `planner` | Feature Spec, ADR `Proposed`, checagem de fronteira e rastreabilidade antes de codar | `docs/specs/`, `docs/blocks/B*.md`, ADRs novos, docs de contrato (`PERMISSIONS.md`, `REALTIME_CONTRACT.md`) | médio |
-| `backend-engineer` | schema, RLS, funções SQL, migrations e o servidor Node.js | `db/`, `supabase/`, `scripts/db/`, `server/` | médio (alto só em auth/RLS novos) |
+| `backend-engineer` | schema, RLS, funções SQL, migrations e o servidor Node.js | `db/`, `scripts/db/`, `server/` | médio (alto só em auth/RLS novos) |
 | `core-engineer` | domínio, casos de uso, Dexie, sync e cliente remoto | `src/domain`, `src/application`, `src/db` (inclui `database.ts`), `src/sync`, `src/platform`, `src/lib`, `src/auth` (lógica) | baixo |
 | `ui-engineer` | páginas, componentes, CSS, rotas, acessibilidade, Modo Palco (só correções, D6) | `src/pages`, `src/components`, `src/App.tsx`, CSS | baixo |
 | `reviewer` | revisão de diff antes do PR: bugs, ADRs, camadas, RLS, offline, escopo, DoD | — (só lê) | médio |

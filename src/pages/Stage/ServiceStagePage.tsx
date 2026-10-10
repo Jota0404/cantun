@@ -8,6 +8,7 @@ import { getStageMusicalRoleExperience, type StageMusicalRole } from '../../appl
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { StageSnapshot } from '../../domain/stage/stage'
 import type { StageParticipant, StageReadiness } from '../../domain/stage/stagePresence'
+import { stageConnectionLabel, type StageConnectionStatus } from './stageConnectionLabel'
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
@@ -27,7 +28,7 @@ export function ServiceStagePage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [status, setStatus] = useState('Conectando…')
+  const [status, setStatus] = useState<StageConnectionStatus>('CONNECTING')
   const [fontSize, setFontSize] = useState(22)
   const [readMode, setReadMode] = useState<ReadMode>('scroll')
   const [musicalRole, setMusicalRole] = useState<StageMusicalRole>('other')
@@ -59,11 +60,6 @@ export function ServiceStagePage() {
       try {
         const initial = await service.connect(sessionId, {
           onSnapshot: (next) => { if (!cancelled) applySnapshot(next) },
-          onEvent: () => {
-            void service.getSnapshot(sessionId).then((next) => {
-              if (!cancelled) applySnapshot(next)
-            }).catch(() => undefined)
-          },
           onStatus: setStatus,
           onPresence: setParticipants,
         })
@@ -74,10 +70,7 @@ export function ServiceStagePage() {
         setSongs(loadedSongs)
         if (user?.id) {
           await service.trackPresence(sessionId, {
-            userId: user.id,
-            displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
-            isMd: initial.session.mdUserId === user.id,
             readiness: 'waiting',
           })
         }
@@ -120,10 +113,7 @@ export function ServiceStagePage() {
     try {
       setReadiness(next)
       await service.trackPresence(sessionId, {
-        userId: user.id,
-        displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Participante',
         musicalRole,
-        isMd: false,
         readiness: next,
       })
       setError('')
@@ -200,7 +190,7 @@ export function ServiceStagePage() {
   if (musicianView) {
     return (
       <main className="band-stage-page band-stage-page--musician" data-musical-role={musicalRole} style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
-        <header className="band-stage-header"><div><Link to="/organizations">← Organizações</Link><span className="band-stage-kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-stage-header__right"><span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{status}</span><button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
+        <header className="band-stage-header"><div><Link to="/organizations">← Organizações</Link><span className="band-stage-kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-stage-header__right"><span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{stageConnectionLabel(status)}</span><button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
         <section className="band-stage-presence" aria-label="Informações da sessão"><span>Função: {experience.accentLabel}</span><span>Revisão {executionState.revision}</span><span>Execução: {executionState.status === 'running' ? 'ativa' : executionState.status === 'paused' ? 'pausada' : executionState.status === 'lobby' ? 'aguardando início' : 'encerrada'}</span><span>Somente visualização</span></section>
         <BandStagePresencePanel participants={participants} />
         <section className="band-stage-readiness" aria-label="Seu status de preparação"><strong>Seu status</strong><span>{readiness === 'ready' ? 'Pronto' : 'Aguardando'}</span><button type="button" aria-pressed={readiness === 'waiting'} onClick={() => void updateReadiness('waiting')}>Aguardando</button><button type="button" aria-pressed={readiness === 'ready'} onClick={() => void updateReadiness('ready')}>Pronto</button></section>
@@ -214,7 +204,7 @@ export function ServiceStagePage() {
 
   return (
     <main className="band-stage-page" style={{ '--band-stage-font-size': `${fontSize}px` } as React.CSSProperties}>
-      <header className="band-stage-header"><div><Link to="/organizations">← Organizações</Link><span className="band-stage-kicker">MODO BANDA · CONTROLE DO MD</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {executionState.currentKey ?? activeSong.currentKey}</p></div><div className="band-stage-header__right"><span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{status}</span><strong>MD</strong><button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
+      <header className="band-stage-header"><div><Link to="/organizations">← Organizações</Link><span className="band-stage-kicker">MODO BANDA · CONTROLE DO MD</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length} · Tom: {executionState.currentKey ?? activeSong.currentKey}</p></div><div className="band-stage-header__right"><span className={`band-stage-status band-stage-status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{stageConnectionLabel(status)}</span><strong>MD</strong><button type="button" onClick={() => void refresh()} disabled={busy}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
       <section className="band-stage-presence" aria-label="Informações da sessão"><span>Revisão {executionState.revision}</span><span>Execução: {executionState.status === 'running' ? 'ativa' : executionState.status === 'paused' ? 'pausada' : executionState.status === 'lobby' ? 'aguardando início' : 'encerrada'}</span><span>Você controla o palco</span></section>
       <BandStagePresencePanel participants={participants} />
       {executionState.mdAnnotation && <aside className="band-stage-annotation"><strong>Nota atual da sessão</strong><p>{executionState.mdAnnotation}</p></aside>}

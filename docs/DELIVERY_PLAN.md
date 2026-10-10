@@ -72,12 +72,12 @@ Esta tabela é o **registro canônico** das decisões da auditoria de viabilidad
 
 Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados. Detalhe em `docs/BACKEND_MIGRATION_PLAN.md` §3.
 
-- [ ] **PR 1 — baseline:** `db/migrations/0001_baseline.sql` (PostgreSQL puro, sem legado), runner, CI `db` bloqueante, testes de RLS multiusuário.
-- [ ] **PR 2 — servidor:** `server/` (Node.js + TS, Fastify, `pg`): auth própria, `/rpc/:name`, `/sync/:table`.
-- [ ] **PR 3 — realtime:** `docs/REALTIME_CONTRACT.md` + WebSocket. Inclui `POST /auth/verify-email/resend` (pré-requisito do convite com e-mail verificado no B2).
-- [ ] **PR 4 — cliente:** `src/platform/{auth,rpc,realtime}.ts` no lugar de `src/lib/supabase.ts`.
+- [x] **PR 1 — baseline:** `db/migrations/0001_baseline.sql` (PostgreSQL puro, sem legado), runner, CI `db` bloqueante, testes de RLS multiusuário.
+- [x] **PR 2 — servidor:** `server/` (Node.js + TS, Fastify, `pg`): auth própria, `/rpc/:name`, `/sync/:table`.
+- [x] **PR 3 — realtime:** `docs/REALTIME_CONTRACT.md` + WebSocket. Inclui `POST /auth/verify-email/resend` (pré-requisito do convite com e-mail verificado no B2).
+- [x] **PR 4 — cliente:** `src/platform/{auth,rpc,realtime}.ts` no lugar de `src/lib/supabase.ts`.
 - [x] **PR 5 — legado:** remover `Band*`, `Setlist*` e rotas legadas; nova `version()` do Dexie.
-- [ ] **PR 6 — limpeza:** remover `@supabase/supabase-js`, `supabase/` e o shim; atualizar CI, deploy e docs.
+- [x] **PR 6 — limpeza:** remover `@supabase/supabase-js`, `supabase/` e o shim; atualizar CI, deploy e docs.
 
 **Regra para os blocos B2+:** SQL novo vai para `db/migrations/` depois do PR 1 e passa no job `db`.
 

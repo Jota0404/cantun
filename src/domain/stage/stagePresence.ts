@@ -9,10 +9,7 @@ export interface StageParticipant {
 }
 
 export interface StagePresencePayload {
-  userId: string
-  displayName: string
   musicalRole: string
-  isMd: boolean
   readiness: StageReadiness
 }
 

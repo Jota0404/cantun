@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { createTeam } from '../../application/teams/teamService'
 import { createOrganization } from '../../application/organizations/organizationService'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
@@ -31,7 +32,10 @@ export function OrganizationPage() {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   async function handleCreateTeam(organizationId: string) {
     const teamName = window.prompt('Nome da equipe')

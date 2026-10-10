@@ -11,7 +11,9 @@ import type { Assignment } from '../domain/services/assignment'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { rpc } from '../platform/rpc'
+import { notifyRemoteDataApplied } from './remoteChanges'
+import { deleteRows, selectRows, updateRows, upsertRows } from '../platform/sync'
 import type { SalmodiaDatabase } from '../db/database'
 
 export type TargetEntityName =
@@ -42,7 +44,11 @@ export type TargetEntity =
   | StageSession
   | StageSessionState
 
-export type TargetWritableEntityName = Exclude<TargetEntityName, 'stageSessionStates'>
+// Sessão e estado do Palco só mudam por RPC (`create_target_stage_session`, `target_stage_*`);
+// o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull.
+const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates'] as const
+
+export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
 
 export type TargetWritableEntity =
   | Organization
@@ -55,7 +61,6 @@ export type TargetWritableEntity =
   | Service
   | ServiceItem
   | Assignment
-  | StageSession
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -82,7 +87,7 @@ const tables: Record<TargetEntityName, string> = {
   stageSessionStates: 'stage_session_states',
 }
 
-function toRemoteRow(entity: TargetEntityName, value: TargetEntity) {
+function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEntity) {
   switch (entity) {
     case 'organizations': {
       const v = value as Organization
@@ -123,14 +128,6 @@ function toRemoteRow(entity: TargetEntityName, value: TargetEntity) {
     case 'assignments': {
       const v = value as Assignment
       return { id: v.id, service_id: v.serviceId, user_id: v.userId, musical_function: v.musicalFunction, service_item_id: v.serviceItemId ?? null, status: v.status, created_at: v.createdAt, updated_at: v.updatedAt }
-    }
-    case 'stageSessions': {
-      const v = value as StageSession
-      return { id: v.id, service_id: v.serviceId, md_user_id: v.mdUserId ?? null, status: v.status, created_at: v.createdAt, started_at: v.startedAt ?? null, ended_at: v.endedAt ?? null, updated_at: v.updatedAt }
-    }
-    case 'stageSessionStates': {
-      const v = value as StageSessionState
-      return { stage_session_id: v.stageSessionId, revision: v.revision, current_index: v.currentIndex, current_service_item_id: v.currentServiceItemId ?? null, current_song_id: v.currentSongId ?? null, current_key: v.currentKey ?? null, prepared_index: v.preparedIndex ?? null, prepared_service_item_id: v.preparedServiceItemId ?? null, prepared_song_id: v.preparedSongId ?? null, is_running: v.isRunning, md_annotation: v.mdAnnotation ?? null, updated_at: v.updatedAt }
     }
   }
 }
@@ -174,10 +171,8 @@ export class TargetSyncEngine {
   private syncing = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
-  private readonly client: SupabaseClient
-  constructor(db: SalmodiaDatabase, client: SupabaseClient) {
+  constructor(db: SalmodiaDatabase) {
     this.db = db
-    this.client = client
   }
 
   async queueUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity): Promise<void> {
@@ -193,8 +188,7 @@ export class TargetSyncEngine {
   }
 
   async createOrganization(value: Organization): Promise<void> {
-    const { error } = await this.client.rpc('create_organization', { p_id: value.id, p_name: value.name })
-    if (error) throw error
+    await rpc('create_organization', { p_id: value.id, p_name: value.name })
     await this.db.organizations.put(value)
   }
 
@@ -202,27 +196,24 @@ export class TargetSyncEngine {
     if (this.syncing || !navigator.onLine) return
     this.syncing = true
     try {
+      // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
+      await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES]).delete()
       const pending = await this.db.targetSyncQueue.orderBy('id').toArray()
       for (const item of pending) {
         try {
           const table = tables[item.entity]
           if (item.operation === 'delete') {
-            const { error } = await this.client.from(table).delete().eq('id', item.entityId)
-            if (error) throw error
+            await deleteRows(table, { id: item.entityId })
           } else if (item.entity === 'organizations') {
             const organization = item.payload as Organization
-            const { data: existing, error: readError } = await this.client.from(table).select('id').eq('id', item.entityId).maybeSingle()
-            if (readError) throw readError
+            const [existing] = await selectRows(table, { id: item.entityId })
             if (existing) {
-              const { error } = await this.client.from(table).update({ name: organization.name, updated_at: organization.updatedAt }).eq('id', item.entityId)
-              if (error) throw error
+              await updateRows(table, { id: item.entityId }, { name: organization.name, updated_at: organization.updatedAt })
             } else {
-              const { error } = await this.client.rpc('create_organization', { p_id: item.entityId, p_name: organization.name })
-              if (error) throw error
+              await rpc('create_organization', { p_id: item.entityId, p_name: organization.name })
             }
           } else {
-            const { error } = await this.client.from(table).upsert(toRemoteRow(item.entity, item.payload!) as never, { onConflict: 'id' })
-            if (error) throw error
+            await upsertRows(table, [toRemoteRow(item.entity, item.payload!)])
           }
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
         } catch {
@@ -231,10 +222,10 @@ export class TargetSyncEngine {
       }
 
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
-        const { data, error } = await this.client.from(tables[entity]).select('*')
-        if (error) continue
+        const rows = await selectRows(tables[entity]).catch(() => null)
+        if (!rows) continue
         const table = localTable(this.db, entity)
-        for (const row of (data ?? []) as Record<string, unknown>[]) {
+        for (const row of rows) {
           const value = fromRemoteRow(entity, row)
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId
@@ -244,6 +235,7 @@ export class TargetSyncEngine {
           await table.put(value as never)
         }
       }
+      notifyRemoteDataApplied()
     } finally {
       this.syncing = false
     }

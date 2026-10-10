@@ -1,4 +1,5 @@
-import { supabase } from '../../lib/supabase'
+import { isPlatformConfigured } from '../../platform/http'
+import { rpc } from '../../platform/rpc'
 import type { StageSession } from '../../domain/stage/stageSession'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
 import { stageSessionStateRepository } from '../../db/repositories/stageSessionStateRepository'
@@ -23,43 +24,30 @@ function map(value: Record<string, unknown>): StageSession {
   }
 }
 
-function client() {
-  if (!supabase) throw new Error('Supabase não está configurado.')
-  return supabase
-}
-
 export async function createStageSession(serviceId: string, id = crypto.randomUUID()): Promise<StageSession> {
-  const { data, error } = await client().rpc('create_target_stage_session', { p_service_id: serviceId, p_session_id: id })
-  if (error) throw error
-  const session = map(row(data))
+  const session = map(row(await rpc('create_target_stage_session', { p_service_id: serviceId, p_session_id: id })))
   await stageSessionRepository.put(session)
   return session
 }
 
 export async function startStageSession(stageSessionId: string): Promise<StageSession> {
-  const { data, error } = await client().rpc('target_stage_start', { p_stage_session_id: stageSessionId })
-  if (error) throw error
-  await stageSessionStateRepository.put(toStageSessionState(row(data)))
+  await stageSessionStateRepository.put(toStageSessionState(row(await rpc('target_stage_start', { p_stage_session_id: stageSessionId }))))
   return getStageSession(stageSessionId)
 }
 
 export async function endStageSession(stageSessionId: string): Promise<StageSession> {
-  const { data, error } = await client().rpc('target_stage_end', { p_stage_session_id: stageSessionId })
-  if (error) throw error
-  await stageSessionStateRepository.put(toStageSessionState(row(data)))
+  await stageSessionStateRepository.put(toStageSessionState(row(await rpc('target_stage_end', { p_stage_session_id: stageSessionId }))))
   return getStageSession(stageSessionId)
 }
 
 export async function getStageSession(stageSessionId: string): Promise<StageSession> {
-  if (!supabase) {
+  if (!isPlatformConfigured) {
     const local = await stageSessionRepository.getById(stageSessionId)
     if (local) return local
     throw new Error('Sessão de palco não disponível offline.')
   }
   try {
-    const { data, error } = await client().rpc('get_service_stage_session', { p_stage_session_id: stageSessionId })
-    if (error) throw error
-    const session = map(row(data))
+    const session = map(row(await rpc('get_service_stage_session', { p_stage_session_id: stageSessionId })))
     await stageSessionRepository.put(session)
     return session
   } catch (error) {

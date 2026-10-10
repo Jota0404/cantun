@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { createRepertoire } from '../../application/repertoires/repertoireService'
 import { useAuth } from '../../auth/authContext'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
@@ -37,7 +38,10 @@ export function RepertoireListPage() {
     }
   }, [organizationId])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    return onRemoteDataApplied(() => { void load() })
+  }, [load])
 
   async function handleCreate() {
     if (!organizationId || !name.trim()) return
