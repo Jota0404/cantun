@@ -1,6 +1,6 @@
 # ADR-052 — Service operacional: equipe, estados e ordem genérica
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-10-09, com as 6 recomendações da spec VS-02)
 - **Data:** 2026-10-09
 - **Decisor:** Jota (owner)
 - **Escopo:** Service / ServiceItem / Stage (leitura)
