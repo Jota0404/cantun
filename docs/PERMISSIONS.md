@@ -67,7 +67,20 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 | `repertoire.delete_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
 | `stage.run` | organização | ✅ | ✅ | ✅ | ✅ | Executar o Modo Palco. A autorização do operador (MD) do Stage não muda neste bloco. |
 
-Capacidades fora do B2 (criar serviço, gerenciar escala, confirmar participação, Network) seguem o Blueprint §49 e entram nos blocos B3, B4 e B10.
+### 3.4 Serviço (B3 — ADR-052 `Accepted`)
+
+Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-02-servico.md`](specs/VS-02-servico.md).
+
+| Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
+|---|---|:-:|:-:|:-:|:-:|---|
+| `service.create` | equipe | ✅ | ✅ | **L** | ❌ | Nasce `draft`. |
+| `service.edit` | equipe | ✅ | ✅ | **L** | ❌ | Informações e ordem (`service_items`). Negado em `completed`/`cancelled`. |
+| `service.transition` | equipe | ✅ | ✅ | **L** | ❌ | Só pela RPC `transition_service`; `status` protegido por trigger de guarda. |
+| `service.delete` | equipe | ✅ | ✅ | **L** (só `draft`) | ❌ | Fora de `draft`, o Líder cancela (decisão do owner, 2026-10-09). |
+
+Leitura de serviços e da ordem: membro **ativo na organização** (seção 4), sem capacidade própria.
+
+Capacidades ainda fora (gerenciar escala, confirmar participação, Network) seguem o Blueprint §49 e entram nos blocos B4 e B10.
 
 ## 4. Membro `inactive`, Líder inativo e quem está "ativo"
 
@@ -106,11 +119,26 @@ Cada caso vira teste de RLS/RPC no harness (`feat/team-roles-schema`) e teste de
 
 Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria equipe e Membro no próprio recurso conseguem a ação correspondente.
 
+### 5.1 Serviço (B3 — ADR-052)
+
+| # | Caso | Resultado esperado |
+|---|---|---|
+| S1 | Líder da equipe A cria ou edita serviço da equipe B | negado |
+| S2 | Membro cria, edita ou transiciona serviço | negado |
+| S3 | `update services set status` direto (ou `upsert` do sync com `status`), por qualquer papel | negado pelo trigger de guarda; só a RPC muda o status |
+| S4 | Transição inválida pela RPC (ex.: `completed → draft`) | negado |
+| S5 | Serviço com `team_id` de outra organização | negado (FK composta) |
+| S6 | Editar informações ou ordem de serviço `completed`/`cancelled` | negado |
+| S7 | Líder exclui serviço fora de `draft` | negado |
+| S8 | Líder `inactive` da equipe do serviço cria, edita, transiciona ou exclui | negado |
+
+Contraste: Owner, Admin e Líder ativo da equipe do serviço conseguem; Membro ativo lê serviço e ordem.
+
 ## 6. Fora do B2
 
 - Troca ou recuperação de Owner (issue futura).
 - Disponibilidade do membro e escala (B4; RF-TEAM-005).
-- Criar serviço, gerenciar escala, confirmar participação, Network (B3, B4, B10).
+- Gerenciar escala, confirmar participação, Network (B4, B10). Serviço: seção 3.4 (B3).
 - Permissões granulares por recurso (ACL): rejeitado no ADR-051.
 
 ## 7. Pendências e pontos em aberto (não alterados no B2)
@@ -128,5 +156,6 @@ Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria e
 |---|---|---|
 | Matriz (este documento) | `docs/PERMISSIONS.md` | B2 PR 1 |
 | `app.has_permission` + RLS/RPCs | `db/migrations/0004_team_roles.sql` | B2 PR 2 (`feat/team-roles-schema`) |
+| `service.*` + RLS + `transition_service` | `db/migrations/` | B3 PR 2 (`feat/service-schema`) |
 | Espelho `permissions.ts` | `src/domain/access/` | B2 PR 3 (`feat/team-roles-domain`) |
 | Uso na UI (esconder/desabilitar) | `src/pages`, `src/components` | B2 PR 4 e PR 5 |
