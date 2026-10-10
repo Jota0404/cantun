@@ -7,8 +7,8 @@ vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'u1', email
 
 import { db } from '../../db/database'
 import type { Service } from '../../domain/services/service'
-import { addServiceItem, moveServiceItem, removeServiceItem } from './serviceScheduleService'
-import { createService, listServices, transitionService, updateServiceInfo } from './serviceService'
+import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from './serviceScheduleService'
+import { createService, getService, listServices, transitionService, updateServiceInfo } from './serviceService'
 
 const now = '2026-10-01T00:00:00.000Z'
 const base: Service = { id: 's1', organizationId: 'o1', teamId: 't1', name: 'Culto', startsAt: now, status: 'draft', createdByUserId: 'u1', createdAt: now, updatedAt: now }
@@ -38,6 +38,8 @@ describe('service use cases', () => {
     const moved = await moveServiceItem('s1', '00000000-0000-4000-8000-00000000000c', 0)
     expect(moved.success && moved.items.map((i) => [i.type, i.position])).toEqual([['prayer', 0], ['opening', 1], ['song', 2]])
 
+    expect((await listServiceItems('s1')).map((i) => i.position)).toEqual([0, 1, 2])
+    expect(await getService('s1')).toMatchObject({ id: 's1' })
     const removed = await removeServiceItem('00000000-0000-4000-8000-00000000000a')
     expect(removed.success && removed.items.map((i) => [i.type, i.position])).toEqual([['prayer', 0], ['song', 1]])
   })

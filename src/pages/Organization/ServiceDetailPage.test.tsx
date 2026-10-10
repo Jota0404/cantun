@@ -19,19 +19,17 @@ const m = vi.hoisted(() => ({
   moveServiceItem: vi.fn(),
   removeServiceItem: vi.fn(),
 }))
-vi.mock('../../db/repositories/serviceRepository', () => ({ serviceRepository: { getById: async () => m.service } }))
-vi.mock('../../db/repositories/serviceItemRepository', () => ({ serviceItemRepository: { listByServiceId: async () => m.items } }))
-vi.mock('../../db/repositories/assignmentRepository', () => ({ assignmentRepository: { listByServiceId: async () => [] } }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
 vi.mock('../../application/stage/stageSessionService', () => ({ createStageSession: vi.fn(), startStageSession: vi.fn() }))
 vi.mock('../../application/services/serviceService', () => ({
   createAssignment: vi.fn(), removeAssignment: vi.fn(), updateAssignment: vi.fn(),
+  getService: async () => m.service, listServiceAssignments: async () => [],
   transitionService: m.transitionService, updateServiceInfo: m.updateServiceInfo,
 }))
 vi.mock('../../application/services/serviceScheduleService', () => ({
-  addServiceItem: m.addServiceItem, moveServiceItem: m.moveServiceItem, removeServiceItem: m.removeServiceItem,
+  listServiceItems: async () => m.items, addServiceItem: m.addServiceItem, moveServiceItem: m.moveServiceItem, removeServiceItem: m.removeServiceItem,
 }))
 
 const base: Service = { id: 'sv1', organizationId: 'o1', teamId: 't1', name: 'Culto de domingo', startsAt: '2026-10-11T22:00:00.000Z', status: 'draft', createdByUserId: 'u1', createdAt: '', updatedAt: '' }

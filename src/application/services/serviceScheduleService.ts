@@ -1,4 +1,3 @@
-import type { Service } from '../../domain/services/service'
 import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { moveItem, renumber, validateServiceItem, type ServiceItem, type ServiceItemInput } from '../../domain/services/serviceItem'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
@@ -31,6 +30,11 @@ async function saveRenumbered(serviceId: string, changed: ServiceItem[], reposit
   for (const item of changed) await repositories.items.update({ ...item, updatedAt: now })
   await touchService(serviceId, repositories, now)
   return repositories.items.listByServiceId(serviceId)
+}
+
+/** Ordem do serviço, do Dexie (offline). */
+export function listServiceItems(serviceId: string, repository = serviceItemRepository): Promise<ServiceItem[]> {
+  return repository.listByServiceId(serviceId)
 }
 
 export async function addServiceItem(
@@ -75,32 +79,4 @@ export async function removeServiceItem(serviceItemId: string, repositories = de
   await repositories.items.remove(serviceItemId)
   const remaining = await repositories.items.listByServiceId(item.serviceId)
   return { success: true, items: await saveRenumbered(item.serviceId, renumber(remaining), repositories) }
-}
-
-/** @deprecated Use `addServiceItem(serviceId, { type: 'song', songId })`. Sai quando a UI migrar. */
-export async function addSongToService(serviceId: string, songId: string, repertoireId?: string, id = crypto.randomUUID()): Promise<ServiceItem> {
-  const result = await addServiceItem(serviceId, { type: 'song', songId, repertoireId }, defaults, id)
-  if (!result.success) throw new Error(result.errors.join(' '))
-  return result.items[result.items.length - 1]
-}
-
-/** @deprecated Use `moveServiceItem`. Sai quando a UI migrar. */
-export async function reorderService(serviceId: string, orderedItemIds: string[]): Promise<ServiceItem[]> {
-  const items = await serviceItemRepository.listByServiceId(serviceId)
-  const expected = new Set(items.map((item) => item.id))
-  const received = new Set(orderedItemIds)
-  if (expected.size !== received.size || orderedItemIds.length !== received.size || [...expected].some((id) => !received.has(id))) {
-    throw new Error('A nova ordem deve conter exatamente os itens atuais do serviço.')
-  }
-  const ordered = orderedItemIds.map((id) => items.find((item) => item.id === id) as ServiceItem)
-  return saveRenumbered(serviceId, renumber(ordered), defaults)
-}
-
-/** @deprecated Use `updateServiceInfo` (serviceService). Sai quando a UI migrar. */
-export async function updateService(serviceId: string, patch: Partial<Pick<Service, 'name' | 'startsAt'>>): Promise<Service> {
-  const current = await serviceRepository.getById(serviceId)
-  if (!current) throw new Error('Serviço não encontrado.')
-  const updated: Service = { ...current, ...patch, name: patch.name?.trim() || current.name, updatedAt: new Date().toISOString() }
-  await serviceRepository.update(updated)
-  return updated
 }

@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
-import { assignmentRepository } from '../../db/repositories/assignmentRepository'
-import { serviceRepository } from '../../db/repositories/serviceRepository'
-import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { listSongs } from '../../application/songs/listSongs'
-import { createAssignment, removeAssignment, transitionService, updateAssignment, updateServiceInfo } from '../../application/services/serviceService'
-import { addServiceItem, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
+import { createAssignment, getService, listServiceAssignments, removeAssignment, transitionService, updateAssignment, updateServiceInfo } from '../../application/services/serviceService'
+import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
@@ -42,11 +39,11 @@ export function ServiceDetailPage() {
 
   const load = useCallback(async () => {
     try {
-      const current = await serviceRepository.getById(serviceId)
+      const current = await getService(serviceId)
       if (!current) { setError('Serviço não encontrado.'); return }
       const [serviceItems, currentAssignments, allSongs, context] = await Promise.all([
-        serviceItemRepository.listByServiceId(serviceId),
-        assignmentRepository.listByServiceId(serviceId),
+        listServiceItems(serviceId),
+        listServiceAssignments(serviceId),
         listSongs(),
         getMyAccessContext({ organizationId: current.organizationId, teamId: current.teamId ?? undefined }),
       ])

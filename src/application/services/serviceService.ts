@@ -100,6 +100,16 @@ export async function listServices(organizationId: string, repository = serviceR
   }
 }
 
+/** Do Dexie (offline). */
+export function getService(serviceId: string, repository = serviceRepository): Promise<Service | undefined> {
+  return repository.getById(serviceId)
+}
+
+/** Escala do serviço, do Dexie (offline). */
+export function listServiceAssignments(serviceId: string, repository = assignmentRepository): Promise<Assignment[]> {
+  return repository.listByServiceId(serviceId)
+}
+
 export async function createAssignment(
   input: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>,
   id = crypto.randomUUID(),
