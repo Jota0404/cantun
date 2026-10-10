@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
+import fastifyStatic from '@fastify/static'
 import Fastify from 'fastify'
 import type { FastifyServerOptions } from 'fastify'
 import { authRoutes, SESSION_COOKIE, sessionUserId } from './auth.ts'
@@ -25,10 +26,18 @@ export interface AppOptions {
   mailer?: Mailer
   logger?: FastifyServerOptions['logger']
   realtime?: Partial<RealtimeOptions>
+  /** Pasta com o build do front (`dist/`): servida na mesma origem da API, com fallback de SPA. */
+  staticRoot?: string
+  /** Atrás de proxy (ex.: Render): IP do cliente vem do X-Forwarded-For, para o rate limit por IP. */
+  trustProxy?: boolean
 }
 
-export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime }: AppOptions) {
+// Prefixos da API: nunca caem no fallback de SPA.
+const API_PREFIX = /^\/(auth|rpc|sync|realtime|health)(\/|\?|$)/
+
+export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime, staticRoot, trustProxy = false }: AppOptions) {
   const app = Fastify({
+    trustProxy,
     logger: logger === true ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] } : logger,
   })
   const catalog = await loadCatalog(pool)
@@ -45,7 +54,8 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
     if (request.method !== 'GET' && request.method !== 'HEAD' && origin && origin !== appOrigin) {
       throw new HttpError(403, 'origem não permitida')
     }
-    request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
+    // Arquivos do front não consultam a sessão no banco.
+    if (API_PREFIX.test(request.url)) request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
   })
 
   app.setErrorHandler((error, request, reply) => {
@@ -65,6 +75,22 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
   await app.register(authRoutes, { pool, mailer: mailer ?? devMailer(app.log), appOrigin, secureCookies: appOrigin.startsWith('https://') })
   await app.register(dataRoutes, { pool, catalog })
   await app.register(realtimeRoutes, { pool, appOrigin, options: realtime })
+
+  if (staticRoot) {
+    await app.register(fastifyStatic, {
+      root: staticRoot,
+      // Arquivos com hash do Vite ficam em cache; o resto (index.html, sw.js, manifest) sempre revalida.
+      setHeaders: (res, path) => res.header('cache-control', /[\\/]assets[\\/]/.test(path) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    })
+    app.setNotFoundHandler((request, reply) => {
+      // Arquivo inexistente (com extensão) dá 404, não o index.html no lugar de um .js.
+      const path = request.url.split('?')[0]
+      if (request.method !== 'GET' || API_PREFIX.test(path) || /\.[a-z0-9]+$/i.test(path)) {
+        return reply.code(404).send({ error: 'não encontrado' })
+      }
+      return reply.header('cache-control', 'no-cache').sendFile('index.html')
+    })
+  }
 
   return app
 }

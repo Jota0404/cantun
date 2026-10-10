@@ -1,8 +1,10 @@
-// Integração contra PostgreSQL real: banco descartável criado com scripts/db/migrate.sh.
-// Requer psql no PATH e as variáveis PG* (as mesmas do scripts/db/verify-migrations.sh).
+// Integração contra PostgreSQL real: banco descartável criado com o migrador em Node
+// (src/migrate.ts, o mesmo do deploy). Requer psql no PATH e as variáveis PG* (as mesmas
+// do scripts/db/verify-migrations.sh).
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { after, before, describe, test } from 'node:test'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from './app.ts'
@@ -10,10 +12,11 @@ import { hashPassword, verifyPassword } from './auth.ts'
 import { createPool } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
+import { brevoMailer } from './mailer.ts'
+import { migrate } from './migrate.ts'
 
 const DB = 'cantum_server_test'
 const ORIGIN = 'http://localhost:5173'
-const migrate = fileURLToPath(new URL('../../scripts/db/migrate.sh', import.meta.url))
 
 let app: FastifyInstance
 let pool: Pool
@@ -21,7 +24,7 @@ const mails: Mail[] = []
 
 before(async () => {
   execFileSync('psql', ['-X', '-q', '-d', 'postgres', '-c', `drop database if exists ${DB}`, '-c', `create database ${DB}`])
-  execFileSync(migrate, [DB])
+  assert.ok((await migrate({ database: DB })).includes('0001_baseline'))
   pool = createPool({ database: DB })
   app = await buildApp({ pool, appOrigin: ORIGIN, logger: false, mailer: { send: async (mail) => void mails.push(mail) } })
 })
@@ -271,5 +274,69 @@ describe('dados sob RLS', () => {
     assert.deepEqual(Object.keys(profiles.json()[0]).sort(), ['display_name', 'user_id'])
     const outsider = await app.inject({ method: 'POST', url: '/rpc/get_organization_member_profiles', headers: { cookie: bruno }, payload: { p_organization_id: orgId } })
     assert.deepEqual(outsider.json(), [])
+  })
+})
+
+describe('deploy (ADR-060)', () => {
+  test('migrador em Node: segunda execução não aplica nada e o usuário entra nos papéis', async () => {
+    assert.deepEqual(await migrate({ database: DB }), [])
+    // pg_auth_members, não pg_has_role: no teste o usuário é superusuário e pg_has_role daria true de qualquer jeito.
+    const { rows } = await pool.query(`select count(*)::int as n from pg_auth_members m join pg_roles r on r.oid = m.roleid
+      where m.member = (select oid from pg_roles where rolname = current_user) and r.rolname in ('cantum_user', 'cantum_anon')`)
+    assert.equal(rows[0].n, 2)
+  })
+
+  test('front servido na mesma origem, com fallback de SPA fora da API', async () => {
+    const root = await mkdtemp(`${tmpdir()}/cantum-dist-`)
+    await mkdir(`${root}/assets`)
+    await writeFile(`${root}/index.html`, '<!doctype html><title>CANTUM</title>')
+    await writeFile(`${root}/assets/app-abc123.js`, 'console.log(1)')
+    const web = await buildApp({ pool, appOrigin: ORIGIN, logger: false, staticRoot: root })
+    try {
+      const index = await web.inject({ method: 'GET', url: '/' })
+      assert.equal(index.statusCode, 200)
+      assert.match(index.body, /CANTUM/)
+      assert.equal(index.headers['cache-control'], 'no-cache')
+      const asset = await web.inject({ method: 'GET', url: '/assets/app-abc123.js' })
+      assert.equal(asset.statusCode, 200)
+      assert.match(String(asset.headers['cache-control']), /immutable/)
+      const route = await web.inject({ method: 'GET', url: '/organizacao/servicos/123?aba=ordem' })
+      assert.equal(route.statusCode, 200)
+      assert.match(route.body, /CANTUM/)
+
+      for (const url of ['/auth/inexistente', '/rpc/x', '/realtime/x', '/health/x', '/assets/sumiu.js']) {
+        const response = await web.inject({ method: 'GET', url })
+        assert.equal(response.statusCode, 404, url)
+        assert.doesNotMatch(response.body, /CANTUM/, url)
+      }
+      assert.equal((await web.inject({ method: 'GET', url: '/health' })).json().ok, true)
+      assert.equal((await web.inject({ method: 'GET', url: '/auth/session' })).statusCode, 401)
+    } finally {
+      await web.close()
+      await rm(root, { recursive: true })
+    }
+  })
+
+  test('mailer Brevo: chama a API transacional e falha sem vazar a chave', async () => {
+    const calls: { url: string; init: RequestInit }[] = []
+    const ok = brevoMailer({
+      apiKey: 'chave-secreta', from: 'CANTUM <nao-responda@exemplo.com>',
+      fetch: async (url, init) => { calls.push({ url: String(url), init: init ?? {} }); return new Response('{}', { status: 201 }) },
+    })
+    await ok.send({ to: 'ana@teste.local', purpose: 'verify_email', link: 'https://app.exemplo/auth/verify-email?token=abc' })
+    assert.equal(calls[0].url, 'https://api.brevo.com/v3/smtp/email')
+    assert.equal(calls[0].init.method, 'POST')
+    assert.equal((calls[0].init.headers as Record<string, string>)['api-key'], 'chave-secreta')
+    const body = JSON.parse(String(calls[0].init.body))
+    assert.deepEqual(body.sender, { name: 'CANTUM', email: 'nao-responda@exemplo.com' })
+    assert.deepEqual(body.to, [{ email: 'ana@teste.local' }])
+    assert.match(body.subject, /Confirme seu e-mail/)
+    assert.match(body.textContent, /token=abc/)
+
+    const failing = brevoMailer({ apiKey: 'chave-secreta', from: 'x@exemplo.com', fetch: async () => new Response('erro', { status: 401 }) })
+    await assert.rejects(
+      failing.send({ to: 'ana@teste.local', purpose: 'reset_password', link: 'https://app.exemplo/x?token=abc' }),
+      (error: Error) => /HTTP 401/.test(error.message) && !error.message.includes('chave-secreta') && !error.message.includes('token=abc'),
+    )
   })
 })

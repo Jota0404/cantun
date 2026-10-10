@@ -78,4 +78,9 @@ WebSocket do Modo Palco; o contrato completo (mensagens, erros, códigos de fech
 
 ## Produção
 
-Ainda não suportada: o servidor recusa `NODE_ENV=production` enquanto não houver provedor de e-mail, porque o mailer de desenvolvimento registra os links com token no log. Hospedagem e provedor são decisões do owner (ADR-059).
+Render + Neon + Brevo (ADR-060). Configuração em [`render.yaml`](../render.yaml); roteiro para o owner em [`docs/OPERATIONS.md`](../docs/OPERATIONS.md).
+
+- **Migrations sem psql:** `node src/migrate.ts` aplica `db/migrations` em `DATABASE_URL`, com o mesmo contrato do `scripts/db/migrate.sh`, e dá ao usuário da conexão a participação em `cantum_user` e `cantum_anon`, necessária para o `set local role` num banco gerenciado. Roda no start, antes do servidor.
+- **Front na mesma origem:** se `../dist/index.html` existir (`npm run build` na raiz), o servidor serve o build. Rotas sem extensão fora de `/auth`, `/rpc`, `/sync`, `/realtime` e `/health` recebem o `index.html` (SPA). Arquivos em `assets/` têm cache longo; o resto revalida. O front é montado com `VITE_API_URL` igual à URL do serviço.
+- **E-mail:** `BREVO_API_KEY` e `MAIL_FROM` (`Nome <email>`) ligam o `brevoMailer`. Com `NODE_ENV=production`, o servidor não sobe sem os dois, porque o mailer de desenvolvimento registra links com token no log.
+- **Proxy:** `TRUST_PROXY=true` faz o rate limit usar o IP do cliente (`X-Forwarded-For`), não o do proxy. `HOST=0.0.0.0` expõe a porta `PORT`.
