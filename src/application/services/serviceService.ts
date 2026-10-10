@@ -2,6 +2,7 @@ import type { Service, ServiceStatus } from '../../domain/services/service'
 import { canTransition, isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { getCurrentUser } from '../../platform/auth'
 import { rpc } from '../../platform/rpc'
+import { deleteRows } from '../../platform/sync'
 import type { Assignment } from '../../domain/services/assignment'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
@@ -141,7 +142,17 @@ export async function removeAssignment(assignmentId: string): Promise<void> {
   await assignmentRepository.remove(assignmentId)
 }
 
-export async function removeService(serviceId: string): Promise<void> {
+/**
+ * Online: o banco decide (Líder só em `draft`, S7) e apaga itens e escala em cascata.
+ * Depois limpa o Dexie; as exclusões enfileiradas viram no-op no servidor.
+ */
+export async function deleteService(serviceId: string): Promise<{ success: true } | { success: false; errors: string[] }> {
+  try {
+    const { count } = await deleteRows('services', { id: serviceId })
+    if (count === 0) return { success: false, errors: ['Você não tem permissão para excluir este serviço.'] }
+  } catch (error) {
+    return { success: false, errors: [error instanceof Error && error.message ? error.message : 'Não foi possível excluir o serviço.'] }
+  }
   const [items, assignments] = await Promise.all([
     serviceItemRepository.listByServiceId(serviceId),
     assignmentRepository.listByServiceId(serviceId),
@@ -150,4 +161,5 @@ export async function removeService(serviceId: string): Promise<void> {
   for (const item of items) await serviceItemRepository.remove(item.id)
   for (const assignment of assignments) await assignmentRepository.remove(assignment.id)
   await serviceRepository.remove(serviceId)
+  return { success: true }
 }

@@ -2,13 +2,15 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpc = vi.hoisted(() => vi.fn())
+const deleteRows = vi.hoisted(() => vi.fn())
 vi.mock('../../platform/rpc', () => ({ rpc }))
+vi.mock('../../platform/sync', () => ({ deleteRows }))
 vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'u1', email: 'u@example.com', emailVerified: true, displayName: 'U' }) }))
 
 import { db } from '../../db/database'
 import type { Service } from '../../domain/services/service'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from './serviceScheduleService'
-import { createService, getService, listServices, transitionService, updateServiceInfo } from './serviceService'
+import { createService, deleteService, getService, listServices, transitionService, updateServiceInfo } from './serviceService'
 
 const now = '2026-10-01T00:00:00.000Z'
 const base: Service = { id: 's1', organizationId: 'o1', teamId: 't1', name: 'Culto', startsAt: now, status: 'draft', createdByUserId: 'u1', createdAt: now, updatedAt: now }
@@ -76,5 +78,17 @@ describe('service use cases', () => {
     expect(groups.upcoming.map((s) => s.id)).toEqual(['b', 'a'])
     expect(groups.planning.map((s) => s.id)).toEqual(['s1'])
     expect(groups.past.map((s) => s.id)).toEqual(['d', 'c'])
+  })
+  it('deletes a service only when the server accepts', async () => {
+    await db.serviceItems.put({ id: 'it', serviceId: 's1', type: 'other', title: 'x', position: 0, updatedAt: now })
+    deleteRows.mockResolvedValueOnce({ count: 0 })
+    await expect(deleteService('s1')).resolves.toEqual({ success: false, errors: ['Você não tem permissão para excluir este serviço.'] })
+    expect(await db.services.get('s1')).toBeDefined()
+
+    deleteRows.mockResolvedValueOnce({ count: 1 })
+    await expect(deleteService('s1')).resolves.toEqual({ success: true })
+    expect(deleteRows).toHaveBeenLastCalledWith('services', { id: 's1' })
+    expect(await db.services.get('s1')).toBeUndefined()
+    expect(await db.serviceItems.get('it')).toBeUndefined()
   })
 })
