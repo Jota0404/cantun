@@ -279,13 +279,33 @@ insert into public.service_items (service_id, type, title, position)
   values ('60000000-0000-0000-0000-000000000508', 'preaching', 'Ministração', 0);
 select pg_temp.fails($q$select public.create_target_stage_session('60000000-0000-0000-0000-000000000508')$q$, 'Stage sem música', 'P0001', 'service must contain at least one song before starting stage');
 
--- Excluir a organização apaga serviços e equipes juntos (FK "no action", não "restrict").
--- A sessão de palco sai antes: com ela viva, o cascade esbarra no guarda do operador
--- do Stage (bug anterior ao B3, relatado à parte).
+-- Guarda do operador continua valendo com a sessão viva: quem não é MD não muta.
+select pg_temp.as_user('00000000-0000-0000-0000-000000000502');
+select pg_temp.fails($q$select public.target_stage_previous('70000000-0000-0000-0000-000000000501')$q$, 'Admin não MD muta o Stage', 'P0001', 'only the current Stage MD can mutate execution state');
+select pg_temp.fails($q$select public.target_stage_end('70000000-0000-0000-0000-000000000501')$q$, 'Admin não MD encerra o Stage', 'P0001', 'only the current Stage MD can mutate execution state');
 reset role;
-delete from public.stage_sessions where id = '70000000-0000-0000-0000-000000000501';
+select pg_temp.as_user('00000000-0000-0000-0000-000000000502');
+select pg_temp.fails($q$update public.stage_session_states set current_index = 0 where stage_session_id = '70000000-0000-0000-0000-000000000501'$q$, 'escrita direta de não MD (dono do schema com app.user_id)', 'P0001', 'only the current Stage MD can mutate execution state');
+select pg_temp.as_user(null);
+select pg_temp.fails($q$update public.stage_session_states set current_index = 0 where stage_session_id = '70000000-0000-0000-0000-000000000501'$q$, 'escrita direta sem usuário', 'P0001', 'authentication required');
 set local role cantum_user;
-select pg_temp.affects($q$delete from public.organizations where id = '10000000-0000-0000-0000-000000000501'$q$, 1, 'Owner exclui a organização com serviços');
+
+-- Excluir serviço com sessão de palco funciona, mesmo para quem não é o MD (Admin).
+select pg_temp.as_user('00000000-0000-0000-0000-000000000501');
+insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id)
+  values ('60000000-0000-0000-0000-000000000509', '10000000-0000-0000-0000-000000000501', '30000000-0000-0000-0000-000000000501', 'Outro Stage', now(), '00000000-0000-0000-0000-000000000501');
+insert into public.service_items (service_id, type, song_id, position)
+  values ('60000000-0000-0000-0000-000000000509', 'song', '40000000-0000-0000-0000-000000000501', 0);
+select public.create_target_stage_session('60000000-0000-0000-0000-000000000509', '70000000-0000-0000-0000-000000000509');
+select public.target_stage_start('70000000-0000-0000-0000-000000000509');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000502');
+select pg_temp.affects($q$delete from public.services where id = '60000000-0000-0000-0000-000000000509'$q$, 1, 'Admin exclui serviço com sessão de palco ao vivo');
+select pg_temp.ok((select count(*) = 0 from public.stage_session_states where stage_session_id = '70000000-0000-0000-0000-000000000509'), 'estado da sessão saiu junto');
+
+-- Excluir a organização (com sessão de palco ao vivo) apaga serviços e equipes juntos
+-- (FK "no action", não "restrict").
+select pg_temp.as_user('00000000-0000-0000-0000-000000000501');
+select pg_temp.affects($q$delete from public.organizations where id = '10000000-0000-0000-0000-000000000501'$q$, 1, 'Owner exclui a organização com serviços e sessão de palco');
 
 reset role;
 rollback;

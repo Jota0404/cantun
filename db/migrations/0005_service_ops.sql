@@ -576,3 +576,37 @@ begin
   return v_state;
 end;
 $$;
+
+-- Guarda do operador do Stage: excluir serviço ou organização com sessão de palco
+-- falhava. O cascade faz set null em stage_session_states.current_service_item_id
+-- depois que a stage_session já foi apagada, e a guarda não achava mais o MD.
+-- Sessão inexistente só ocorre nesse cascade (a FK de stage_session_states apaga o
+-- estado junto), então a escrita passa; com a sessão existente, a guarda vale igual.
+create or replace function private.assert_stage_operator() returns trigger
+  language plpgsql security definer
+  set search_path = ''
+as $$
+declare
+  v_md_user_id uuid;
+begin
+  if tg_table_name = 'stage_session_states' then
+    select ss.md_user_id into v_md_user_id
+    from public.stage_sessions ss
+    where ss.id = new.stage_session_id;
+    if not found then
+      return new;
+    end if;
+  else
+    v_md_user_id := old.md_user_id;
+  end if;
+
+  if app.current_user_id() is null then
+    raise exception 'authentication required';
+  end if;
+  if v_md_user_id is null or v_md_user_id <> app.current_user_id() then
+    raise exception 'only the current Stage MD can mutate execution state';
+  end if;
+
+  return new;
+end;
+$$;
