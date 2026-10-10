@@ -59,7 +59,7 @@ npm run dev
 | `npm run build` | type-check (`tsc -b`) + build de produção |
 | `npm run preview` | servir o build localmente |
 
-Servidor e banco locais: ver `server/README.md` e `db/README.md`. Sem servidor, o app abre só com os dados locais.
+Servidor e banco locais: ver `server/README.md` e `db/README.md`. O app exige login: sem servidor acessível (como hoje no link público, até a hospedagem ser definida), não é possível entrar.
 
 ## Documentação
 
