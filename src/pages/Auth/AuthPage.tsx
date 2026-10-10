@@ -10,6 +10,7 @@ export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const state = location.state as { from?: string; notice?: string } | null
@@ -26,7 +27,7 @@ export function AuthPage() {
     event.preventDefault(); setMessage(''); setError('')
     try {
       if (mode === 'login') { await signIn(email, password); navigate(destination, { replace: true }) }
-      else { await signUp(email, password); setMessage('Conta criada. Verifique seu e-mail para confirmar o acesso.') }
+      else { await signUp(email, password, displayName.trim()); setMessage('Conta criada. Verifique seu e-mail para confirmar o acesso.') }
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a operação.') }
   }
 
@@ -37,6 +38,7 @@ export function AuthPage() {
         <h1 id="auth-title">CANTUM</h1>
         <p className="auth-card__subtitle">{mode === 'login' ? 'Entre para acessar suas músicas.' : 'Crie sua conta para começar.'}</p>
         <form className="auth-form" onSubmit={submit}>
+          {mode === 'signup' && <label>Nome<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" required maxLength={80} pattern=".*\S.*" title="Informe seu nome." /></label>}
           <label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
           <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'login' ? undefined : 8} maxLength={128} /></label>
           <button className="auth-form__submit" type="submit">{mode === 'login' ? 'Entrar' : 'Criar conta'}</button>

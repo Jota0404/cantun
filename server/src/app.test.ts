@@ -41,10 +41,10 @@ function tokenFrom(mail: Mail | undefined): string {
   return new URL(mail.link).searchParams.get('token') ?? ''
 }
 
-async function signup(email: string, password = 'senha-forte-123') {
-  const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { email, password } })
+async function signup(email: string, password = 'senha-forte-123', displayName = 'Pessoa Teste') {
+  const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { email, password, displayName } })
   assert.equal(response.statusCode, 201, response.body)
-  return { cookie: cookieOf(response), user: response.json().user as { id: string; email: string; emailVerified: boolean } }
+  return { cookie: cookieOf(response), user: response.json().user as { id: string; email: string; emailVerified: boolean; displayName: string } }
 }
 
 test('hash de senha: formato scrypt e verificação', async () => {
@@ -56,7 +56,7 @@ test('hash de senha: formato scrypt e verificação', async () => {
 
 describe('autenticação', () => {
   test('cadastro cria sessão em cookie HttpOnly e envia verificação', async () => {
-    const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'Ana@Teste.Local', password: 'senha-forte-123' } })
+    const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'Ana@Teste.Local', password: 'senha-forte-123', displayName: '  Ana Souza ' } })
     assert.equal(response.statusCode, 201)
     const setCookie = String(response.headers['set-cookie'])
     assert.match(setCookie, /cantum_session=/)
@@ -65,8 +65,10 @@ describe('autenticação', () => {
     assert.equal(response.json().user.email, 'ana@teste.local')
     assert.equal(response.json().user.emailVerified, false)
 
+    assert.equal(response.json().user.displayName, 'Ana Souza')
     const session = await app.inject({ method: 'GET', url: '/auth/session', headers: { cookie: cookieOf(response) } })
     assert.equal(session.statusCode, 200)
+    assert.equal(session.json().user.displayName, 'Ana Souza')
 
     const verify = await app.inject({ method: 'POST', url: '/auth/verify-email', payload: { token: tokenFrom(mails.at(-1)) } })
     assert.equal(verify.statusCode, 204)
@@ -78,13 +80,23 @@ describe('autenticação', () => {
   })
 
   test('e-mail duplicado, senha curta e login inválido são recusados', async () => {
-    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'ana@teste.local', password: 'outra-senha-123' } })).statusCode, 409)
-    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'curta@teste.local', password: '123' } })).statusCode, 400)
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'ana@teste.local', password: 'outra-senha-123', displayName: 'Ana' } })).statusCode, 409)
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { email: 'curta@teste.local', password: '123', displayName: 'Curta' } })).statusCode, 400)
     const wrong = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'ana@teste.local', password: 'errada-123' } })
     assert.equal(wrong.statusCode, 401)
     const unknown = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'ninguem@teste.local', password: 'qualquer-123' } })
     assert.equal(unknown.statusCode, 401)
     assert.equal(wrong.json().error, unknown.json().error)
+  })
+
+  test('cadastro exige nome de exibição com 1 a 80 caracteres', async () => {
+    // IP próprio: não consome o limite de cadastro dos outros testes.
+    for (const displayName of [undefined, '', '   ', 'x'.repeat(81)]) {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.80', payload: { email: 'sem.nome@teste.local', password: 'senha-forte-123', displayName } })
+      assert.equal(response.statusCode, 400, `displayName ${JSON.stringify(displayName)}`)
+    }
+    const login = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.0.0.80', payload: { email: 'sem.nome@teste.local', password: 'senha-forte-123' } })
+    assert.equal(login.statusCode, 401)
   })
 
   test('logout revoga a sessão', async () => {
@@ -243,5 +255,21 @@ describe('dados sob RLS', () => {
       const remove = await app.inject({ method: 'DELETE', url: `/sync/${table}?${key}=${id}`, headers: { cookie: ana } })
       assert.equal(remove.statusCode, 403, `${table}: ${remove.body}`)
     }
+  })
+
+  test('nome de exibição: set_my_display_name e perfis da organização sem e-mail', async () => {
+    const renamed = await app.inject({ method: 'POST', url: '/rpc/set_my_display_name', headers: { cookie: bruno }, payload: { p_display_name: ' Bruno Lima ' } })
+    assert.equal(renamed.statusCode, 200, renamed.body)
+    assert.equal(renamed.json(), 'Bruno Lima')
+    assert.equal((await app.inject({ method: 'GET', url: '/auth/session', headers: { cookie: bruno } })).json().user.displayName, 'Bruno Lima')
+    const empty = await app.inject({ method: 'POST', url: '/rpc/set_my_display_name', headers: { cookie: bruno }, payload: { p_display_name: ' ' } })
+    assert.equal(empty.statusCode, 400)
+
+    const profiles = await app.inject({ method: 'POST', url: '/rpc/get_organization_member_profiles', headers: { cookie: ana }, payload: { p_organization_id: orgId } })
+    assert.equal(profiles.statusCode, 200, profiles.body)
+    assert.equal(profiles.json().length, 1)
+    assert.deepEqual(Object.keys(profiles.json()[0]).sort(), ['display_name', 'user_id'])
+    const outsider = await app.inject({ method: 'POST', url: '/rpc/get_organization_member_profiles', headers: { cookie: bruno }, payload: { p_organization_id: orgId } })
+    assert.deepEqual(outsider.json(), [])
   })
 })

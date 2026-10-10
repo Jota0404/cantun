@@ -7,9 +7,16 @@ export async function createTeam(organizationId: string, name: string, id = cryp
   const now = new Date().toISOString()
   const team: Team = { id, organizationId, name: name.trim(), createdAt: now, updatedAt: now }
   await teamRepository.create(team)
+  // Vínculo otimista `leader`, só local: o real é criado pelo servidor (trigger em `teams`, RN-03)
+  // e substitui este no pull, pela chave [teamId+userId].
   const user = getCurrentUser()
-  if (user) await addTeamMember(team.id, user.id)
+  if (user) await teamMembershipRepository.putLocal({ id: crypto.randomUUID(), teamId: team.id, userId: user.id, role: 'leader', status: 'active', createdAt: now, updatedAt: now })
   return team
+}
+
+/** Lê do Dexie: funciona offline. */
+export function getTeam(teamId: string, repository = teamRepository): Promise<Team | undefined> {
+  return repository.getById(teamId)
 }
 
 export async function updateTeam(team: Team, patch: Pick<Partial<Team>, 'name'>): Promise<Team> {
@@ -26,7 +33,7 @@ export async function removeTeam(teamId: string) {
 
 export async function addTeamMember(teamId: string, userId: string, id = crypto.randomUUID()): Promise<TeamMembership> {
   const now = new Date().toISOString()
-  const membership: TeamMembership = { id, teamId, userId, createdAt: now, updatedAt: now }
+  const membership: TeamMembership = { id, teamId, userId, role: 'member', status: 'active', createdAt: now, updatedAt: now }
   await teamMembershipRepository.create(membership)
   return membership
 }

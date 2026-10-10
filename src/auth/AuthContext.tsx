@@ -75,8 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextUser.id !== user?.id) setLoading(true)
       await applyUser(nextUser)
     },
-    signUp: async (email, password) => {
-      await applyUser(await platformAuth.signUp(email, password))
+    signUp: async (email, password, displayName) => {
+      await applyUser(await platformAuth.signUp(email, password, displayName))
     },
     signOut: async (options) => {
       if (!isPlatformConfigured) return

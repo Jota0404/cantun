@@ -4,6 +4,8 @@ export interface AuthUser {
   id: string
   email: string
   emailVerified: boolean
+  /** RN-15: sempre presente (1–80 caracteres). */
+  displayName: string
 }
 
 // Último usuário autenticado, para o app abrir offline (local-first, ADR-048).
@@ -48,15 +50,15 @@ export async function getSession(): Promise<AuthUser | null> {
   }
 }
 
-async function authenticate(path: string, email: string, password: string): Promise<AuthUser> {
-  const { user } = await apiRequest<{ user: AuthUser }>('POST', path, { email, password })
+async function authenticate(path: string, body: Record<string, string>): Promise<AuthUser> {
+  const { user } = await apiRequest<{ user: AuthUser }>('POST', path, body)
   setCurrentUser(user)
   return user
 }
 
-export const signUp = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/signup', email, password)
+export const signUp = (email: string, password: string, displayName: string): Promise<AuthUser> => authenticate('/auth/signup', { email, password, displayName })
 
-export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', email, password)
+export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', { email, password })
 
 /** Revoga a sessão no servidor. Sem rede, lança e mantém o usuário (o cookie continuaria válido). */
 export async function signOut(): Promise<void> {

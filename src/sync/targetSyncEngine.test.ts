@@ -51,3 +51,38 @@ describe('TargetSyncEngine', () => {
     expect(await db.stageSessions.get('stage-1')).toMatchObject({ status: 'live', serviceId: 'service-1' })
   })
 })
+
+describe('TargetSyncEngine team memberships (VS-01)', () => {
+  const team = { id: 'team-1', organizationId: 'org-1', name: 'Louvor', createdAt: now, updatedAt: now }
+  const membershipRow = (overrides: Record<string, unknown> = {}) => ({ id: 'tm-server', team_id: 'team-1', user_id: 'u-1', role: 'leader', status: 'active', created_at: now, updated_at: now, ...overrides })
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.teamMemberships.clear(), db.teams.clear()])
+  })
+
+  it('pushes team memberships without role and status', async () => {
+    await db.targetSyncQueue.add({ entity: 'teamMemberships', entityId: 'tm-1', operation: 'upsert', payload: { id: 'tm-1', teamId: 'team-1', userId: 'u-2', role: 'leader', status: 'inactive', createdAt: now, updatedAt: now }, updatedAt: now, attempts: 0 } as TargetSyncQueueItem)
+    await new TargetSyncEngine(db).sync()
+    const [, rows] = remote.upsertRows.mock.calls[0]
+    expect(rows[0]).not.toHaveProperty('role')
+    expect(rows[0]).not.toHaveProperty('status')
+  })
+
+  it('pull overwrites role and status even when the local copy is newer (no LWW)', async () => {
+    await db.teamMemberships.put({ id: 'tm-server', teamId: 'team-1', userId: 'u-1', role: 'member', status: 'active', createdAt: now, updatedAt: '2030-01-01T00:00:00Z' })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'team_memberships' ? [membershipRow({ status: 'inactive' })] : [])
+    await new TargetSyncEngine(db).sync()
+    expect(await db.teamMemberships.get('tm-server')).toMatchObject({ role: 'leader', status: 'inactive', updatedAt: '2030-01-01T00:00:00Z' })
+  })
+
+  it('replaces the optimistic creator membership by [teamId+userId]', async () => {
+    await db.teams.put(team)
+    await db.teamMemberships.put({ id: 'tm-local', teamId: 'team-1', userId: 'u-1', role: 'leader', status: 'active', createdAt: now, updatedAt: now })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'team_memberships' ? [membershipRow()] : [])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.teamMemberships.toArray()).map((m) => m.id)).toEqual(['tm-server'])
+  })
+})

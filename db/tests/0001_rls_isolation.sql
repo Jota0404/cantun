@@ -7,9 +7,9 @@
 begin;
 
 -- Fixtures (dono do schema)
-insert into app.users (id, email) values
-  ('00000000-0000-0000-0000-0000000000a1', 'ana@teste.local'),
-  ('00000000-0000-0000-0000-0000000000b1', 'bruno@teste.local');
+insert into app.users (id, email, display_name, email_verified_at) values
+  ('00000000-0000-0000-0000-0000000000a1', 'ana@teste.local', 'Ana', now()),
+  ('00000000-0000-0000-0000-0000000000b1', 'bruno@teste.local', 'Bruno', now());
 
 -- 1. Catálogo: nada do Supabase sobrou e toda tabela de dados tem RLS.
 do $$

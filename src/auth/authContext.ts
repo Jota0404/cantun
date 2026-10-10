@@ -7,7 +7,7 @@ export interface AuthContextValue {
   loading: boolean
   configured: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string, displayName: string) => Promise<void>
   /** Lança `PendingLocalChangesError` se houver alterações não sincronizadas e `discardPendingChanges` não for informado. */
   signOut: (options?: SignOutOptions) => Promise<void>
   /** Reconsulta a sessão no servidor; 401 deixa `user = null`. Sem rede, mantém o usuário. */

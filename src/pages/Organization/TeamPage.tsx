@@ -1,51 +1,55 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { useAuth } from '../../auth/authContext'
-import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
-import { teamMembershipRepository, teamRepository } from '../../db/repositories/teamRepository'
-import { updateTeam } from '../../application/teams/teamService'
-import { getMyTeamMusicalFunctions, setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
-import { createOrganizationInvite, buildOrganizationInviteUrl, listOrganizationInvites, revokeOrganizationInvite, updateOrganizationMemberRole, type OrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
+import { updateTeam, getTeam } from '../../application/teams/teamService'
+import {
+  demoteToMember, getMyAccessContext, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName,
+  type TeamMemberView,
+} from '../../application/teams/teamMemberService'
+import { createOrganizationInvite, buildOrganizationInviteUrl, revokeOrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
+import { hasPermission, type AccessContext } from '../../domain/access/permissions'
+import { canChangeRole, canChangeStatus, canSetFunctions } from '../../domain/teams/memberRules'
 import type { Team } from '../../domain/teams/team'
-import type { TeamMembership } from '../../domain/teams/teamMembership'
-import type { OrganizationMembership } from '../../domain/organizations/organizationMembership'
-import type { OrganizationInviteStatus } from '../../application/organizations/organizationInviteService'
+import type { MemberDisplayStatus } from '../../domain/teams/teamMembership'
+import { MUSICAL_FUNCTIONS, musicalFunctionLabel } from '../../components/team/musicalFunctions'
 import './OrganizationPage.css'
+import './TeamPage.css'
 
-const FUNCTION_OPTIONS = ['vocals', 'guitar', 'bass', 'drums', 'keys', 'acoustic_guitar', 'electric_guitar', 'other']
+const STATUS_LABEL: Record<MemberDisplayStatus, string> = { active: 'Ativo', inactive: 'Inativo', pending_invite: 'Convite pendente' }
+type StatusFilter = 'all' | MemberDisplayStatus
+
+type Result = { success: true } | { success: false; errors: string[] }
 
 export function TeamPage() {
   const { organizationId = '', teamId = '' } = useParams()
-  const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const [team, setTeam] = useState<Team>()
-  const [members, setMembers] = useState<TeamMembership[]>([])
-  const [organizationMembers, setOrganizationMembers] = useState<OrganizationMembership[]>([])
-  const [invites, setInvites] = useState<Array<OrganizationInvite & { status: OrganizationInviteStatus }>>([])
-  const [myFunctions, setMyFunctions] = useState<string[]>([])
+  const [members, setMembers] = useState<TeamMemberView[]>([])
+  const [access, setAccess] = useState<AccessContext>({ organizationRole: null })
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [functionFilter, setFunctionFilter] = useState('')
+  const [editingFunctions, setEditingFunctions] = useState<string>()
+  const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [inviteRole, setInviteRole] = useState<OrganizationInviteRole>('member')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
     try {
-      const currentTeam = await teamRepository.getById(teamId)
+      const currentTeam = await getTeam(teamId)
       if (!currentTeam || currentTeam.organizationId !== organizationId) { setError('Equipe não encontrada.'); return }
-      const [teamMembers, orgMembers, musicalFunctions, organizationInvites] = await Promise.all([
-        teamMembershipRepository.listByTeamId(teamId),
-        organizationMembershipRepository.listByOrganizationId(organizationId),
-        getMyTeamMusicalFunctions(teamId),
-        listOrganizationInvites(organizationId),
+      const [context, teamMembers] = await Promise.all([
+        getMyAccessContext({ organizationId, teamId }),
+        listTeamMembers({ organizationId, teamId, includePendingInvites: true }),
       ])
       setTeam(currentTeam)
+      setAccess(context)
       setMembers(teamMembers)
-      setOrganizationMembers(orgMembers)
-      setMyFunctions(musicalFunctions)
-      setInvites(organizationInvites.filter((invite) => invite.teamId === teamId))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar a equipe.')
     } finally {
@@ -58,60 +62,71 @@ export function TeamPage() {
     return onRemoteDataApplied(() => { void load() })
   }, [load])
 
-  const currentOrganizationMember = organizationMembers.find((member) => member.userId === user?.id)
-  const canManage = currentOrganizationMember?.role === 'owner' || currentOrganizationMember?.role === 'admin'
-
-  async function toggleFunction(value: string) {
-    const next = myFunctions.includes(value) ? myFunctions.filter((item) => item !== value) : [...myFunctions, value]
-    try { setMyFunctions(await setMyTeamMusicalFunctions(teamId, next)) }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível salvar suas funções musicais.') }
+  // Mudanças só online: em erro, mostra a mensagem e mantém a tela.
+  async function run(action: () => Promise<Result>, success?: string) {
+    setError(''); setNotice('')
+    try {
+      const result = await action()
+      if (!result.success) { setError(result.errors.join(' ')); return false }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível concluir a operação.')
+      return false
+    }
+    if (success) setNotice(success)
+    await load()
+    return true
   }
+
+  const ok = async (task: () => Promise<unknown>): Promise<Result> => { await task(); return { success: true } }
+  const isAdmin = access.organizationRole === 'owner' || access.organizationRole === 'admin'
+  const canInvite = hasPermission(access, 'team_member.add')
 
   async function renameTeam() {
-    if (!team || !canManage) return
-    const name = window.prompt('Nome da equipe', team.name)
-    if (!name?.trim()) return
-    try {
-      await updateTeam(team, { name: name.trim() })
-      await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível renomear a equipe.') }
+    if (!team) return
+    const name = window.prompt('Nome da equipe', team.name)?.trim()
+    if (name) await run(() => ok(() => updateTeam(team, { name })))
   }
 
-  async function invite() {
-    if (!canManage) return
-    try {
+  async function saveDisplayName(event: FormEvent) {
+    event.preventDefault()
+    await run(async () => {
+      const result = await setMyDisplayName(displayName)
+      if (result.success) await refresh()
+      return result
+    }, 'Nome atualizado.')
+  }
+
+  async function toggleFunction(member: TeamMemberView, value: string) {
+    if (!member.membershipId) return
+    const membershipId = member.membershipId
+    const next = member.musicalFunctions.includes(value) ? member.musicalFunctions.filter((item) => item !== value) : [...member.musicalFunctions, value]
+    await run(() => setMemberFunctions({ membershipId, musicalFunctions: next }))
+  }
+
+  async function invite(event: FormEvent) {
+    event.preventDefault()
+    await run(() => ok(async () => {
       const created = await createOrganizationInvite(organizationId, teamId, inviteRole, inviteEmail)
       setInviteUrl(buildOrganizationInviteUrl(created.token))
       setInviteEmail('')
       setCopied(false)
-      await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar o convite.') }
+    }))
   }
 
   async function copyInvite() {
-    if (!inviteUrl) return
     await navigator.clipboard.writeText(inviteUrl)
     setCopied(true)
   }
 
-  async function revoke(id: string) {
-    try { await revokeOrganizationInvite(id); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível revogar o convite.') }
-  }
-
-  async function changeRole(membershipId: string, role: 'admin' | 'member') {
-    try { await updateOrganizationMemberRole(membershipId, role); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível alterar o acesso.') }
-  }
-
-  async function removeTeamMember(membershipId: string) {
-    if (!window.confirm('Remover este membro da equipe?')) return
-    try { await teamMembershipRepository.remove(membershipId); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível remover o membro da equipe.') }
-  }
-
   if (loading) return <main className="organization-page"><p>Carregando equipe…</p></main>
-  if (!team) return <main className="organization-page"><p>{error || 'Equipe não encontrada.'}</p></main>
+  if (!team) return <main className="organization-page"><p role="alert">{error || 'Equipe não encontrada.'}</p></main>
+
+  const activeMembers = members.filter((member) => member.displayStatus === 'active')
+  const uncovered = MUSICAL_FUNCTIONS.filter(({ value }) => !activeMembers.some((member) => member.musicalFunctions.includes(value)))
+  const hasActiveLeader = activeMembers.some((member) => member.role === 'leader')
+  const visible = members.filter((member) =>
+    (statusFilter === 'all' || member.displayStatus === statusFilter) &&
+    (!functionFilter || member.musicalFunctions.includes(functionFilter)))
 
   return (
     <main className="organization-page">
@@ -120,67 +135,105 @@ export function TeamPage() {
           <Link to={`/organizations/${organizationId}`}>← Organização</Link>
           <span>EQUIPE</span>
           <h2>{team.name}</h2>
-          <p>{members.length} membro(s)</p>
-          {canManage && <button type="button" onClick={() => void renameTeam()}>Renomear equipe</button>}
+          <p>{activeMembers.length} membro(s) ativo(s)</p>
+          {hasPermission(access, 'team.rename') && <button type="button" onClick={() => void renameTeam()}>Renomear equipe</button>}
         </header>
         {error && <p role="alert" className="organization-error">{error}</p>}
+        {notice && <p role="status">{notice}</p>}
+        {!hasActiveLeader && <p className="team-warning" role="note">Esta equipe está sem Líder ativo. Owner ou Admin podem promover alguém.</p>}
 
-        <section>
-          <h3>Suas funções musicais</h3>
-          <p>Uma pessoa pode exercer várias funções na mesma equipe.</p>
-          <div>
-            {FUNCTION_OPTIONS.map((value) => (
-              <label key={value} style={{ display: 'inline-flex', gap: '.35rem', marginRight: '.75rem', marginBottom: '.5rem' }}>
-                <input type="checkbox" checked={myFunctions.includes(value)} onChange={() => void toggleFunction(value)} />
-                {value}
-              </label>
-            ))}
-          </div>
+        <section aria-labelledby="uncovered-title" className="team-uncovered">
+          <h3 id="uncovered-title">Funções sem ninguém</h3>
+          {uncovered.length === 0
+            ? <p>Todas as funções têm ao menos uma pessoa ativa.</p>
+            : <ul>{uncovered.map((item) => <li key={item.value}>{item.label}</li>)}</ul>}
         </section>
 
-        <section>
-          <h3>Membros da equipe</h3>
-          <ul>
-            {members.map((member) => {
-              const organizationMember = organizationMembers.find((item) => item.userId === member.userId)
-              const isCurrent = member.userId === user?.id
-              return (
-                <li key={member.id}>
-                  <span>{isCurrent ? 'Você' : member.userId}</span>
-                  <strong>{organizationMember?.role ?? 'desconhecido'}</strong>
-                  {canManage && organizationMember && !isCurrent && organizationMember.role !== 'owner' && (
-                    <>
-                      <select aria-label={`Acesso de ${member.userId}`} value={organizationMember.role} onChange={(event) => void changeRole(organizationMember.id, event.target.value as 'admin' | 'member')}>
-                        <option value="member">Membro</option>
-                        <option value="admin">Administrador</option>
-                      </select>
-                      <button type="button" onClick={() => void removeTeamMember(member.id)}>Remover da equipe</button>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+        <section aria-labelledby="members-title">
+          <h3 id="members-title">Membros</h3>
+          <div className="team-filters">
+            <label>Status
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+                <option value="all">Todos</option>
+                <option value="active">Ativos</option>
+                <option value="inactive">Inativos</option>
+                <option value="pending_invite">Convites pendentes</option>
+              </select>
+            </label>
+            <label>Função
+              <select value={functionFilter} onChange={(event) => setFunctionFilter(event.target.value)}>
+                <option value="">Todas</option>
+                {MUSICAL_FUNCTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
+          </div>
+          {visible.length === 0 ? <p>Nenhum membro com esses filtros.</p> : (
+            <ul className="team-members">
+              {visible.map((member) => {
+                const key = member.membershipId ?? member.inviteId ?? ''
+                const isMe = member.userId === user?.id
+                const name = isMe ? `${member.displayName} (você)` : member.displayName
+                const target = member.userId && member.displayStatus !== 'pending_invite'
+                  ? { role: member.role, status: member.displayStatus, userId: member.userId }
+                  : undefined
+                const membershipId = member.membershipId ?? ''
+                return (
+                  <li key={key} className="team-member">
+                    <div>
+                      <strong>{name}</strong>
+                      <span>{member.role === 'leader' ? 'Líder' : 'Membro'} · {STATUS_LABEL[member.displayStatus]}</span>
+                      <span>Funções: {member.musicalFunctions.length ? member.musicalFunctions.map(musicalFunctionLabel).join(', ') : 'nenhuma'}</span>
+                    </div>
+                    <div className="team-member__actions">
+                      {target && canChangeRole(access, target, 'leader') && <button type="button" onClick={() => void run(() => promoteToLeader(membershipId))}>Promover a Líder de {member.displayName}</button>}
+                      {target && canChangeRole(access, target, 'member') && <button type="button" onClick={() => void run(() => demoteToMember(membershipId))}>Rebaixar a Membro {member.displayName}</button>}
+                      {target && canChangeStatus(access, target, 'inactive') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'inactive' }))}>Inativar {member.displayName}</button>}
+                      {target && canChangeStatus(access, target, 'active') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'active' }))}>Reativar {member.displayName}</button>}
+                      {target && canSetFunctions(access, target, user?.id ?? '') && (
+                        <button type="button" aria-expanded={editingFunctions === key} onClick={() => setEditingFunctions(editingFunctions === key ? undefined : key)}>Editar funções de {member.displayName}</button>
+                      )}
+                      {member.inviteId && canInvite && <button type="button" onClick={() => void run(() => ok(() => revokeOrganizationInvite(member.inviteId ?? '')))}>Revogar convite</button>}
+                    </div>
+                    {editingFunctions === key && (
+                      <fieldset className="team-functions">
+                        <legend>Funções de {member.displayName}</legend>
+                        {MUSICAL_FUNCTIONS.map((item) => (
+                          <label key={item.value}>
+                            <input type="checkbox" checked={member.musicalFunctions.includes(item.value)} onChange={() => void toggleFunction(member, item.value)} />
+                            {item.label}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </section>
 
-        {canManage && <section>
-          <h3>Convidar para esta equipe</h3>
-          <div>
-            <select aria-label="Acesso do convite" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as OrganizationInviteRole)}>
-              <option value="member">Membro</option>
-              <option value="admin">Administrador</option>
-            </select>
-            <input aria-label="Email do convite" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="Email (opcional)" type="email" />
-            <button type="button" onClick={() => void invite()}>Gerar convite</button>
-          </div>
-          {inviteUrl && <div><input readOnly value={inviteUrl} aria-label="Link do convite" /><button type="button" onClick={() => void copyInvite()}>{copied ? 'Copiado' : 'Copiar'}</button></div>}
-          <h4>Convites desta equipe</h4>
-          <ul>
-            {invites.map((invite) => <li key={invite.id}><span>{invite.inviteeEmail ?? 'Link compartilhável'} · {invite.role}</span><strong>{invite.status}</strong>{invite.status === 'pending' && <button type="button" onClick={() => void revoke(invite.id)}>Revogar</button>}</li>)}
-          </ul>
+        {canInvite && <section aria-labelledby="invite-title">
+          <h3 id="invite-title">Convidar para esta equipe</h3>
+          <form className="team-invite" onSubmit={(event) => void invite(event)}>
+            {isAdmin && <label>Acesso
+              <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as OrganizationInviteRole)}>
+                <option value="member">Membro</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </label>}
+            <label>E-mail (opcional)<input value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} type="email" /></label>
+            <button type="submit">Gerar convite</button>
+          </form>
+          {inviteUrl && <div><input readOnly value={inviteUrl} aria-label="Link do convite" /><button type="button" onClick={() => void copyInvite()}>{copied ? 'Copiado' : 'Copiar link'}</button></div>}
         </section>}
 
-        <p><button type="button" onClick={() => navigate(`/organizations/${organizationId}`)}>Voltar para organização</button></p>
+        <section aria-labelledby="my-name-title">
+          <h3 id="my-name-title">Seu nome na equipe</h3>
+          <form className="team-invite" onSubmit={(event) => void saveDisplayName(event)}>
+            <label>Nome de exibição<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required maxLength={80} autoComplete="name" /></label>
+            <button type="submit">Salvar nome</button>
+          </form>
+        </section>
       </section>
     </main>
   )

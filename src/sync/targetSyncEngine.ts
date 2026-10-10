@@ -103,6 +103,7 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
     }
     case 'teamMemberships': {
       const v = value as TeamMembership
+      // Sem `role`/`status`: só mudam por RPC (N15).
       return { id: v.id, team_id: v.teamId, user_id: v.userId, created_at: v.createdAt, updated_at: v.updatedAt }
     }
     case 'organizationSongs': {
@@ -137,7 +138,7 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'organizations': return { id: String(row.id), name: String(row.name), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'organizationMemberships': return { id: String(row.id), organizationId: String(row.organization_id), userId: String(row.user_id), role: row.role as OrganizationMembership['role'], createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'teams': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
-    case 'teamMemberships': return { id: String(row.id), teamId: String(row.team_id), userId: String(row.user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
+    case 'teamMemberships': return { id: String(row.id), teamId: String(row.team_id), userId: String(row.user_id), role: row.role === 'leader' ? 'leader' : 'member', status: row.status === 'inactive' ? 'inactive' : 'active', createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'organizationSongs': return { id: String(row.id), organizationId: String(row.organization_id), songId: String(row.song_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoires': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdByUserId: String(row.created_by_user_id), version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoireItems': return { id: String(row.id), repertoireId: String(row.repertoire_id), songId: String(row.song_id), position: Number(row.position), updatedAt: String(row.updated_at) }
@@ -192,6 +193,18 @@ export class TargetSyncEngine {
     await this.db.organizations.put(value)
   }
 
+  // `role`/`status` são do servidor: sobrescrevem sem LWW (VS-01). O vínculo otimista do criador
+  // (id local diferente) é trocado pelo do servidor pela chave [teamId+userId].
+  private async applyTeamMembership(remote: TeamMembership): Promise<void> {
+    await this.db.transaction('rw', this.db.teamMemberships, async () => {
+      const optimistic = await this.db.teamMemberships.where('[teamId+userId]').equals([remote.teamId, remote.userId]).first()
+      if (optimistic && optimistic.id !== remote.id) await this.db.teamMemberships.delete(optimistic.id)
+      const local = await this.db.teamMemberships.get(remote.id)
+      const base = local && local.updatedAt > remote.updatedAt ? local : remote
+      await this.db.teamMemberships.put({ ...base, role: remote.role, status: remote.status })
+    })
+  }
+
   async sync(): Promise<void> {
     if (this.syncing || !navigator.onLine) return
     this.syncing = true
@@ -230,6 +243,10 @@ export class TargetSyncEngine {
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId
             : (value as Exclude<TargetEntity, StageSessionState>).id
+          if (entity === 'teamMemberships') {
+            await this.applyTeamMembership(value as TeamMembership)
+            continue
+          }
           const local = await table.get(valueId)
           if (local && local.updatedAt > value.updatedAt) continue
           await table.put(value as never)

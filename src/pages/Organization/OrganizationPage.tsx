@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { createTeam } from '../../application/teams/teamService'
-import { createOrganization } from '../../application/organizations/organizationService'
+import { TeamOnboarding } from '../../components/team/TeamOnboarding'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 import { teamRepository } from '../../db/repositories/teamRepository'
 import type { Organization } from '../../domain/organizations/organization'
@@ -10,20 +10,20 @@ import type { Team } from '../../domain/teams/team'
 import './OrganizationPage.css'
 
 export function OrganizationPage() {
-  const navigate = useNavigate()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [teams, setTeams] = useState<Record<string, Team[]>>({})
-  const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Decidido na primeira carga: o assistente segue aberto mesmo depois que a organização entra na lista.
+  const [onboarding, setOnboarding] = useState<boolean>()
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const orgs = await organizationRepository.list()
       const grouped: Record<string, Team[]> = {}
       await Promise.all(orgs.map(async (org) => { grouped[org.id] = await teamRepository.listByOrganizationId(org.id) }))
       setOrganizations(orgs)
+      setOnboarding((current) => current ?? orgs.length === 0)
       setTeams(grouped)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar as organizações.')
@@ -43,20 +43,6 @@ export function OrganizationPage() {
     try { await createTeam(organizationId, teamName); await load() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a equipe.') }
   }
 
-  async function handleCreate() {
-    if (!name.trim()) return
-    setError('')
-    try {
-      const organization = await createOrganization(name)
-      setName('')
-      await load()
-      navigate('/organizations')
-      void organization
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível criar a organização.')
-    }
-  }
-
   if (loading) return <main className="organization-page"><p>Carregando organizações…</p></main>
 
   return (
@@ -68,15 +54,10 @@ export function OrganizationPage() {
           <p>A organização é o espaço principal onde equipes, repertórios e serviços são administrados.</p>
         </header>
 
-        <div className="organization-create">
-          <input aria-label="Nome da organização" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome da organização" />
-          <button type="button" onClick={() => void handleCreate()}>Criar organização</button>
-        </div>
-
         {error && <p role="alert" className="organization-error">{error}</p>}
 
-        {organizations.length === 0 ? (
-          <p>Nenhuma organização disponível.</p>
+        {onboarding ? (
+          <TeamOnboarding onFinished={() => setOnboarding(false)} />
         ) : (
           <div className="organization-list">
             {organizations.map((organization) => (

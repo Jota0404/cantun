@@ -5,6 +5,8 @@ import { acceptOrganizationInvite, getOrganizationInvite, type OrganizationInvit
 import { syncTargetDomain } from '../../sync/syncService'
 import './OrganizationPage.css'
 
+const INVITE_STATUS_LABEL = { pending: 'pendente', accepted: 'aceito', expired: 'expirado', revoked: 'revogado' } as const
+
 export function OrganizationInvitePage() {
   const { token = '' } = useParams()
   const { user } = useAuth()
@@ -50,9 +52,9 @@ export function OrganizationInvitePage() {
         <span>CONVITE</span>
         <h2>{invite?.teamName ?? 'Validando…'}</h2>
         {invite && <p>Organização: <strong>{invite.organizationName}</strong></p>}
-        {invite && <p>Você receberá o acesso <strong>{invite.role}</strong>.</p>}
+        {invite && <p>Você receberá o acesso <strong>{invite.role === 'admin' ? 'Administrador' : 'Membro'}</strong>.</p>}
         {invite?.inviteeEmail && <p>Destinado a <strong>{invite.inviteeEmail}</strong>.</p>}
-        {invite && invite.status !== 'pending' && <p role="alert">Este convite está {invite.status}.</p>}
+        {invite && invite.status !== 'pending' && <p role="alert">Este convite está {INVITE_STATUS_LABEL[invite.status]}.</p>}
         {error && <p role="alert" className="organization-error">{error}</p>}
         {invite?.status === 'pending' && (
           <div>

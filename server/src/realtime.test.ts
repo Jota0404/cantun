@@ -53,8 +53,10 @@ after(async () => {
   await pool.end()
 })
 
+/** O nome de exibição é o primeiro trecho do e-mail com inicial maiúscula (ex.: Bruno), distinto do prefixo do e-mail. */
 async function createUser(email: string): Promise<User> {
-  const { rows } = await pool.query<{ id: string }>('insert into app.users (email) values ($1) returning id', [email])
+  const name = email.split('.')[0]
+  const { rows } = await pool.query<{ id: string }>('insert into app.users (email, display_name) values ($1, $2) returning id', [email, name[0].toUpperCase() + name.slice(1)])
   return { id: rows[0].id, cookie: await newSession(rows[0].id) }
 }
 
@@ -335,11 +337,11 @@ describe('realtime', () => {
     await musician.subscribe(topic)
     musician.send({ type: 'presence', topic, userId: ana.id, isMd: true, displayName: 'Ana (falsa)', musicalRole: 'kazoo', readiness: 'pronto' })
     const presence = await md.next(isPresence(topic))
-    assert.deepEqual(presence.participants, [{ userId: bruno.id, displayName: 'bruno.rt', musicalRole: 'other', readiness: 'waiting' }])
+    assert.deepEqual(presence.participants, [{ userId: bruno.id, displayName: 'Bruno', musicalRole: 'other', readiness: 'waiting' }])
 
     musician.send({ type: 'presence', topic, displayName: 'Bruno', musicalRole: 'bass', readiness: 'ready' })
     const valid = await md.next(isPresence(topic))
-    assert.deepEqual(valid.participants, [{ userId: bruno.id, displayName: 'bruno.rt', musicalRole: 'bass', readiness: 'ready' }])
+    assert.deepEqual(valid.participants, [{ userId: bruno.id, displayName: 'Bruno', musicalRole: 'bass', readiness: 'ready' }])
     await md.close()
     await musician.close()
   })
@@ -354,10 +356,10 @@ describe('realtime', () => {
     first.send({ type: 'presence', topic, musicalRole: 'bass', readiness: 'waiting' })
     await md.next(isPresence(topic))
     second.send({ type: 'presence', topic, musicalRole: 'drums', readiness: 'ready' })
-    assert.deepEqual((await md.next(isPresence(topic))).participants, [{ userId: bruno.id, displayName: 'bruno.rt', musicalRole: 'drums', readiness: 'ready' }])
+    assert.deepEqual((await md.next(isPresence(topic))).participants, [{ userId: bruno.id, displayName: 'Bruno', musicalRole: 'drums', readiness: 'ready' }])
 
     await second.close()
-    assert.deepEqual((await md.next(isPresence(topic))).participants, [{ userId: bruno.id, displayName: 'bruno.rt', musicalRole: 'bass', readiness: 'waiting' }])
+    assert.deepEqual((await md.next(isPresence(topic))).participants, [{ userId: bruno.id, displayName: 'Bruno', musicalRole: 'bass', readiness: 'waiting' }])
     await first.close()
     assert.deepEqual((await md.next(isPresence(topic))).participants, [])
     await md.close()
@@ -470,6 +472,27 @@ describe('realtime', () => {
     }
   })
 
+  test('RT-01 ampliado (N11): inactive em todas as equipes recebe forbidden; inativar derruba na revalidação', async () => {
+    const teamId = crypto.randomUUID()
+    const membershipId = crypto.randomUUID()
+    await pool.query(`insert into public.teams (id, organization_id, name) values ($1, $2, 'Louvor')`, [teamId, orgId])
+    await pool.query('insert into public.team_memberships (id, team_id, user_id) values ($1, $2, $3)', [membershipId, teamId, bruno.id])
+    try {
+      const musician = await connect(bruno.cookie)
+      await musician.subscribe(topic)
+      // Superusuário do teste (dono da tabela) passa pelo trigger de guarda.
+      await pool.query(`update public.team_memberships set status = 'inactive' where id = $1`, [membershipId])
+      const dropped = await musician.next((m) => m.type === 'error')
+      assert.equal(dropped.code, 'forbidden')
+      assert.equal(dropped.topic, topic)
+      musician.send({ type: 'subscribe', topic })
+      assert.equal((await musician.next((m) => m.type === 'error' || m.type === 'snapshot')).code, 'forbidden')
+      await musician.close()
+    } finally {
+      await pool.query('delete from public.teams where id = $1', [teamId])
+    }
+  })
+
   test('RT-16: queda do LISTEN com comando no meio; após reconectar, o snapshot novo chega', async () => {
     const musician = await connect(bruno.cookie)
     const before = revisionOf((await musician.subscribe(topic)).snapshot)
@@ -494,7 +517,7 @@ describe('realtime', () => {
     assert.deepEqual((await musician.next()).participants, [])
     const own = await musician.next()
     assert.equal(own.type, 'presence')
-    assert.deepEqual(own.participants, [{ userId: bruno.id, displayName: 'bruno.rt', musicalRole: 'vocals', readiness: 'ready' }])
+    assert.deepEqual(own.participants, [{ userId: bruno.id, displayName: 'Bruno', musicalRole: 'vocals', readiness: 'ready' }])
     assert.equal(musician.inbox.filter((m) => m.type === 'error').length, 0)
     await md.close()
     await musician.close()
