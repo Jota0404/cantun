@@ -277,6 +277,42 @@ describe('dados sob RLS', () => {
   })
 })
 
+describe('provedor de e-mail fora do ar', () => {
+  test('cadastro, reenvio e reset seguem sem 500 e o log não vaza endereço, link nem chave', async () => {
+    const lines: string[] = []
+    const failing = await buildApp({
+      pool, appOrigin: ORIGIN,
+      logger: { level: 'error', stream: { write: (line: string) => void lines.push(line) } },
+      mailer: { send: async () => { throw new Error('Brevo recusou o envio (HTTP 401)') } },
+    })
+    try {
+      const ip = { remoteAddress: '10.0.0.90' }
+      const signup = await failing.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { email: 'sem.correio@teste.local', password: 'senha-forte-123', displayName: 'Sem Correio' } })
+      assert.equal(signup.statusCode, 201, signup.body)
+      const cookie = cookieOf(signup)
+      assert.equal((await failing.inject({ method: 'GET', url: '/auth/session', headers: { cookie } })).statusCode, 200)
+
+      // Reenvio dentro do cooldown não manda nada; fora dele, a falha também vira 204.
+      await pool.query(`update app.email_tokens set created_at = now() - interval '1 hour', expires_at = now() + interval '1 hour'
+        where user_id = (select id from app.users where email = 'sem.correio@teste.local')`)
+      const resend = await failing.inject({ method: 'POST', url: '/auth/verify-email/resend', ...ip, headers: { cookie } })
+      assert.equal(resend.statusCode, 204, resend.body)
+
+      const reset = await failing.inject({ method: 'POST', url: '/auth/password-reset/request', ...ip, payload: { email: 'sem.correio@teste.local' } })
+      assert.equal(reset.statusCode, 204, reset.body)
+
+      const errors = lines.filter((line) => line.includes('falha ao enviar e-mail'))
+      assert.equal(errors.length, 3)
+      for (const line of errors) {
+        assert.doesNotMatch(line, /sem\.correio|token=|xkeysib/)
+        assert.match(line, /HTTP 401/)
+      }
+    } finally {
+      await failing.close()
+    }
+  })
+})
+
 describe('deploy (ADR-060)', () => {
   test('migrador em Node: segunda execução não aplica nada e o usuário entra nos papéis', async () => {
     assert.deepEqual(await migrate({ database: DB }), [])
