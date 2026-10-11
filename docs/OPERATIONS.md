@@ -70,9 +70,9 @@ As demais variáveis já vêm do `render.yaml` e não precisam de mudança:
 4. **Confira o IP visto pelo servidor** (uma vez, no primeiro deploy). Esse IP é o que conta para o limite de tentativas de login, e um ajuste errado deixa esse limite burlável.
    1. Descubra o seu IP público: abra <https://api.ipify.org> no mesmo aparelho.
    2. Abra `https://<sua-url>/health`.
-   3. Em **Logs**, procure a linha mais recente com `"url":"/health"`. Ao lado, aparece `"remoteAddress"`.
+   3. Em **Logs**, procure a linha mais recente com `"url":"/health"`. Ao lado, aparece `"ip"`: é o IP do visitante que o servidor usa no limite de tentativas. (O `"remoteAddress"` é o do proxy do Render, sempre interno, e não serve para esta conferência.)
    4. Se for o seu IP público, está certo: deixe `TRUST_PROXY=1`.
-   5. Se aparecer um endereço interno (começando com `10.`, `172.` ou `192.168.`), há mais um proxy na frente: troque para `TRUST_PROXY=2` em **Environment** e repita. Nunca use um número maior que o necessário.
+   5. Se o `"ip"` for um endereço interno (começando com `10.`, `172.` ou `192.168.`) ou de outra empresa (por exemplo, uma CDN) em vez do seu, há mais um proxy na frente: troque para `TRUST_PROXY=2` em **Environment** e repita. Nunca use um número maior que o necessário.
 
 ## 6. Logs
 
