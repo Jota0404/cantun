@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { OrganizationPage } from './OrganizationPage'
+import { axeViolations } from '../../test/axe'
 
 const state = vi.hoisted(() => ({ orgs: [] as Array<{ id: string; name: string }>, listeners: [] as Array<() => void> }))
 vi.mock('../../db/repositories/organizationRepository', () => ({ organizationRepository: { list: async () => state.orgs } }))
@@ -18,6 +19,12 @@ vi.mock('../../application/organizations/organizationInviteService', () => ({ cr
 vi.mock('../../application/teams/musicalFunctionService', () => ({ setMyTeamMusicalFunctions: async () => [] }))
 
 describe('OrganizationPage onboarding', () => {
+  it('has no axe violations on the first onboarding step', async () => {
+    const { container } = render(<MemoryRouter><OrganizationPage /></MemoryRouter>)
+    await screen.findByLabelText('Nome da organização')
+    expect(await axeViolations(container)).toEqual([])
+  })
+
   it('keeps the wizard open through all 5 steps even after the organization appears in the list', async () => {
     const user = userEvent.setup()
     render(
