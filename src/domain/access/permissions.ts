@@ -36,6 +36,11 @@ export const PERMISSION_MATRIX = {
   'service.edit': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.transition': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.delete': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  // §3.5 escala: `schedule.respond`, `availability.*` valem só para o titular/alvo (RPC compara o usuário).
+  'schedule.manage': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  'schedule.respond': { scope: 'own', owner: 'P', admin: 'P', leader: 'P', member: 'P' },
+  'availability.set_own': { scope: 'own', owner: 'P', admin: 'P', leader: 'P', member: 'P' },
+  'availability.read': { scope: 'own', owner: 'P', admin: 'P', leader: 'P', member: 'P' },
 } as const satisfies Record<string, Row>
 
 export type Capability = keyof typeof PERMISSION_MATRIX
