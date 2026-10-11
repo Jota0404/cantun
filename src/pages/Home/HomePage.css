@@ -22,6 +22,11 @@
 
 .home-hero__badge,
 .home-section-heading > div > span,
+.home-action--primary .home-action__description {
+  /* Texto secundário sobre o fundo verde a 8% precisa de mais contraste que sobre a superfície lisa. */
+  color: var(--color-text);
+}
+
 .home-action__eyebrow {
   display: block;
   color: var(--color-primary-strong);
@@ -194,4 +199,4 @@
 .home-gaps { display: grid; gap: .75rem; margin-bottom: 32px; }
 .home-gaps ul { display: grid; gap: .5rem; padding: 0; list-style: none; }
 .home-gaps li { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; padding: .75rem 1rem; border: 1px solid var(--color-primary); border-radius: var(--radius-md); background: var(--color-surface); }
-.home-gaps a { font-weight: 700; min-height: 24px; }
+.home-gaps a { display: inline-flex; align-items: center; font-weight: 700; min-height: var(--size-touch-min); }
