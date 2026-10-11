@@ -6,6 +6,8 @@ Plataforma para equipes de louvor organizarem pessoas e funções, montarem serv
 
 > *Mais do que cifras: uma plataforma para organizar, preparar e operar uma equipe de louvor.*
 
+**App:** https://cantum.onrender.com (pode levar ~1 min no primeiro acesso depois de inatividade).
+
 A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/CANTUM_PROJECT_BLUEPRINT.md)**.
 
 ## Status
@@ -37,7 +39,7 @@ O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído e validado
 | Local-first | IndexedDB via Dexie |
 | Remoto | PostgreSQL 16 + servidor próprio Node.js/TypeScript em `server/` (auth, RPC, WebSocket) — ADR-059 |
 | Testes | Vitest, Testing Library, `fake-indexeddb` |
-| CI/CD | GitHub Actions → GitHub Pages |
+| CI/CD | GitHub Actions (gate) · deploy no Render a cada push em `main` (ADR-060) · o antigo GitHub Pages só redireciona |
 
 Arquitetura em camadas (Presentation → Application → Domain → Infrastructure) com Repository pattern. O core é **local-first**; a sincronização remota é complementar e a Network será cloud-backed sem contaminar o caminho crítico da execução (Blueprint §16, §47).
 
