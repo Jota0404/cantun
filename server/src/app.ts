@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
+import fastifyStatic from '@fastify/static'
 import Fastify from 'fastify'
 import type { FastifyServerOptions } from 'fastify'
 import { authRoutes, SESSION_COOKIE, sessionUserId } from './auth.ts'
@@ -25,12 +26,33 @@ export interface AppOptions {
   mailer?: Mailer
   logger?: FastifyServerOptions['logger']
   realtime?: Partial<RealtimeOptions>
+  /** Pasta com o build do front (`dist/`): servida na mesma origem da API, com fallback de SPA. */
+  staticRoot?: string
+  /**
+   * Saltos de proxy confiáveis (ex.: 1 no Render). O IP do cliente é o do X-Forwarded-For
+   * contado a partir do fim; valores anteriores, que o cliente pode forjar, são ignorados.
+   */
+  trustProxy?: number
 }
 
-export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime }: AppOptions) {
-  const app = Fastify({
-    logger: logger === true ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] } : logger,
-  })
+// Rotas que consultam a sessão no banco.
+const SESSION_PREFIX = /^\/(auth|rpc|sync|realtime|health)(\/|\?|$)/
+// Nunca caem no fallback de SPA. `/auth/*` fica de fora: os links dos e-mails
+// (`/auth/verify-email?token=…`) são telas do front; as rotas reais de `/auth` respondem antes.
+const API_PREFIX = /^\/(rpc|sync|realtime|health)(\/|\?|$)/
+
+const LOG_REDACT = ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]']
+// Sem query string no log: os links de e-mail levam o token nela.
+const LOG_SERIALIZERS = {
+  req: (req: { method: string; url: string; ip: string }) => ({ method: req.method, url: req.url.split('?')[0], remoteAddress: req.ip }),
+}
+
+export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime, staticRoot, trustProxy = 0 }: AppOptions) {
+  const loggerOptions: FastifyServerOptions['logger'] =
+    logger === false ? false : { redact: LOG_REDACT, serializers: LOG_SERIALIZERS, ...(logger === true ? {} : logger) }
+  // Confia nos `trustProxy` saltos mais próximos (o que o proxy-addr faz com um número;
+  // os tipos do Fastify só aceitam a função).
+  const app = Fastify({ trustProxy: (_address: string, hop: number) => hop < trustProxy, logger: loggerOptions })
   const catalog = await loadCatalog(pool)
 
   await app.register(cookie)
@@ -45,7 +67,8 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
     if (request.method !== 'GET' && request.method !== 'HEAD' && origin && origin !== appOrigin) {
       throw new HttpError(403, 'origem não permitida')
     }
-    request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
+    // Arquivos do front não consultam a sessão no banco.
+    if (SESSION_PREFIX.test(request.url)) request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
   })
 
   app.setErrorHandler((error, request, reply) => {
@@ -65,6 +88,24 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
   await app.register(authRoutes, { pool, mailer: mailer ?? devMailer(app.log), appOrigin, secureCookies: appOrigin.startsWith('https://') })
   await app.register(dataRoutes, { pool, catalog })
   await app.register(realtimeRoutes, { pool, appOrigin, options: realtime })
+
+  if (staticRoot) {
+    await app.register(fastifyStatic, {
+      root: staticRoot,
+      // Arquivos com hash do Vite ficam em cache; o resto (index.html, sw.js, manifest) sempre revalida.
+      setHeaders: (res, path) => res.header('cache-control', /[\\/]assets[\\/]/.test(path) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    })
+  }
+  // Handler próprio mesmo sem front: o padrão do Fastify loga "Route GET:/x?token=… not found", com a query.
+  app.setNotFoundHandler((request, reply) => {
+    // Arquivo inexistente (com extensão) dá 404, não o index.html no lugar de um .js.
+    const path = request.url.split('?')[0]
+    if (!staticRoot || request.method !== 'GET' || API_PREFIX.test(path) || /\.[a-z0-9]+$/i.test(path)) {
+      return reply.code(404).send({ error: 'não encontrado' })
+    }
+    return reply.header('cache-control', 'no-cache').sendFile('index.html')
+  })
+
 
   return app
 }

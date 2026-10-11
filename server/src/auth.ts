@@ -106,9 +106,18 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     return token
   }
 
-  function mailEmailToken(email: string, purpose: 'verify_email' | 'reset_password', token: string) {
+  /**
+   * Falha do provedor de e-mail não derruba a rota: a conta e o token já foram gravados,
+   * e um 500 deixaria efeito parcial (ex.: cadastro feito, mas 409 na nova tentativa).
+   * A pessoa usa o reenvio. O log não leva endereço, link nem chave.
+   */
+  async function mailEmailToken(email: string, purpose: 'verify_email' | 'reset_password', token: string) {
     const path = purpose === 'verify_email' ? 'verify-email' : 'reset-password'
-    return mailer.send({ to: email, purpose, link: `${appOrigin}/auth/${path}?token=${token}` })
+    try {
+      await mailer.send({ to: email, purpose, link: `${appOrigin}/auth/${path}?token=${token}` })
+    } catch (error) {
+      app.log.error({ purpose, err: { message: (error as Error).message } }, 'falha ao enviar e-mail')
+    }
   }
 
   async function sendEmailToken(userId: string, email: string, purpose: 'verify_email' | 'reset_password') {

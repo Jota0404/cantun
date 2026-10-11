@@ -1,8 +1,10 @@
-// Integração contra PostgreSQL real: banco descartável criado com scripts/db/migrate.sh.
-// Requer psql no PATH e as variáveis PG* (as mesmas do scripts/db/verify-migrations.sh).
+// Integração contra PostgreSQL real: banco descartável criado com o migrador em Node
+// (src/migrate.ts, o mesmo do deploy). Requer psql no PATH e as variáveis PG* (as mesmas
+// do scripts/db/verify-migrations.sh).
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { after, before, describe, test } from 'node:test'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from './app.ts'
@@ -10,10 +12,11 @@ import { hashPassword, verifyPassword } from './auth.ts'
 import { createPool } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
+import { brevoMailer } from './mailer.ts'
+import { migrate } from './migrate.ts'
 
 const DB = 'cantum_server_test'
 const ORIGIN = 'http://localhost:5173'
-const migrate = fileURLToPath(new URL('../../scripts/db/migrate.sh', import.meta.url))
 
 let app: FastifyInstance
 let pool: Pool
@@ -21,7 +24,7 @@ const mails: Mail[] = []
 
 before(async () => {
   execFileSync('psql', ['-X', '-q', '-d', 'postgres', '-c', `drop database if exists ${DB}`, '-c', `create database ${DB}`])
-  execFileSync(migrate, [DB])
+  assert.ok((await migrate({ database: DB })).includes('0001_baseline'))
   pool = createPool({ database: DB })
   app = await buildApp({ pool, appOrigin: ORIGIN, logger: false, mailer: { send: async (mail) => void mails.push(mail) } })
 })
@@ -298,5 +301,153 @@ describe('dados sob RLS', () => {
     const invalid = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie: ana }, payload: { p_service_id: serviceId, p_to: 'completed' } })
     assert.equal(invalid.statusCode, 400)
     assert.equal(invalid.json().error, 'invalid service transition')
+  })
+})
+
+describe('provedor de e-mail fora do ar', () => {
+  test('cadastro, reenvio e reset seguem sem 500 e o log não vaza endereço, link nem chave', async () => {
+    const lines: string[] = []
+    const failing = await buildApp({
+      pool, appOrigin: ORIGIN,
+      logger: { level: 'error', stream: { write: (line: string) => void lines.push(line) } },
+      mailer: { send: async () => { throw new Error('Brevo recusou o envio (HTTP 401)') } },
+    })
+    try {
+      const ip = { remoteAddress: '10.0.0.90' }
+      const signup = await failing.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { email: 'sem.correio@teste.local', password: 'senha-forte-123', displayName: 'Sem Correio' } })
+      assert.equal(signup.statusCode, 201, signup.body)
+      const cookie = cookieOf(signup)
+      assert.equal((await failing.inject({ method: 'GET', url: '/auth/session', headers: { cookie } })).statusCode, 200)
+
+      // Reenvio dentro do cooldown não manda nada; fora dele, a falha também vira 204.
+      await pool.query(`update app.email_tokens set created_at = now() - interval '1 hour', expires_at = now() + interval '1 hour'
+        where user_id = (select id from app.users where email = 'sem.correio@teste.local')`)
+      const resend = await failing.inject({ method: 'POST', url: '/auth/verify-email/resend', ...ip, headers: { cookie } })
+      assert.equal(resend.statusCode, 204, resend.body)
+
+      const reset = await failing.inject({ method: 'POST', url: '/auth/password-reset/request', ...ip, payload: { email: 'sem.correio@teste.local' } })
+      assert.equal(reset.statusCode, 204, reset.body)
+
+      const errors = lines.filter((line) => line.includes('falha ao enviar e-mail'))
+      assert.equal(errors.length, 3)
+      for (const line of errors) {
+        assert.doesNotMatch(line, /sem\.correio|token=|xkeysib/)
+        assert.match(line, /HTTP 401/)
+      }
+    } finally {
+      await failing.close()
+    }
+  })
+})
+
+describe('deploy (ADR-060)', () => {
+  test('migrador em Node: segunda execução não aplica nada e o usuário entra nos papéis', async () => {
+    assert.deepEqual(await migrate({ database: DB }), [])
+    // pg_auth_members, não pg_has_role: no teste o usuário é superusuário e pg_has_role daria true de qualquer jeito.
+    const { rows } = await pool.query(`select count(*)::int as n from pg_auth_members m join pg_roles r on r.oid = m.roleid
+      where m.member = (select oid from pg_roles where rolname = current_user) and r.rolname in ('cantum_user', 'cantum_anon')`)
+    assert.equal(rows[0].n, 2)
+  })
+
+  test('front servido na mesma origem, com fallback de SPA fora da API', async () => {
+    const root = await mkdtemp(`${tmpdir()}/cantum-dist-`)
+    await mkdir(`${root}/assets`)
+    await writeFile(`${root}/index.html`, '<!doctype html><title>CANTUM</title>')
+    await writeFile(`${root}/assets/app-abc123.js`, 'console.log(1)')
+    const web = await buildApp({ pool, appOrigin: ORIGIN, logger: false, staticRoot: root })
+    try {
+      const index = await web.inject({ method: 'GET', url: '/' })
+      assert.equal(index.statusCode, 200)
+      assert.match(index.body, /CANTUM/)
+      assert.equal(index.headers['cache-control'], 'no-cache')
+      const asset = await web.inject({ method: 'GET', url: '/assets/app-abc123.js' })
+      assert.equal(asset.statusCode, 200)
+      assert.match(String(asset.headers['cache-control']), /immutable/)
+      const route = await web.inject({ method: 'GET', url: '/organizacao/servicos/123?aba=ordem' })
+      assert.equal(route.statusCode, 200)
+      assert.match(route.body, /CANTUM/)
+
+      // Links dos e-mails e telas de /auth são do front.
+      for (const url of ['/auth', '/auth/verify-email?token=x', '/auth/reset-password?token=x', '/auth/forgot-password']) {
+        const response = await web.inject({ method: 'GET', url })
+        assert.equal(response.statusCode, 200, url)
+        assert.match(response.body, /CANTUM/, url)
+      }
+
+      for (const url of ['/rpc/x', '/realtime/x', '/health/x', '/sync', '/assets/sumiu.js']) {
+        const response = await web.inject({ method: 'GET', url })
+        assert.equal(response.statusCode, 404, url)
+        assert.doesNotMatch(response.body, /CANTUM/, url)
+      }
+      assert.equal((await web.inject({ method: 'GET', url: '/health' })).json().ok, true)
+      assert.equal((await web.inject({ method: 'GET', url: '/auth/session' })).statusCode, 401)
+    } finally {
+      await web.close()
+      await rm(root, { recursive: true })
+    }
+  })
+
+  test('mailer Brevo: chama a API transacional e falha sem vazar a chave', async () => {
+    const calls: { url: string; init: RequestInit }[] = []
+    const ok = brevoMailer({
+      apiKey: 'chave-secreta', from: 'CANTUM <nao-responda@exemplo.com>',
+      fetch: async (url, init) => { calls.push({ url: String(url), init: init ?? {} }); return new Response('{}', { status: 201 }) },
+    })
+    await ok.send({ to: 'ana@teste.local', purpose: 'verify_email', link: 'https://app.exemplo/auth/verify-email?token=abc' })
+    assert.equal(calls[0].url, 'https://api.brevo.com/v3/smtp/email')
+    assert.equal(calls[0].init.method, 'POST')
+    assert.equal((calls[0].init.headers as Record<string, string>)['api-key'], 'chave-secreta')
+    const body = JSON.parse(String(calls[0].init.body))
+    assert.deepEqual(body.sender, { name: 'CANTUM', email: 'nao-responda@exemplo.com' })
+    assert.deepEqual(body.to, [{ email: 'ana@teste.local' }])
+    assert.match(body.subject, /Confirme seu e-mail/)
+    assert.match(body.textContent, /token=abc/)
+
+    const failing = brevoMailer({ apiKey: 'chave-secreta', from: 'x@exemplo.com', fetch: async () => new Response('erro', { status: 401 }) })
+    await assert.rejects(
+      failing.send({ to: 'ana@teste.local', purpose: 'reset_password', link: 'https://app.exemplo/x?token=abc' }),
+      (error: Error) => /HTTP 401/.test(error.message) && !error.message.includes('chave-secreta') && !error.message.includes('token=abc'),
+    )
+  })
+
+  test('TRUST_PROXY por saltos: X-Forwarded-For forjado não muda o IP nem burla o rate limit', async () => {
+    const proxied = await buildApp({ pool, appOrigin: ORIGIN, logger: false, trustProxy: 1 })
+    proxied.get('/eco-ip', async (request) => ({ ip: request.ip }))
+    const direct = await buildApp({ pool, appOrigin: ORIGIN, logger: false })
+    direct.get('/eco-ip', async (request) => ({ ip: request.ip }))
+    try {
+      // O proxy (Render) acrescenta o IP real no fim; o começo vem do cliente.
+      const forged = (fake: string) => ({ 'x-forwarded-for': `${fake}, 203.0.113.9` })
+      for (const fake of ['6.6.6.6', '7.7.7.7']) {
+        assert.equal((await proxied.inject({ method: 'GET', url: '/eco-ip', headers: forged(fake) })).json().ip, '203.0.113.9')
+      }
+      assert.equal((await direct.inject({ method: 'GET', url: '/eco-ip', headers: forged('6.6.6.6') })).json().ip, '127.0.0.1')
+
+      // 10 por minuto nas rotas de auth: trocar o IP forjado não abre cota nova.
+      for (let i = 0; i < 10; i++) {
+        const response = await proxied.inject({ method: 'POST', url: '/auth/verify-email', headers: forged(`10.0.0.${i}`), payload: { token: 'x'.repeat(30) } })
+        assert.equal(response.statusCode, 400)
+      }
+      const blocked = await proxied.inject({ method: 'POST', url: '/auth/verify-email', headers: forged('10.0.0.99'), payload: { token: 'x'.repeat(30) } })
+      assert.equal(blocked.statusCode, 429)
+    } finally {
+      await proxied.close()
+      await direct.close()
+    }
+  })
+
+  test('log de requisição sem query string (tokens dos links de e-mail)', async () => {
+    const lines: string[] = []
+    const logged = await buildApp({ pool, appOrigin: ORIGIN, logger: { level: 'info', stream: { write: (line: string) => void lines.push(line) } } })
+    try {
+      await logged.inject({ method: 'GET', url: '/auth/verify-email?token=segredo-do-link-123' }) // 404 sem front
+      await logged.inject({ method: 'GET', url: '/health?token=segredo-do-link-123', headers: { cookie: 'cantum_session=segredo-do-cookie' } })
+      const all = lines.join('')
+      assert.match(all, /"url":"\/auth\/verify-email"/)
+      assert.match(all, /"url":"\/health"/)
+      assert.doesNotMatch(all, /segredo-do-link|segredo-do-cookie/)
+    } finally {
+      await logged.close()
+    }
   })
 })
