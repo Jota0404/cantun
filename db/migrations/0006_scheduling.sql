@@ -478,7 +478,7 @@ grant execute on function app.assignment_invite_mail(uuid) to cantum_user;
 -- serviço ainda sem envio, quando ele já saiu do rascunho e não é final; quem reivindica
 -- é quem gere a escala. Sem permissão ou sem pendências devolve vazio, nunca erro.
 create function app.claim_pending_invites(p_service_id uuid)
-  returns table(email text, display_name text, musical_function text, service_name text, starts_at timestamptz)
+  returns table(assignment_id uuid, email text, display_name text, musical_function text, service_name text, starts_at timestamptz)
   language plpgsql security definer
   set search_path = ''
 as $$
@@ -494,14 +494,34 @@ begin
     with claimed as (
       update public.assignments a set invite_sent_at = now()
       where a.service_id = p_service_id and a.status = 'invited' and a.invite_sent_at is null
-      returning a.user_id, a.musical_function
+      returning a.id, a.user_id, a.musical_function
     )
-    select u.email, u.display_name, c.musical_function, v_service.name, v_service.starts_at
+    select c.id, u.email, u.display_name, c.musical_function, v_service.name, v_service.starts_at
     from claimed c join app.users u on u.id = c.user_id;
 end;
 $$;
 revoke all on function app.claim_pending_invites(uuid) from public;
 grant execute on function app.claim_pending_invites(uuid) to cantum_user;
+
+-- Falha do e-mail: devolve o convite à fila (ADR-054 §3, repetir na próxima oportunidade).
+-- Mesma autorização de quem reivindica; sem permissão ou sem convite pendente, não faz nada.
+create function app.release_invite(p_assignment_id uuid) returns void
+  language plpgsql security definer
+  set search_path = ''
+as $$
+declare
+  v_service public.services;
+begin
+  select s.* into v_service from public.services s
+  where s.id = (select a.service_id from public.assignments a where a.id = p_assignment_id);
+  if v_service.id is null or not app.has_permission(v_service.organization_id, v_service.team_id, 'schedule.manage') then
+    return;
+  end if;
+  update public.assignments set invite_sent_at = null where id = p_assignment_id and status = 'invited';
+end;
+$$;
+revoke all on function app.release_invite(uuid) from public;
+grant execute on function app.release_invite(uuid) to cantum_user;
 
 -- ---------------------------------------------------------------------------
 -- 5. Disponibilidade (RN-10, RN-11)

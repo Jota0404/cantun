@@ -415,7 +415,19 @@ select pg_temp.ok((select count(*) = (select n from pending_before) and bool_and
 select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'sem duplicar: a segunda chamada não devolve nada');
 insert into public.service_positions (id, service_id, musical_function, quantity) values ('70000000-0000-0000-0000-00000000060b', '60000000-0000-0000-0000-000000000601', 'drums', 1);
 select public.assign_member('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605');
-select pg_temp.ok((select count(*) = 1 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'convite novo é reivindicado uma vez');
+select pg_temp.ok((select count(*) = 1 and bool_and(assignment_id = pg_temp.aid('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605'))
+  from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'convite novo é reivindicado uma vez, com o id da atribuição');
+
+-- release_invite: falha do e-mail devolve o convite à fila; só quem gere a escala, só 'invited'.
+select pg_temp.as_user('00000000-0000-0000-0000-000000000605'); -- Membro (o próprio convidado)
+select app.release_invite(pg_temp.aid('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605'));
+select pg_temp.as_user('00000000-0000-0000-0000-000000000604'); -- Líder de outra equipe
+select app.release_invite(pg_temp.aid('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605'));
+select pg_temp.as_user('00000000-0000-0000-0000-000000000603');
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'sem permissão, release não devolve o convite');
+select app.release_invite(pg_temp.aid('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605'));
+select pg_temp.ok((select count(*) = 1 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'release devolve à fila: reivindicado de novo');
+select app.release_invite('00000000-0000-0000-0000-0000000000aa'); -- inexistente: sem erro
 
 -- ---------------------------------------------------------------------------
 -- Stage: musical_role vem da vaga da atribuição ativa (D6)

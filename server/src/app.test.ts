@@ -13,6 +13,7 @@ import { createPool } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
 import { brevoMailer } from './mailer.ts'
+import { inviteHook } from './schedule.ts'
 import { migrate } from './migrate.ts'
 
 const DB = 'cantum_server_test'
@@ -388,6 +389,41 @@ describe('escala (ADR-053, ADR-054)', () => {
     assert.equal(confirmed.json().status, 'confirmed')
     await pool.query(`update public.assignments set invite_sent_at = null where id = $1`, [assignmentId])
     assert.equal((await resend()).statusCode, 400)
+
+    // Substituir convida o substituto na hora (replace_assignment também dispara o convite).
+    const novo = await join('novo.escala@teste.local', 'Novo')
+    await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, novo.id])
+    await pool.query('insert into public.team_memberships (team_id, user_id) values ($1, $2)', [teamId, novo.id])
+    const sentBefore = invites().length
+    const replaced = await call(lia, 'replace_assignment', { p_assignment_id: assignmentId, p_new_user_id: novo.id })
+    assert.equal(replaced.statusCode, 200, replaced.body)
+    assert.equal(replaced.json().status, 'invited')
+    assert.equal(invites().length, sentBefore + 1)
+    assert.equal(invites().at(-1)?.to, 'novo.escala@teste.local')
+  })
+
+  test('gancho de convites: e-mails em paralelo e só o que falhou volta à fila', async () => {
+    const calls: { sql: string; params: unknown[] }[] = []
+    const invite = (id: string) => ({ assignment_id: id, email: `${id}@teste.local`, display_name: id, musical_function: 'keys', service_name: 'S', starts_at: new Date() })
+    const fakePool = {
+      connect: async () => ({
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params })
+          return { rows: sql.includes('claim_pending_invites') ? [invite('a'), invite('b'), invite('c')] : [] }
+        },
+        release() {},
+      }),
+    } as unknown as Pool
+    const slow = { send: async ({ to }: { to: string }) => { await new Promise((resolve) => setTimeout(resolve, 300)); if (to.startsWith('b@')) throw new Error('Brevo fora') } }
+    const started = Date.now()
+    await inviteHook(fakePool, slow, ORIGIN)({ name: 'replace_assignment', userId: 'u', row: { service_id: 's' }, log: { error() {} } as never })
+    assert.ok(Date.now() - started < 800, 'três envios de 300 ms em paralelo')
+    const released = calls.filter((call) => call.sql.includes('release_invite'))
+    assert.deepEqual(released.map((call) => call.params), [['b']])
+    // Qualquer outra RPC não dispara nada.
+    calls.length = 0
+    await inviteHook(fakePool, slow, ORIGIN)({ name: 'cancel_assignment', userId: 'u', row: { service_id: 's' }, log: { error() {} } as never })
+    assert.equal(calls.length, 0)
   })
 
   test('Brevo fora do ar: transição e atribuição seguem, sem 500 e sem vazar endereço', async () => {
@@ -412,10 +448,18 @@ describe('escala (ADR-053, ADR-054)', () => {
       assert.equal(ready.statusCode, 200, ready.body)
       assert.equal(ready.json().status, 'ready')
       const { rows } = await pool.query('select status, invite_sent_at is not null as claimed from public.assignments where position_id = $1', [positionId])
-      assert.deepEqual(rows, [{ status: 'invited', claimed: true }])
+      // A falha devolve o convite à fila (ADR-054 §3): nada fica marcado como enviado.
+      assert.deepEqual(rows, [{ status: 'invited', claimed: false }])
       const errors = lines.filter((line) => line.includes('falha ao enviar e-mail') && line.includes('assignment_invite'))
       assert.equal(errors.length, 1)
       assert.doesNotMatch(errors[0], /sem\.brevo|meus-servicos|xkeysib/)
+
+      // Na próxima oportunidade (outra transição, agora com o provedor no ar) o convite sai.
+      const before = mails.length
+      const retry = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie }, payload: { p_service_id: serviceId, p_to: 'in_progress' } })
+      assert.equal(retry.statusCode, 200, retry.body)
+      assert.equal(mails.length, before + 1)
+      assert.equal(mails.at(-1)?.to, 'sem.brevo@teste.local')
     } finally {
       await failing.close()
     }
