@@ -44,7 +44,11 @@ const API_PREFIX = /^\/(rpc|sync|realtime|health)(\/|\?|$)/
 const LOG_REDACT = ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]']
 // Sem query string no log: os links de e-mail levam o token nela.
 const LOG_SERIALIZERS = {
-  req: (req: { method: string; url: string; ip: string }) => ({ method: req.method, url: req.url.split('?')[0], remoteAddress: req.ip }),
+  // `ip` é o IP do cliente já resolvido pelo trust proxy (o mesmo do rate limit);
+  // `remoteAddress` é o do socket (o proxy).
+  req: (req: { method: string; url: string; ip?: string; socket?: { remoteAddress?: string } }) => ({
+    method: req.method, url: req.url.split('?')[0], ip: req.ip, remoteAddress: req.socket?.remoteAddress,
+  }),
 }
 
 export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime, staticRoot, trustProxy = 0 }: AppOptions) {

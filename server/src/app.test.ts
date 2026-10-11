@@ -436,6 +436,19 @@ describe('deploy (ADR-060)', () => {
     }
   })
 
+  test('log de requisição traz o IP do cliente resolvido pelo trust proxy', async () => {
+    const lines: string[] = []
+    const proxied = await buildApp({ pool, appOrigin: ORIGIN, trustProxy: 1, logger: { level: 'info', stream: { write: (line: string) => void lines.push(line) } } })
+    try {
+      await proxied.inject({ method: 'GET', url: '/health', remoteAddress: '10.1.2.3', headers: { 'x-forwarded-for': '6.6.6.6, 1.2.3.4' } })
+      const request = lines.map((line) => JSON.parse(line)).find((entry) => entry.msg === 'incoming request')
+      assert.equal(request.req.ip, '1.2.3.4')
+      assert.equal(request.req.remoteAddress, '10.1.2.3')
+    } finally {
+      await proxied.close()
+    }
+  })
+
   test('log de requisição sem query string (tokens dos links de e-mail)', async () => {
     const lines: string[] = []
     const logged = await buildApp({ pool, appOrigin: ORIGIN, logger: { level: 'info', stream: { write: (line: string) => void lines.push(line) } } })
