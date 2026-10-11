@@ -7,6 +7,7 @@ import { OFFLINE_COPY_MESSAGE } from '../../application/songs/copySongToOrganiza
 import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { useAuth } from '../../auth/authContext'
+import { Badge } from '../../components/ui/Badge'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
@@ -15,7 +16,7 @@ import type { Service } from '../../domain/services/service'
 import { SERVICE_ITEM_TYPES, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
 import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
 import type { Song } from '../../domain/songs/song'
-import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
+import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
 import './OrganizationPage.css'
 import './ServiceDetailPage.css'
 import { labels } from '../../ui/labels'
@@ -157,7 +158,7 @@ export function ServiceDetailPage() {
       <span>SERVIÇO</span>
       <h2>{service.name}</h2>
       <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>
-      <p>Status: <strong className={`service-status service-status--${service.status}`}>{SERVICE_STATUS_LABEL[service.status]}</strong></p>
+      <p>Status: <Badge tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Badge></p>
       {canDelete && <p><button type="button" onClick={() => void handleDelete()}>Excluir serviço</button></p>}
       {final && <p role="note">Serviço {SERVICE_STATUS_LABEL[service.status].toLowerCase()}: informações e ordem não podem mais ser editadas.</p>}
     </header>

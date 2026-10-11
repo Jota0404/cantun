@@ -9,6 +9,16 @@ export const SERVICE_STATUS_LABEL: Record<ServiceStatus, string> = {
   cancelled: 'Cancelado',
 }
 
+import type { BadgeTone } from '../ui/Badge'
+
+export const SERVICE_STATUS_TONE: Record<ServiceStatus, BadgeTone> = {
+  draft: 'attention',
+  ready: 'success',
+  in_progress: 'success',
+  completed: 'neutral',
+  cancelled: 'danger',
+}
+
 export const SERVICE_TRANSITION_LABEL: Record<ServiceStatus, string> = {
   draft: 'Voltar para planejamento',
   ready: 'Marcar como pronto',

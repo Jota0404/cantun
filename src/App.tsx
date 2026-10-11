@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/authContext'
 import { HomePage } from './pages/Home/HomePage'
 import { NewSongPage } from './pages/Song/NewSongPage'
@@ -12,7 +12,6 @@ import { RepertoireDetailPage } from './pages/Repertoire/RepertoireDetailPage'
 import { StagePage } from './pages/Stage/StagePage'
 import { ServiceStagePage } from './pages/Stage/ServiceStagePage'
 import { ServiceStageMusicianPage } from './pages/Stage/ServiceStageMusicianPage'
-import { MyServicesPage } from './pages/Schedule/MyServicesPage'
 import { AuthPage } from './pages/Auth/AuthPage'
 import { VerifyEmailPage } from './pages/Auth/VerifyEmailPage'
 import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage'
@@ -25,34 +24,21 @@ import { TeamPage } from './pages/Organization/TeamPage'
 import { OrganizationInvitePage } from './pages/Organization/OrganizationInvitePage'
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
-import { PendingLocalChangesError } from './auth/localSession'
+import { AppNav } from './components/nav/AppNav'
+import { ServicesPage } from './pages/Navigation/ServicesPage'
+import { TeamsPage } from './pages/Navigation/TeamsPage'
+import { MorePage } from './pages/Navigation/MorePage'
 import { SkipLink } from './components/ui/SkipLink'
-import { applyTheme, getInitialTheme, saveTheme, type Theme } from './theme'
 import './App.css'
 import { labels } from './ui/labels'
 
 function App() {
   const location = useLocation()
-  const navigate = useNavigate()
-  const { user, loading, signOut } = useAuth()
+  const { user, loading } = useAuth()
   const isStageMode = location.pathname.startsWith('/stage/')
   // /auth/* abre sem sessão: os links de verificação e redefinição chegam por e-mail.
   const isAuthRoute = location.pathname === '/auth' || location.pathname.startsWith('/auth/')
   const isInviteRoute = location.pathname.startsWith('/organization/invite/')
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
-
-  async function handleSignOut() {
-    try {
-      await signOut()
-    } catch (error) {
-      if (!(error instanceof PendingLocalChangesError)) throw error
-      const discard = window.confirm(
-        `Há ${error.pendingCount} alteração(ões) feitas neste aparelho que ainda não foram sincronizadas. ` +
-        'Se sair agora, elas serão descartadas. Conecte-se à internet para sincronizar antes de sair.\n\nSair mesmo assim?',
-      )
-      if (discard) await signOut({ discardPendingChanges: true })
-    }
-  }
 
   useEffect(() => {
     if (!user) return
@@ -61,8 +47,6 @@ function App() {
     window.addEventListener('online', handleOnline)
     return () => window.removeEventListener('online', handleOnline)
   }, [user])
-
-  useEffect(() => { applyTheme(theme) }, [theme])
 
   if (loading) return <div className="shell"><main aria-live="polite"><p>Carregando sessão…</p></main></div>
 
@@ -73,10 +57,9 @@ function App() {
       <SkipLink />
       {!isStageMode && !isAuthRoute && !isInviteRoute && <>
         <header className="app-header">
-          <div><p className="app-header__eyebrow">MUSIC WORKSPACE</p><h1><Link to="/">CANTUM</Link></h1></div>
-          <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => { const next = theme === 'light' ? 'dark' : 'light'; saveTheme(next); setTheme(next) }} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
+          <h1><Link to="/">CANTUM</Link></h1>
         </header>
-        <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">{labels.organizations}</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
+        <AppNav />
         <EmailVerificationNotice />
         {user && <SyncStatusNotice />}
       </>}
@@ -87,7 +70,7 @@ function App() {
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/service-session/:stageSessionId" element={<ServiceStagePage />} /><Route path="/stage/service-session/:stageSessionId/musician" element={<ServiceStageMusicianPage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />
-        <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/meus-servicos" element={<MyServicesPage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
+        <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/servicos" element={<ServicesPage tab="mine" />} /><Route path="/meus-servicos" element={<ServicesPage tab="mine" />} /><Route path="/servicos/todos" element={<ServicesPage tab="all" />} /><Route path="/bandas" element={<TeamsPage />} /><Route path="/equipe" element={<Navigate to="/bandas" replace />} /><Route path="/mais" element={<MorePage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </div>

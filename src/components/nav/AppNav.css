@@ -1,0 +1,82 @@
+.app-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.app-nav ul {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--size-touch-min);
+  padding: var(--space-2) var(--space-1);
+  border-top: 3px solid transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Indicação além de cor (RN-04): barra no destino ativo e peso da fonte. */
+.app-nav a[aria-current='page'] {
+  border-top-color: var(--color-primary);
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+/* Espaço para a barra não cobrir o fim da página. */
+.shell:has(> .app-nav) {
+  padding-bottom: calc(var(--size-touch-min) + 56px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 900px) {
+  .app-nav {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    width: 200px;
+    padding: var(--space-5) var(--space-3);
+    border-top: 0;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .app-nav ul {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .app-nav a {
+    justify-content: flex-start;
+    padding-inline: var(--space-3);
+    border-top: 0;
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
+  }
+
+  .app-nav a[aria-current='page'] {
+    border-left-color: var(--color-primary);
+    background: var(--color-surface-raised);
+  }
+
+  .shell:has(> .app-nav) {
+    width: min(1180px, calc(100% - 200px - 32px));
+    margin-left: calc(200px + max(16px, (100% - 200px - 1180px) / 2));
+    padding-bottom: 56px;
+  }
+}

@@ -5,15 +5,14 @@
   margin: 0 auto;
 }
 
-.song-library-page > button:first-child {
+.song-library-page__actions > button:first-child {
   width: auto;
-  margin-bottom: 28px;
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--color-on-primary);
 }
 
-.song-library-page > button:first-child:hover:not(:disabled) {
+.song-library-page__actions > button:first-child:hover:not(:disabled) {
   border-color: var(--color-primary-strong);
   background: var(--color-primary-strong);
   color: var(--color-on-primary);
@@ -260,7 +259,7 @@
 }
 
 @media (max-width: 640px) {
-  .song-library-page > button:first-child {
+  .song-library-page__actions > button:first-child {
     width: 100%;
   }
 

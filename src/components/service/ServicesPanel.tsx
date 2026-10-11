@@ -6,7 +6,8 @@ import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission } from '../../domain/access/permissions'
 import type { Service } from '../../domain/services/service'
 import type { Team } from '../../domain/teams/team'
-import { SERVICE_STATUS_LABEL, formatServiceDate } from './serviceLabels'
+import { Badge } from '../ui/Badge'
+import { SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, formatServiceDate } from './serviceLabels'
 import './ServicesPanel.css'
 import { labels } from '../../ui/labels'
 
@@ -101,7 +102,7 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
                 <li key={service.id}>
                   <Link to={`/services/${service.id}`}>{service.name}</Link>
                   <span>{formatServiceDate(service.startsAt)} · {teamName(service)}</span>
-                  <span className={`service-status service-status--${service.status}`}>{SERVICE_STATUS_LABEL[service.status]}</span>
+                  <Badge tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Badge>
                 </li>
               ))}
             </ul>
