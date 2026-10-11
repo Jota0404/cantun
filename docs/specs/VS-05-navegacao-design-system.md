@@ -22,7 +22,7 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 - Como **pessoa que prefere tema claro**, quero trocar de tema e ter a escolha lembrada.
 
 ## Regras de negócio
-- **RN-01** Destinos principais, nesta ordem: **Início, Serviços, Músicas, Equipe, Mais**. "Mais" agrupa Repertórios, Ensaios (placeholder até o B6), Histórico (placeholder), Configurações e Sair. Network é futuro (B10) e não aparece.
+- **RN-01** Destinos principais, nesta ordem: **Início, Serviços, Músicas, Equipe, Mais**. "Mais" agrupa Repertórios, Configurações e Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem, sem placeholder vazio. Network é futuro (B10) e não aparece.
 - **RN-02** **Serviços** abre `/servicos` com duas abas: **Meus serviços** (`/meus-servicos`, criada no B4) e **Todos os serviços** (lista por equipe, próximos / em planejamento / realizados, ADR-052). Quem não tem permissão de gestão (`service.create`) vê só "Meus serviços". "Meus serviços" também é atalho no Início.
 - **RN-03** Mobile (< 900 px): barra inferior fixa com os 5 destinos. Desktop e tablet largo (≥ 900 px): barra lateral com os mesmos destinos e rótulos de texto. Nunca só ícone.
 - **RN-04** O destino ativo usa `aria-current="page"` e indicação visual além de cor.
@@ -36,7 +36,7 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 - **RN-12** **Estado nunca só por cor** (§53): todo badge tem texto, e os de atenção têm também ícone ou forma. Estados cobertos: serviço (`draft`, `ready`, `in_progress`, `completed`, `cancelled`), atribuição (`invited`, `confirmed`, `declined`, `replacement_needed`, `cancelled`), vaga (`open`, `filled`) e membro (`active`, `inactive`, `pending_invite`).
 - **RN-13** **Início contextual** (§52.1), para cada papel: (a) próximo serviço relevante do usuário (data, local, função, estado); (b) pendências: confirmar escala (B4), serviços com vagas abertas (Líder/Admin/Owner); (c) atalhos: Meus serviços, abrir Músicas, abrir Modo Palco quando houver sessão `live`. Usuário novo sem organização vê o onboarding (B2). O bloco de atividade é do B7 e não entra.
 - **RN-14** **Apêndice B** em toda tela nova: a spec ou a PR descreve tarefa principal, informação prioritária e ação óbvia.
-- **RN-15** **Componentes só com repetição comprovada** (§61.1): primeiro corte = `AppNav` (barra inferior e lateral), `Button`, `Badge`, `Card`, `Field`, `Tabs`. Qualquer outro entra quando houver pelo menos três usos reais. Sem biblioteca de UI.
+- **RN-15** **Componentes só com repetição comprovada** (§61.1): certos no primeiro corte = `AppNav` (barra inferior e lateral) e `Badge`. Candidatos, entram no 3º uso real: `Button`, `Card`, `Field`, `Tabs`. Sem biblioteca de UI.
 - **RN-16** Movimento: respeita `prefers-reduced-motion`. A navegação funciona sem JavaScript de animação.
 
 ## Acceptance Criteria
@@ -76,7 +76,7 @@ Sem mudança: nenhum SQL, Dexie `version()`, sync ou RPC. O Início lê dados qu
 
 ### Arquitetura
 - Camadas: UI apenas (`src/pages`, `src/components`, `src/App.tsx`, CSS). Casos de uso de leitura para o Início (`getHomeSummary`) em `application/` quando a lógica de "próximo serviço" e "pendências" ultrapassar uma consulta simples; domínio puro para a seleção do "próximo serviço".
-- ADR-055 (Proposed): tokens em CSS custom properties, sem biblioteca de UI.
+- ADR-055 (Accepted): tokens em CSS custom properties, sem biblioteca de UI.
 - Arquivos: `src/styles/tokens.css` (novo) importado antes de `index.css`; `src/cantum-theme.css` passa a consumir os tokens; `src/App.tsx` (cabeçalho e navegação); páginas novas finas para `/servicos`, `/equipe`, `/mais`.
 - **Dono de config:** o lead adiciona `eslint-plugin-jsx-a11y` (regras no `eslint.config.js`) e uma biblioteca de `axe` para testes (ex.: `vitest-axe`). Ambas são dependências de desenvolvimento, não de UI, e entram em PR de `chore/a11y-lint` com justificativa.
 - Documentação: `docs/DESIGN_TOKENS.md` (lista de tokens e uso), mantida junto do `tokens.css`.

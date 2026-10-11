@@ -14,7 +14,7 @@ O Blueprint §61 aponta a direção visual (escuro, alto contraste, verde como a
 ## Decisão
 
 1. **Tokens em CSS custom properties**, um arquivo (`src/styles/tokens.css`), por tema (`:root[data-theme='dark']` padrão e `[data-theme='light']`). Famílias: `--color-*`, `--space-*`, `--radius-*`, `--font-*`, `--shadow-*`, `--size-touch-*`, `--color-focus`. Telas e componentes novos não usam cor, espaçamento ou tamanho literais.
-2. **Sem biblioteca de UI** (Material, Chakra, Radix, Tailwind, shadcn etc.), nem de ícones, nem de CSS-in-JS. Componentes são React + CSS próprios, criados só com **repetição comprovada** (≥ 3 usos; Blueprint §61.1). Primeiro corte: `AppNav`, `Button`, `Badge`, `Card`, `Field`, `Tabs`.
+2. **Sem biblioteca de UI** (Material, Chakra, Radix, Tailwind, shadcn etc.), nem de ícones, nem de CSS-in-JS. Componentes são React + CSS próprios, criados só com **repetição comprovada** (Blueprint §61.1). Certos no primeiro corte: `AppNav` e `Badge`. Candidatos, entram no 3º uso real: `Button`, `Card`, `Field`, `Tabs`.
 3. **Tema escuro padrão**; claro disponível; a escolha salva (`cantum-theme`) é respeitada. Verde como cor de ação e identidade.
 4. **Acessibilidade como requisito de token:** contraste AA (4,5:1 texto; 3:1 texto grande, ícones e bordas de controle) nos dois temas; foco visível por `:focus-visible`; suporte a `prefers-contrast: more`, `forced-colors` e `prefers-reduced-motion`; estado nunca só por cor (§53).
 5. **Alvos de toque:** `--size-touch-min: 44px` em todo controle; no Modo Palco o piso é 44 px e os primários usam `--size-touch-stage: 48px`. O mínimo do WCAG 2.2 AA (2.5.8) é 24 px; 44 px é decisão de produto para uso em celular. Ajustar o Palco é correção de CSS, não feature (D6).

@@ -55,7 +55,7 @@
 | [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted (cronograma substituído pelo ADR-059) |
 | [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted (emendado pelo ADR-058) |
 | [ADR-051](ADR-051-papeis-dois-niveis-e-permissoes.md) | Papéis em dois níveis e matriz de permissões | Accepted |
-| [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted |
+| [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted (push/PR revisados pelo ADR-061) |
 | [ADR-059](ADR-059-own-backend-now.md) | Saída completa do Supabase: PostgreSQL + backend próprio em Node.js | Accepted |
 | [ADR-052](ADR-052-service-operacional.md) | Service operacional (equipe, estados, itens genéricos) | Accepted |
 | [ADR-053](ADR-053-vagas-e-atribuicoes.md) | Vagas e atribuições | Accepted |

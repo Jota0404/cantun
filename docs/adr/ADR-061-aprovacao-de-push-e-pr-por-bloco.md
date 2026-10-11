@@ -30,6 +30,5 @@ Revisa o ADR-058 **só neste ponto**: a aprovação de **push** e de **PR** pass
 
 ## Consequências
 
-- Se aceito: `CLAUDE.md` (seção Git) e `AI_CONTEXT.md` §10 são atualizados pelo lead para refletir a revisão; o ADR-058 ganha a referência abaixo.
-- Se não aceito, vale o ADR-058 atual.
+- `CLAUDE.md` (seção Git) e `AI_CONTEXT.md` §10 foram atualizados (aa6225a).
 - Os princípios do ADR-009 e do ADR-050 continuam: controle humano sobre o que chega a `main`, rastreabilidade e nenhuma decisão `Accepted` alterada em silêncio.
