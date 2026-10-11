@@ -15,7 +15,9 @@ import { suggestMembers, type MemberSuggestion } from '../../domain/services/sug
 import { getCurrentUser } from '../../platform/auth'
 import { ApiError, apiRequest } from '../../platform/http'
 import { rpc } from '../../platform/rpc'
-import { listTeamMembers } from '../teams/teamMemberService'
+import { hasPermission } from '../../domain/access/permissions'
+import { organizationRepository } from '../../db/repositories/organizationRepository'
+import { getMyAccessContext, listTeamMembers } from '../teams/teamMemberService'
 
 export type Failure = { success: false; errors: string[] }
 const fail = (...errors: string[]): Failure => ({ success: false, errors })
@@ -190,6 +192,30 @@ export async function listMyUpcomingAssignments(now = new Date()): Promise<MyUpc
     const items = (await serviceItemRepository.listByServiceId(service.id)).filter((item) => item.type === 'song' && item.songId)
     const songs = await Promise.all(items.map((item) => songRepository.getById(item.songId as string)))
     result.push({ assignment, service, songTitles: songs.flatMap((song) => song ? [song.title] : []) })
+  }
+  return result.sort((a, b) => a.service.startsAt.localeCompare(b.service.startsAt))
+}
+
+export interface ManagedServiceGap {
+  service: Service
+  openCount: number
+  missingTotal: number
+}
+
+/** Serviços futuros e não encerrados, das equipes que o usuário gerencia (`schedule.manage`), com vagas abertas. */
+export async function listManagedServiceGaps(now = new Date()): Promise<ManagedServiceGap[]> {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const manageable = new Map<string, boolean>()
+  const result: ManagedServiceGap[] = []
+  for (const organization of await organizationRepository.list()) {
+    for (const service of await serviceRepository.listByOrganizationId(organization.id)) {
+      if (isFinalStatus(service.status) || service.startsAt < startOfToday || !service.teamId) continue
+      const key = `${organization.id}:${service.teamId}`
+      if (!manageable.has(key)) manageable.set(key, hasPermission(await getMyAccessContext({ organizationId: organization.id, teamId: service.teamId }), 'schedule.manage'))
+      if (!manageable.get(key)) continue
+      const { openCount, missingTotal } = await getServiceGaps(service.id)
+      if (openCount > 0) result.push({ service, openCount, missingTotal })
+    }
   }
   return result.sort((a, b) => a.service.startsAt.localeCompare(b.service.startsAt))
 }

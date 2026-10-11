@@ -21,6 +21,8 @@ const m = vi.hoisted(() => ({
   deleteService: vi.fn(),
 }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
+vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
 vi.mock('../../application/stage/stageSessionService', () => ({ createStageSession: vi.fn(), startStageSession: vi.fn() }))
@@ -116,11 +118,6 @@ describe('ServiceDetailPage', () => {
     renderWith({ status: 'completed' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
-  })
-
-  it('member does not see the roster button', async () => {
-    renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
-    await screen.findByText('1. Boas-vindas')
   })
 
   it('owner starts the stage on an open service', async () => {

@@ -7,7 +7,8 @@ const members = vi.hoisted(() => vi.fn())
 vi.mock('../../platform/rpc', () => ({ rpc }))
 vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'me', email: 'm@example.com', emailVerified: true, displayName: 'Eu' }) }))
 vi.mock('../../platform/http', async (importOriginal) => ({ ...await importOriginal<typeof import('../../platform/http')>(), apiRequest }))
-vi.mock('../teams/teamMemberService', () => ({ listTeamMembers: members }))
+const access = vi.hoisted(() => vi.fn())
+vi.mock('../teams/teamMemberService', () => ({ listTeamMembers: members, getMyAccessContext: access }))
 const queued = vi.hoisted(() => ({ upsert: vi.fn(), remove: vi.fn() }))
 vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: queued.upsert, queueTargetDelete: queued.remove }))
 
@@ -15,7 +16,7 @@ import { db } from '../../db/database'
 import { ApiError } from '../../platform/http'
 import type { Service } from '../../domain/services/service'
 import {
-  assignMember, cancelAssignment, clearMyAvailability, confirmAssignment, createPosition, getServiceGaps, listMyUpcomingAssignments,
+  assignMember, cancelAssignment, listManagedServiceGaps, clearMyAvailability, confirmAssignment, createPosition, getServiceGaps, listMyUpcomingAssignments,
   removePosition, replaceAssignment, resendAssignmentInvite, setMyAvailability, suggestForPosition, updatePosition,
 } from './scheduleService'
 
@@ -127,5 +128,23 @@ describe('schedule use cases', () => {
     await db.memberAvailability.put({ id: 'm1', userId: 'bia', organizationId: 'o1', date: '2099-01-01', status: 'unavailable', createdAt: now, updatedAt: now })
     const result = await suggestForPosition('p1')
     expect(result.map((s) => [s.displayName, s.warnings])).toEqual([['Davi', []], ['Bia', ['unavailable']]])
+  })
+  it('lists future open gaps only for teams I manage, nearest first', async () => {
+    const position = { quantity: 1, createdAt: now, updatedAt: now }
+    await db.organizations.put({ id: 'o1', name: 'Igreja', createdAt: now, updatedAt: now })
+    await db.services.bulkPut([
+      { ...service, id: 'far', startsAt: '2099-03-01T12:00:00Z' },
+      { ...service, id: 'near', startsAt: '2099-02-01T12:00:00Z' },
+      { ...service, id: 'full', startsAt: '2099-02-02T12:00:00Z' },
+      { ...service, id: 'past', startsAt: '2020-01-01T12:00:00Z' },
+      { ...service, id: 'done', startsAt: '2099-02-03T12:00:00Z', status: 'completed' },
+      { ...service, id: 'other-team', teamId: 't2', startsAt: '2099-02-04T12:00:00Z' },
+    ])
+    await db.servicePositions.bulkPut(['far', 'near', 'full', 'past', 'done', 'other-team'].map((id) => ({ ...position, id: `p-${id}`, serviceId: id, musicalFunction: 'vocals' })))
+    await db.assignments.put({ id: 'ok', serviceId: 'full', positionId: 'p-full', userId: 'u', musicalFunction: 'vocals', status: 'confirmed', createdAt: now, updatedAt: now })
+    access.mockImplementation(async ({ teamId }: { teamId: string }) => ({ organizationRole: 'member', teamRole: teamId === 't1' ? 'leader' : 'member', teamStatus: 'active' }))
+
+    const result = await listManagedServiceGaps()
+    expect(result.map((item) => [item.service.id, item.openCount, item.missingTotal])).toEqual([['near', 1, 1], ['far', 1, 1]])
   })
 })
