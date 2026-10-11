@@ -49,7 +49,12 @@ describe('schedule use cases', () => {
     expect(await updatePosition(id, { quantity: 3, notes: ' coro ' })).toMatchObject({ success: true, position: { quantity: 3, notes: 'coro' } })
     expect(await removePosition(id)).toEqual({ success: false, errors: ['Cancele as pessoas escaladas antes de excluir a vaga.'] })
     await db.assignments.clear()
+    await db.assignments.bulkPut([
+      { id: 'd1', serviceId: 's1', positionId: id, userId: 'u1', musicalFunction: 'vocals', status: 'declined', createdAt: now, updatedAt: now },
+      { id: 'd2', serviceId: 's1', positionId: id, userId: 'u2', musicalFunction: 'vocals', status: 'cancelled', createdAt: now, updatedAt: now },
+    ])
     expect(await removePosition(id)).toEqual({ success: true })
+    expect(await db.assignments.count()).toBe(0)
   })
 
   it('blocks position changes on final services', async () => {

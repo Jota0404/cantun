@@ -10,6 +10,7 @@ export class AssignmentRepository {
   }
   async putLocal(value: Assignment): Promise<void> { await this.db.assignments.put(value) }
   async removeLocalByServiceId(serviceId: string): Promise<void> { await this.db.assignments.where('serviceId').equals(serviceId).delete() }
+  async removeLocalByPositionId(positionId: string): Promise<void> { await this.db.assignments.where('positionId').equals(positionId).delete() }
   async getById(id: string): Promise<Assignment | undefined> { return this.db.assignments.get(id) }
   async listByServiceId(serviceId: string): Promise<Assignment[]> { return this.db.assignments.where('serviceId').equals(serviceId).toArray() }
   async listByPositionId(positionId: string): Promise<Assignment[]> { return this.db.assignments.where('positionId').equals(positionId).toArray() }

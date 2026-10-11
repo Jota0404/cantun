@@ -84,14 +84,15 @@ export async function updatePosition(
   return { success: true, position }
 }
 
-/** Vaga com qualquer atribuição não é excluída (cancele antes; o servidor devolve 409). */
+/** Vaga com atribuição ativa (convidada, confirmada ou em substituição) não sai (409); só com recusadas/canceladas, sai junto com elas. */
 export async function removePosition(positionId: string): Promise<{ success: true } | Failure> {
   const current = await servicePositionRepository.getById(positionId)
   if (!current) return fail('Vaga não encontrada.')
   const service = await editableService(current.serviceId)
   if (typeof service === 'string') return fail(service)
-  if ((await assignmentRepository.listByPositionId(positionId)).length > 0) return fail('Cancele as pessoas escaladas antes de excluir a vaga.')
+  if ((await assignmentRepository.listByPositionId(positionId)).some((assignment) => holdsPosition(assignment.status))) return fail('Cancele as pessoas escaladas antes de excluir a vaga.')
   await servicePositionRepository.remove(positionId)
+  await assignmentRepository.removeLocalByPositionId(positionId)
   return { success: true }
 }
 
