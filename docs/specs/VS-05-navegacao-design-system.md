@@ -1,10 +1,10 @@
 # Feature Spec — VS-05 Navegação e Design System
 
-- **Status:** Em revisão
+- **Status:** Aprovada (decisões fechadas em 2026-10-11)
 - **Bloco:** B5 (`docs/blocks/B5-navegacao-design-system.md`)
 - **Fatia vertical:** VS-05
 - **Autor / data:** Claude Code (planner), para revisão do Jota · 2026-10-11
-- **Decisão associada:** [ADR-055](../adr/ADR-055-design-system-tokens.md) (Proposed) · Base: Blueprint §17, §32, §52, §53, §61, §62, Apêndice B; NFR-001/003/004
+- **Decisão associada:** [ADR-055](../adr/ADR-055-design-system-tokens.md) (Accepted) · Base: Blueprint §17, §32, §52, §53, §61, §62, Apêndice B; NFR-001/003/004
 
 ## Feature
 Navegação principal que reflete o modelo mental da equipe (**Início · Serviços · Músicas · Equipe · Mais**), tokens de design em CSS custom properties com tema escuro por padrão, Início contextual, badges de estado e acessibilidade verificável (WCAG 2.2 AA, alvos de toque ≥ 44 px, inclusive no Modo Palco).
@@ -23,15 +23,15 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 
 ## Regras de negócio
 - **RN-01** Destinos principais, nesta ordem: **Início, Serviços, Músicas, Equipe, Mais**. "Mais" agrupa Repertórios, Ensaios (placeholder até o B6), Histórico (placeholder), Configurações e Sair. Network é futuro (B10) e não aparece.
-- **RN-02** **Serviços** abre `/servicos` com duas abas: **Meus serviços** (`/meus-servicos`, criada no B4) e **Todos os serviços** (lista por equipe, próximos / em planejamento / realizados, ADR-052). Quem não tem permissão de gestão (`service.create`) vê só "Meus serviços". "Meus serviços" também é atalho no Início. *Decisão a confirmar.*
-- **RN-03** Mobile (< 900 px): barra inferior fixa com os 5 destinos. Desktop e tablet largo (≥ 900 px): barra lateral com os mesmos destinos e rótulos de texto. Nunca só ícone. *Decisão a confirmar.*
+- **RN-02** **Serviços** abre `/servicos` com duas abas: **Meus serviços** (`/meus-servicos`, criada no B4) e **Todos os serviços** (lista por equipe, próximos / em planejamento / realizados, ADR-052). Quem não tem permissão de gestão (`service.create`) vê só "Meus serviços". "Meus serviços" também é atalho no Início.
+- **RN-03** Mobile (< 900 px): barra inferior fixa com os 5 destinos. Desktop e tablet largo (≥ 900 px): barra lateral com os mesmos destinos e rótulos de texto. Nunca só ícone.
 - **RN-04** O destino ativo usa `aria-current="page"` e indicação visual além de cor.
 - **RN-05** Saem do cabeçalho: "Nova música" e "Importar música" (viram ações da tela Músicas), "Organizações" no plural e "MUSIC WORKSPACE". O nome do produto é "CANTUM". As rotas existentes (`/organizations*`, `/songs*`, `/repertoires*`, `/services/:id`) **continuam válidas**; "Equipe" (`/equipe`) resolve a organização principal da conta (B2 RN-11) e leva à lista de equipes dela.
 - **RN-06** Modo Palco (`/stage/*`) continua sem navegação do app (já é assim): tela cheia, escuro, poucos controles (D6).
-- **RN-07** **Tema:** escuro por padrão; claro continua disponível; a escolha salva (`cantum-theme`) é respeitada. Sem escolha salva, usa escuro. *Decisão a confirmar (alternativa: seguir o sistema).*
+- **RN-07** **Tema:** escuro por padrão; claro continua disponível; a escolha salva (`cantum-theme`) é respeitada. Sem escolha salva, usa escuro. (Alternativa descartada: seguir o sistema.)
 - **RN-08** **Tokens** (ADR-055): cores, espaçamento, raio, tipografia, sombras, foco e tamanho mínimo de toque são custom properties em um único arquivo; componentes e telas novas não usam cores nem tamanhos literais. As telas existentes migram aos poucos, sem redesenho em massa.
-- **RN-09** **Contraste:** texto normal ≥ 4,5:1 e texto grande e ícones/bordas de controle ≥ 3:1, nos dois temas e em todos os estados (padrão, hover, desabilitado, foco). O tema escuro segue a direção do Blueprint §61: escuro, alto contraste, verde como ação. Respeita `prefers-contrast: more` (aumenta bordas e contraste de texto) e `forced-colors: active` (não depender de cor de fundo para o foco). Sem modo de "alto contraste" próprio além disso. *Decisão a confirmar.*
-- **RN-10** **Alvos de toque:** todo controle interativo tem área de pelo menos **44 × 44 px** (`--size-touch-min`), com espaçamento mínimo de 8 px entre vizinhos. O piso do WCAG 2.2 AA (2.5.8) é 24 px; o produto adota 44 px por uso em celular. No **Modo Palco**, vale 44 px como piso, e os controles primários de navegação entre músicas e de auto-scroll têm 48 px ou mais. Hoje há botões do Palco abaixo disso (`ServiceStagePage.css`, `ServiceStageMusicianPage.css` sem `min-height`; `.stage-controls__auto-scroll-row button` com 40 px); a correção é de CSS e entra como correção, não como feature (D6). *Decisão a confirmar.*
+- **RN-09** **Contraste:** texto normal ≥ 4,5:1 e texto grande e ícones/bordas de controle ≥ 3:1, nos dois temas e em todos os estados (padrão, hover, desabilitado, foco). O tema escuro segue a direção do Blueprint §61: escuro, alto contraste, verde como ação. Respeita `prefers-contrast: more` (aumenta bordas e contraste de texto) e `forced-colors: active` (não depender de cor de fundo para o foco). Sem modo de "alto contraste" próprio além disso.
+- **RN-10** **Alvos de toque:** todo controle interativo tem área de pelo menos **44 × 44 px** (`--size-touch-min`), com espaçamento mínimo de 8 px entre vizinhos. O piso do WCAG 2.2 AA (2.5.8) é 24 px; o produto adota 44 px por uso em celular. No **Modo Palco**, vale 44 px como piso, e os controles primários de navegação entre músicas e de auto-scroll têm 48 px ou mais. Hoje há botões do Palco abaixo disso (`ServiceStagePage.css`, `ServiceStageMusicianPage.css` sem `min-height`; `.stage-controls__auto-scroll-row button` com 40 px); a correção é de CSS e entra como correção, não como feature (D6).
 - **RN-11** **Foco visível** (`:focus-visible`) com anel de 2 px e contraste ≥ 3:1 sobre qualquer fundo; ordem de tabulação segue a ordem visual; nada fica preso (sem armadilha de teclado). Link "Pular para o conteúdo" no início da página.
 - **RN-12** **Estado nunca só por cor** (§53): todo badge tem texto, e os de atenção têm também ícone ou forma. Estados cobertos: serviço (`draft`, `ready`, `in_progress`, `completed`, `cancelled`), atribuição (`invited`, `confirmed`, `declined`, `replacement_needed`, `cancelled`), vaga (`open`, `filled`) e membro (`active`, `inactive`, `pending_invite`).
 - **RN-13** **Início contextual** (§52.1), para cada papel: (a) próximo serviço relevante do usuário (data, local, função, estado); (b) pendências: confirmar escala (B4), serviços com vagas abertas (Líder/Admin/Owner); (c) atalhos: Meus serviços, abrir Músicas, abrir Modo Palco quando houver sessão `live`. Usuário novo sem organização vê o onboarding (B2). O bloco de atividade é do B7 e não entra.
@@ -111,7 +111,8 @@ Sem mudança: nenhum SQL, Dexie `version()`, sync ou RPC. O Início lê dados qu
 | Rotas e textos antigos em testes existentes | Rotas antigas preservadas; ajustar só testes do cabeçalho |
 | Dependências de desenvolvimento novas (`jsx-a11y`, `axe`) | PR próprio do lead com justificativa; sem dependência de runtime |
 
-## Decisões a confirmar (propostas do planner, owner offline)
+## Decisões fechadas (Jota, 2026-10-11)
+As oito propostas abaixo foram **aprovadas** pelo owner, repassadas pelo lead; `/meus-servicos` abre a aba "Meus serviços" dentro de Serviços.
 1. **"Meus serviços" dentro de "Serviços"** (abas), mantendo 5 destinos, em vez de um sexto destino ou de trocar "Serviços". Recomendo: padrão de mercado limita a barra inferior a 5.
 2. **Breakpoint da barra lateral em 900 px**; abaixo, barra inferior. Recomendo: tablet em retrato fica com a barra inferior, mais próxima do uso no palco.
 3. **Tema padrão escuro**, com a escolha salva respeitada, em vez de seguir o sistema. Recomendo: Blueprint §61 e o uso em ambiente de pouca luz; revisar se o público pedir "Sistema".

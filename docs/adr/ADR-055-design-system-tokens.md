@@ -1,6 +1,6 @@
 # ADR-055 — Design system: tokens em CSS custom properties
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-11, decisão do Jota repassada pelo lead, com as 8 decisões da spec VS-05)
 - **Data:** 2026-10-11
 - **Decisor:** Jota (owner)
 - **Escopo:** Interface / tema / acessibilidade

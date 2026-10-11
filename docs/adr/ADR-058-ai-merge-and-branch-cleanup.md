@@ -4,6 +4,8 @@
 
 Accepted
 
+> **Revisado pelo [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md)**: push e PR passam a ser aprovados por bloco/fatia. O restante deste ADR continua valendo.
+
 ## Contexto
 
 O ADR-050 reservou ao owner o merge de PRs e a exclusão de branches. Na prática, o owner passou a pedir essas ações diretamente ao Claude Code (2026-10-08), e o ADR-050 exige novo ADR para ampliar os poderes da IA.
