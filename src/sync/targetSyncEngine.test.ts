@@ -131,3 +131,45 @@ describe('TargetSyncEngine services (VS-02)', () => {
     expect(await db.serviceItems.get('i9')).toMatchObject({ type: 'announcement', title: 'Avisos', durationMinutes: 5, songId: undefined })
   })
 })
+
+describe('TargetSyncEngine scheduling (VS-03)', () => {
+  const position = { id: 'p1', serviceId: 'svc-1', musicalFunction: 'vocals', quantity: 2, notes: 'coro', createdAt: now, updatedAt: now }
+  const availability = { id: 'm1', userId: 'u', organizationId: 'org-1', date: '2026-10-11', status: 'tentative', note: 'talvez', createdAt: now, updatedAt: now }
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.servicePositions.clear(), db.memberAvailability.clear(), db.assignments.clear()])
+  })
+
+  it('pushes positions and availability (LWW) and never pushes assignments', async () => {
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'servicePositions', entityId: 'p1', operation: 'upsert', payload: position, updatedAt: now, attempts: 0 },
+      { entity: 'memberAvailability', entityId: 'm1', operation: 'upsert', payload: availability, updatedAt: now, attempts: 0 },
+      { entity: 'assignments', entityId: 'a1', operation: 'upsert', payload: { id: 'a1' }, updatedAt: now, attempts: 0 },
+      { entity: 'assignments', entityId: 'a2', operation: 'delete', updatedAt: now, attempts: 0 },
+    ] as unknown as TargetSyncQueueItem[])
+    await new TargetSyncEngine(db).sync()
+
+    expect(remote.upsertRows.mock.calls.map(([table]) => table)).toEqual(['service_positions', 'member_availability'])
+    expect(remote.upsertRows.mock.calls[0][1][0]).toMatchObject({ service_id: 'svc-1', musical_function: 'vocals', quantity: 2, notes: 'coro' })
+    expect(remote.upsertRows.mock.calls[1][1][0]).toMatchObject({ user_id: 'u', organization_id: 'org-1', date: '2026-10-11', status: 'tentative', note: 'talvez' })
+    expect(remote.deleteRows).not.toHaveBeenCalled()
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('pull overwrites assignments without LWW and maps positions and availability', async () => {
+    await db.assignments.put({ id: 'a1', serviceId: 'svc-1', positionId: 'p1', userId: 'u', musicalFunction: 'vocals', status: 'invited', createdAt: now, updatedAt: '2030-01-01T00:00:00Z' })
+    remote.selectRows.mockImplementation(async (table: string) => {
+      if (table === 'assignments') return [{ id: 'a1', service_id: 'svc-1', position_id: 'p1', user_id: 'u', musical_function: 'vocals', status: 'confirmed', responded_at: now, replaced_assignment_id: null, invite_sent_at: now, created_at: now, updated_at: now }]
+      if (table === 'service_positions') return [{ id: 'p1', service_id: 'svc-1', musical_function: 'vocals', quantity: 2, notes: null, created_at: now, updated_at: now }]
+      if (table === 'member_availability') return [{ id: 'm1', user_id: 'u', organization_id: 'org-1', date: '2026-10-11T00:00:00.000Z', status: 'unavailable', note: null, created_at: now, updated_at: now }]
+      return []
+    })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.assignments.get('a1')).toMatchObject({ status: 'confirmed', respondedAt: now, inviteSentAt: now })
+    expect(await db.servicePositions.get('p1')).toMatchObject({ quantity: 2, notes: undefined })
+    expect(await db.memberAvailability.get('m1')).toMatchObject({ date: '2026-10-11', status: 'unavailable' })
+  })
+})

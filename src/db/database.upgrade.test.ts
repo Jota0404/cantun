@@ -172,3 +172,35 @@ describe('SalmodiaDatabase version 13 (operational service)', () => {
     expect(await db.services.where('teamId').equals('team-old').count()).toBe(2)
   })
 })
+
+describe('SalmodiaDatabase version 14 (scheduling)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('maps pending/accepted assignments and creates the new stores', async () => {
+    await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ assignments: 'id, serviceId, userId, musicalFunction, status, updatedAt, [serviceId+userId]' })
+    const base = { serviceId: 'svc-1', userId: 'u', musicalFunction: 'vocals', createdAt: now, updatedAt: now }
+    await legacy.table('assignments').bulkAdd([
+      { ...base, id: 'a1', status: 'pending' }, { ...base, id: 'a2', status: 'accepted' }, { ...base, id: 'a3', status: 'declined' },
+    ])
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect((await db.assignments.toArray()).map((a) => [a.id, a.status, a.positionId])).toEqual([['a1', 'invited', null], ['a2', 'confirmed', null], ['a3', 'declined', null]])
+    const stores = Array.from(db.backendDB().objectStoreNames)
+    expect(stores).toEqual(expect.arrayContaining(['servicePositions', 'memberAvailability']))
+    expect(await db.assignments.where('status').equals('confirmed').count()).toBe(1)
+    expect(await db.memberAvailability.where('[organizationId+date]').equals(['o', '2026-10-11']).count()).toBe(0)
+  })
+})

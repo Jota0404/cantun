@@ -25,7 +25,6 @@ vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () =>
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
 vi.mock('../../application/stage/stageSessionService', () => ({ createStageSession: vi.fn(), startStageSession: vi.fn() }))
 vi.mock('../../application/services/serviceService', () => ({
-  createAssignment: vi.fn(), removeAssignment: vi.fn(), updateAssignment: vi.fn(),
   getService: async () => m.service, listServiceAssignments: async () => [],
   transitionService: m.transitionService, updateServiceInfo: m.updateServiceInfo, deleteService: m.deleteService,
 }))
@@ -96,14 +95,14 @@ describe('ServiceDetailPage', () => {
     expect(screen.getByRole('region', { name: 'Ensaio' })).toBeInTheDocument()
   })
 
-  it('leader deletes only drafts, after confirming; stage start and roster are role-gated', async () => {
+  it('leader deletes drafts after confirming; stage start is role-gated', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     m.deleteService.mockResolvedValue({ success: true })
     renderWith({}, leader)
-    expect(await screen.findByRole('button', { name: 'Adicionar à escala' })).toBeInTheDocument()
+    const remove = await screen.findByRole('button', { name: 'Excluir serviço' })
     expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Excluir serviço' }))
+    await user.click(remove)
     expect(m.deleteService).toHaveBeenCalledWith('sv1')
   })
 
@@ -117,13 +116,11 @@ describe('ServiceDetailPage', () => {
     renderWith({ status: 'completed' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
   })
 
   it('member does not see the roster button', async () => {
     renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
     await screen.findByText('1. Boas-vindas')
-    expect(screen.queryByRole('button', { name: 'Adicionar à escala' })).not.toBeInTheDocument()
   })
 
   it('owner starts the stage on an open service', async () => {
