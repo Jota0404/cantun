@@ -304,6 +304,92 @@ describe('dados sob RLS', () => {
   })
 })
 
+describe('escala (ADR-053, ADR-054)', () => {
+  test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
+    const ip = { remoteAddress: '10.0.0.91' }
+    const join = async (email: string, displayName: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { email, password: 'senha-forte-123', displayName } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const lia = await join('lia.escala@teste.local', 'Lia')
+    const mauro = await join('mauro.escala@teste.local', 'Mauro')
+    const call = (user: { cookie: string }, name: string, payload: object) =>
+      app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+
+    const orgId = crypto.randomUUID()
+    const teamId = crypto.randomUUID()
+    const serviceId = crypto.randomUUID()
+    const positionId = crypto.randomUUID()
+    assert.equal((await call(lia, 'create_organization', { p_id: orgId, p_name: 'Igreja da Lia' })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: lia.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, mauro.id])
+    await pool.query('insert into public.team_memberships (team_id, user_id) values ($1, $2)', [teamId, mauro.id])
+    const service = { id: serviceId, organization_id: orgId, team_id: teamId, name: 'Culto de domingo', starts_at: '2026-12-06T13:00:00Z', created_by_user_id: lia.id }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: lia.cookie }, payload: { rows: [service] } })).statusCode, 200)
+    const position = await app.inject({ method: 'POST', url: '/sync/service_positions', headers: { cookie: lia.cookie }, payload: { rows: [{ id: positionId, service_id: serviceId, musical_function: 'vocals', quantity: 2 }] } })
+    assert.equal(position.statusCode, 200, position.body)
+
+    const assigned = await call(lia, 'assign_member', { p_position_id: positionId, p_user_id: mauro.id })
+    assert.equal(assigned.statusCode, 200, assigned.body)
+    assert.equal(assigned.json().status, 'invited')
+    const assignmentId = assigned.json().id as string
+
+    // Escrita direta em assignments, pelo /sync, é negada para qualquer papel.
+    for (const user of [lia, mauro]) {
+      const write = await app.inject({ method: 'POST', url: '/sync/assignments', headers: { cookie: user.cookie }, payload: { rows: [{ id: assignmentId, status: 'confirmed' }] } })
+      assert.equal(write.statusCode, 403, write.body)
+    }
+    // A função que devolve o e-mail do convidado não está na allowlist do /rpc.
+    assert.equal((await call(lia, 'assignment_invite_mail', { p_assignment_id: assignmentId })).statusCode, 404)
+
+    const resend = () => app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { cookie: lia.cookie, origin: ORIGIN } })
+    // Rascunho: o convite só sai depois que o serviço passa de draft.
+    assert.equal((await resend()).statusCode, 400)
+    assert.equal((await call(lia, 'transition_service', { p_service_id: serviceId, p_to: 'ready' })).statusCode, 200)
+
+    const before = mails.length
+    assert.equal((await resend()).statusCode, 204)
+    assert.equal(mails.length, before + 1)
+    const mail = mails.at(-1)
+    assert.equal(mail?.to, 'mauro.escala@teste.local')
+    assert.equal(mail?.purpose, 'assignment_invite')
+    assert.equal(mail?.link, `${ORIGIN}/meus-servicos`)
+    assert.deepEqual({ ...mail?.invite, startsAt: undefined }, { name: 'Mauro', musicalFunction: 'vocals', service: 'Culto de domingo', startsAt: undefined })
+    assert.equal(mail?.invite?.startsAt.toISOString(), '2026-12-06T13:00:00.000Z')
+
+    assert.equal((await resend()).statusCode, 429) // no máximo um por minuto
+    const asMember = await app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { cookie: mauro.cookie, origin: ORIGIN } })
+    assert.equal(asMember.statusCode, 400)
+    assert.equal(asMember.json().error, 'assignment not found or not authorized')
+    assert.equal((await app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { origin: ORIGIN } })).statusCode, 401)
+    assert.equal((await app.inject({ method: 'POST', url: '/schedule/assignments/nao-e-uuid/resend-invite', headers: { cookie: lia.cookie, origin: ORIGIN } })).statusCode, 400)
+
+    // O titular responde pela RPC; depois disso não há mais convite pendente para reenviar.
+    const confirmed = await call(mauro, 'respond_to_assignment', { p_assignment_id: assignmentId, p_response: 'confirm' })
+    assert.equal(confirmed.json().status, 'confirmed')
+    await pool.query(`update public.assignments set invite_sent_at = null where id = $1`, [assignmentId])
+    assert.equal((await resend()).statusCode, 400)
+  })
+
+  test('mailer Brevo: o convite leva pessoa, função, serviço, data e link, sem token', async () => {
+    const calls: { body: string }[] = []
+    const mailer = brevoMailer({ apiKey: 'chave', from: 'x@exemplo.com', fetch: async (_url, init) => { calls.push({ body: String(init?.body) }); return new Response('{}', { status: 201 }) } })
+    await mailer.send({
+      to: 'mauro@teste.local', purpose: 'assignment_invite', link: 'https://app.exemplo/meus-servicos',
+      invite: { name: 'Mauro', musicalFunction: 'drums', service: 'Culto', startsAt: new Date('2026-12-06T13:00:00Z') },
+    })
+    const body = JSON.parse(calls[0].body)
+    assert.equal(body.subject, 'Você foi escalado no CANTUM')
+    assert.match(body.textContent, /Mauro/)
+    assert.match(body.textContent, /bateria/)
+    assert.match(body.textContent, /"Culto"/)
+    assert.match(body.textContent, /domingo, 6 de dezembro de 2026/)
+    assert.match(body.textContent, /10:00/)
+    assert.match(body.textContent, /https:\/\/app\.exemplo\/meus-servicos/)
+  })
+})
+
 describe('provedor de e-mail fora do ar', () => {
   test('cadastro, reenvio e reset seguem sem 500 e o log não vaza endereço, link nem chave', async () => {
     const lines: string[] = []
