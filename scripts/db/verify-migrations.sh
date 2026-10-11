@@ -32,3 +32,19 @@ for test in "$ROOT"/db/tests/*.sql; do
   "${PSQL[@]}" -d "$DB" -f "$test"
   echo "ok    $(basename "$test")"
 done
+
+# Testes de atualização: db/upgrade/NNNN_pre.sql semeia dados no schema anterior à migration
+# NNNN, a migration é aplicada e db/upgrade/NNNN_post.sql confere a conversão dos dados.
+for pre in "$ROOT"/db/upgrade/*_pre.sql; do
+  [ -e "$pre" ] || continue
+  number="$(basename "$pre" _pre.sql)"
+  previous="$(printf '%04d' $((10#$number - 1)))"
+  upgrade_db="${DB}_up_$number"
+  "${PSQL[@]}" -d postgres -c "drop database if exists \"$upgrade_db\"" -c "create database \"$upgrade_db\""
+  "$ROOT/scripts/db/migrate.sh" "$upgrade_db" "$previous" >/dev/null
+  "${PSQL[@]}" -d "$upgrade_db" -f "$pre"
+  "$ROOT/scripts/db/migrate.sh" "$upgrade_db" >/dev/null
+  "${PSQL[@]}" -d "$upgrade_db" -f "$ROOT/db/upgrade/${number}_post.sql"
+  "${PSQL[@]}" -d postgres -c "drop database \"$upgrade_db\""
+  echo "ok    atualização $number"
+done

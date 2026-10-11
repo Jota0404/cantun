@@ -7,6 +7,7 @@ import type { Assignment } from '../../domain/services/assignment'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { assignmentRepository } from '../../db/repositories/assignmentRepository'
+import { servicePositionRepository } from '../../db/repositories/servicePositionRepository'
 
 export type ServiceResult = { success: true; service: Service } | { success: false; errors: string[] }
 
@@ -111,37 +112,6 @@ export function listServiceAssignments(serviceId: string, repository = assignmen
   return repository.listByServiceId(serviceId)
 }
 
-export async function createAssignment(
-  input: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>,
-  id = crypto.randomUUID(),
-): Promise<Assignment> {
-  const now = new Date().toISOString()
-  const assignment: Assignment = { ...input, id, createdAt: now, updatedAt: now }
-  await assignmentRepository.create(assignment)
-  return assignment
-}
-
-export async function updateAssignment(
-  assignmentId: string,
-  patch: Partial<Pick<Assignment, 'userId' | 'musicalFunction' | 'serviceItemId' | 'status'>>,
-): Promise<Assignment> {
-  const current = await assignmentRepository.getById(assignmentId)
-  if (!current) throw new Error('Escala não encontrada.')
-
-  const updated: Assignment = {
-    ...current,
-    ...patch,
-    musicalFunction: patch.musicalFunction?.trim() || current.musicalFunction,
-    updatedAt: new Date().toISOString(),
-  }
-  await assignmentRepository.update(updated)
-  return updated
-}
-
-export async function removeAssignment(assignmentId: string): Promise<void> {
-  await assignmentRepository.remove(assignmentId)
-}
-
 /**
  * Online: o banco decide (Líder só em `draft`, S7) e apaga itens e escala em cascata.
  * Depois limpa o Dexie; as exclusões enfileiradas viram no-op no servidor.
@@ -153,13 +123,9 @@ export async function deleteService(serviceId: string): Promise<{ success: true 
   } catch (error) {
     return { success: false, errors: [error instanceof Error && error.message ? error.message : 'Não foi possível excluir o serviço.'] }
   }
-  const [items, assignments] = await Promise.all([
-    serviceItemRepository.listByServiceId(serviceId),
-    assignmentRepository.listByServiceId(serviceId),
-  ])
-
-  for (const item of items) await serviceItemRepository.remove(item.id)
-  for (const assignment of assignments) await assignmentRepository.remove(assignment.id)
+  for (const item of await serviceItemRepository.listByServiceId(serviceId)) await serviceItemRepository.remove(item.id)
+  for (const position of await servicePositionRepository.listByServiceId(serviceId)) await servicePositionRepository.remove(position.id)
+  await assignmentRepository.removeLocalByServiceId(serviceId)
   await serviceRepository.remove(serviceId)
   return { success: true }
 }

@@ -2,6 +2,7 @@ import { teamMembershipRepository, type TeamMembershipRepository } from '../../d
 import type { MemberDisplayStatus, MemberStatus, TeamMembership, TeamRole } from '../../domain/teams/teamMembership'
 import { normalizeDisplayName } from '../../domain/users/displayName'
 import { rpc } from '../../platform/rpc'
+import { memberProfileRepository } from '../../db/repositories/memberProfileRepository'
 import { selectRows } from '../../platform/sync'
 import { getCurrentUser } from '../../platform/auth'
 import { teamRepository } from '../../db/repositories/teamRepository'
@@ -100,16 +101,16 @@ export interface TeamMemberView {
   musicalFunctions: string[]
 }
 
-// Último valor conhecido: offline, a tela mostra os nomes já lidos (VS-01 §Dados).
-const profileCache = new Map<string, string>()
-
-async function loadProfiles(organizationId: string) {
+/** Nomes da organização: atualiza o Dexie pela RPC e, offline ou sem permissão, devolve o último valor gravado. */
+export async function getMemberDisplayNames(organizationId: string): Promise<Record<string, string>> {
   try {
     const rows = await rpc<Array<{ user_id: string; display_name: string }> | null>('get_organization_member_profiles', { p_organization_id: organizationId })
-    for (const row of rows ?? []) profileCache.set(row.user_id, row.display_name)
+    const updatedAt = new Date().toISOString()
+    await memberProfileRepository.putMany((rows ?? []).map((row) => ({ userId: row.user_id, displayName: row.display_name, organizationId, updatedAt })))
   } catch {
-    // Offline ou sem permissão: segue com o cache.
+    // Offline ou sem permissão: segue com o que está no Dexie.
   }
+  return memberProfileRepository.namesByOrganization(organizationId)
 }
 
 // A RLS de `team_musical_functions` devolve só o que o usuário pode ler; filtra pelos vínculos da equipe.
@@ -148,16 +149,16 @@ export async function listTeamMembers(
   input: { organizationId: string; teamId: string; includePendingInvites?: boolean },
   repository = teamMembershipRepository,
 ): Promise<TeamMemberView[]> {
-  const [memberships, invites] = await Promise.all([
+  const [memberships, invites, names] = await Promise.all([
     repository.listByTeamId(input.teamId),
     input.includePendingInvites ? listOrganizationInvites(input.organizationId).catch(() => []) : Promise.resolve([]),
-    loadProfiles(input.organizationId),
+    getMemberDisplayNames(input.organizationId),
   ])
   const functionsByMembership = await loadFunctions(memberships.map((membership) => membership.id))
   const members: TeamMemberView[] = memberships.map((membership) => ({
     membershipId: membership.id,
     userId: membership.userId,
-    displayName: profileCache.get(membership.userId) ?? 'Participante',
+    displayName: names[membership.userId] ?? 'Participante',
     role: membership.role,
     displayStatus: membership.status,
     musicalFunctions: functionsByMembership.get(membership.id) ?? [],

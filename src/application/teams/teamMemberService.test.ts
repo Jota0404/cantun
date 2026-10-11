@@ -13,7 +13,7 @@ vi.mock('../organizations/organizationInviteService', () => ({ listOrganizationI
 import { SalmodiaDatabase } from '../../db/database'
 import { TeamMembershipRepository } from '../../db/repositories/teamRepository'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
-import { getMyAccessContext, demoteToMember, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName } from './teamMemberService'
+import { getMemberDisplayNames, getMyAccessContext, demoteToMember, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName } from './teamMemberService'
 
 const db = new SalmodiaDatabase()
 const repository = new TeamMembershipRepository(db)
@@ -98,5 +98,23 @@ describe('team member use cases', () => {
     })
     currentUser.value = null
     await expect(getMyAccessContext({ organizationId: 'org-1' })).resolves.toEqual({ organizationRole: null })
+  })
+  it('persists names in Dexie and serves them when the RPC fails (offline)', async () => {
+    const { db: appDb } = await import('../../db/database')
+    await appDb.memberProfiles.clear()
+    rpc.mockResolvedValueOnce([{ user_id: 'u-9', display_name: 'Caio' }])
+    expect(await getMemberDisplayNames('org-9')).toEqual({ 'u-9': 'Caio' })
+    expect((await appDb.targetSyncQueue.toArray()).length).toBe(0)
+
+    rpc.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    expect(await getMemberDisplayNames('org-9')).toEqual({ 'u-9': 'Caio' })
+    expect(await getMemberDisplayNames('org-other')).toEqual({})
+
+    // Mesma pessoa em duas organizações: nenhuma sobrescreve a outra.
+    rpc.mockResolvedValueOnce([{ user_id: 'u-9', display_name: 'Caio' }])
+    await getMemberDisplayNames('org-b')
+    rpc.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect(await getMemberDisplayNames('org-9')).toEqual({ 'u-9': 'Caio' })
+    expect(await getMemberDisplayNames('org-b')).toEqual({ 'u-9': 'Caio' })
   })
 })
