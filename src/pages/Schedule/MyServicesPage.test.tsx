@@ -7,11 +7,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MyServicesPage } from './MyServicesPage'
 
 const m = vi.hoisted(() => ({
-  mine: [] as unknown[], days: [] as unknown[],
+  mine: [] as unknown[], days: [] as unknown[], orgs: [{ id: 'o1', name: 'Igreja Esperança' }] as unknown[],
   confirmAssignment: vi.fn(), declineAssignment: vi.fn(), requestReplacement: vi.fn(), setMyAvailability: vi.fn(), clearMyAvailability: vi.fn(),
 }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
+vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => m.orgs }))
 vi.mock('../../application/services/scheduleService', () => ({
   listMyUpcomingAssignments: async () => m.mine, listMyAvailability: async () => m.days,
   confirmAssignment: m.confirmAssignment, declineAssignment: m.declineAssignment, requestReplacement: m.requestReplacement,
@@ -68,5 +69,18 @@ describe('MyServicesPage', () => {
     m.mine = []
     render(<MemoryRouter><MyServicesPage /></MemoryRouter>)
     expect(await screen.findByText('Você não está escalado em nenhum serviço próximo.')).toBeInTheDocument()
+  })
+
+  it('lets someone not yet scheduled inform availability, choosing the organization', async () => {
+    const user = userEvent.setup()
+    m.mine = []
+    m.orgs = [{ id: 'o1', name: 'Igreja Esperança' }, { id: 'o2', name: 'Casa de Oração' }]
+    render(<MemoryRouter><MyServicesPage /></MemoryRouter>)
+    const form = await screen.findByRole('form', { name: 'Informar disponibilidade' })
+    await user.selectOptions(within(form).getByLabelText('Organização'), 'o2')
+    await user.type(within(form).getByLabelText('Data'), '2026-10-25')
+    await user.click(within(form).getByRole('button', { name: 'Salvar disponibilidade' }))
+    expect(m.setMyAvailability).toHaveBeenCalledWith({ organizationId: 'o2', date: '2026-10-25', status: 'unavailable', note: undefined })
+    m.orgs = [{ id: 'o1', name: 'Igreja Esperança' }]
   })
 })

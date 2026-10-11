@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
+import { listMyOrganizations } from '../../application/organizations/organizationService'
+import type { Organization } from '../../domain/organizations/organization'
 import {
   clearMyAvailability, confirmAssignment, declineAssignment, listMyAvailability, listMyUpcomingAssignments, requestReplacement, setMyAvailability,
   type MyUpcomingAssignment,
@@ -21,6 +23,7 @@ export function MyServicesPage() {
   const online = useOnline()
   const [upcoming, setUpcoming] = useState<MyUpcomingAssignment[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [availability, setAvailability] = useState<MemberAvailability[]>([])
   const [organizationId, setOrganizationId] = useState('')
   const [date, setDate] = useState('')
@@ -31,18 +34,18 @@ export function MyServicesPage() {
   const [error, setError] = useState('')
 
   const userId = user?.id ?? ''
-  const organizationIds = [...new Set(upcoming.map((item) => item.service.organizationId))]
-  const activeOrganizationId = organizationId || organizationIds[0] || ''
+  const activeOrganizationId = organizationId || organizations[0]?.id || ''
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const mine = await listMyUpcomingAssignments()
-        const orgId = mine[0]?.service.organizationId
+        const [mine, orgs] = await Promise.all([listMyUpcomingAssignments(), listMyOrganizations()])
+        const orgId = organizationId || orgs[0]?.id
         const days = orgId ? await listMyAvailability(orgId) : []
         if (cancelled) return
         setUpcoming(mine)
+        setOrganizations(orgs)
         setAvailability(days)
         setLoaded(true)
       } catch (err) {
@@ -52,7 +55,7 @@ export function MyServicesPage() {
     void load()
     const unsubscribe = onRemoteDataApplied(() => { void load() })
     return () => { cancelled = true; unsubscribe() }
-  }, [reloadKey, userId])
+  }, [reloadKey, userId, organizationId])
 
   async function run(action: () => Promise<Result | void>, needsOnline: boolean) {
     setError('')
@@ -117,11 +120,11 @@ export function MyServicesPage() {
 
       <section aria-labelledby="my-availability-title">
         <h3 id="my-availability-title">Minha disponibilidade</h3>
-        {!activeOrganizationId ? <p>A disponibilidade fica disponível quando você for escalado em um serviço.</p> : <>
+        {!activeOrganizationId ? <p>Você ainda não participa de nenhuma organização.</p> : <>
           <form className="my-services__form" onSubmit={(event) => void saveAvailability(event)} aria-label="Informar disponibilidade">
-            {organizationIds.length > 1 && <label>Organização
+            {organizations.length > 1 && <label>Organização
               <select value={activeOrganizationId} onChange={(event) => setOrganizationId(event.target.value)}>
-                {organizationIds.map((id, index) => <option key={id} value={id}>Organização {index + 1}</option>)}
+                {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
               </select>
             </label>}
             <label>Data<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>

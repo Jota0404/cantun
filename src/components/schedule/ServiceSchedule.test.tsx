@@ -121,4 +121,15 @@ describe('ServiceSchedule', () => {
     expect(screen.getByRole('button', { name: 'Convidar para Voz' })).toBeDisabled()
     expect(screen.getByRole('button', { name: /Confirmar de Você/ })).toBeDisabled()
   })
+
+  it('deletes a position that only has declined people, after confirming', async () => {
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    m.assignments = [assignment('a1', 'ana', 'declined')]
+    setup(manager)
+    await user.click(await screen.findByRole('button', { name: 'Excluir vaga de Voz' }))
+    expect(confirm).toHaveBeenCalledWith('Excluir vaga? O histórico de recusas desta vaga será apagado.')
+    expect(m.removePosition).toHaveBeenCalledWith('p1')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })
