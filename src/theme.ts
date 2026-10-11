@@ -12,8 +12,14 @@ export function getInitialTheme(): Theme {
   }
 }
 
+/** Só aplica o tema no documento (a carga inicial não grava: "sem escolha salva" continua distinguível). */
 export function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme
+}
+
+/** Escolha do usuário: aplica e salva. */
+export function saveTheme(theme: Theme) {
+  applyTheme(theme)
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   } catch {

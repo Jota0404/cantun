@@ -6,10 +6,6 @@ import './index.css'
 import './cantum-theme.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext.tsx'
-import { applyTheme, getInitialTheme } from './theme'
-
-// Antes do primeiro render, para o tema salvo não piscar.
-applyTheme(getInitialTheme())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { applyTheme, getInitialTheme } from './theme'
+import { applyTheme, getInitialTheme, saveTheme } from './theme'
 
 // O Node recente expõe um `localStorage` próprio que atrapalha o do jsdom: usa um armazenamento em memória.
 const data = new Map<string, string>()
@@ -28,8 +28,14 @@ describe('theme', () => {
     expect(getInitialTheme()).toBe('dark')
   })
 
-  it('applies and persists the theme', () => {
+  it('applying does not save: "no saved choice" stays distinguishable', () => {
     applyTheme('light')
+    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(window.localStorage.getItem('cantum-theme')).toBeNull()
+  })
+
+  it('saving applies and persists the user choice', () => {
+    saveTheme('light')
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(window.localStorage.getItem('cantum-theme')).toBe('light')
   })

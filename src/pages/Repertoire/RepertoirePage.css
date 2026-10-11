@@ -33,7 +33,7 @@
 
 .repertoire-create {
   padding: 16px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
 }
 
@@ -48,7 +48,7 @@
   flex: 1;
   box-sizing: border-box;
   padding: 12px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border-control);
   border-radius: 8px;
   font: inherit;
 }
@@ -65,9 +65,9 @@
   justify-content: space-between;
   gap: 16px;
   padding: 16px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .repertoire-card > div:first-child {
@@ -100,7 +100,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border-control);
   border-radius: 50%;
 }
 
@@ -113,14 +113,14 @@
 
 .repertoire-empty {
   padding: 28px 16px;
-  border: 1px dashed #ccc;
+  border: 1px dashed var(--color-border-control);
   border-radius: 8px;
   text-align: center;
 }
 
 .repertoire-error {
   margin: 0;
-  color: #b42318;
+  color: var(--color-danger);
 }
 
 @media (max-width: 720px) {

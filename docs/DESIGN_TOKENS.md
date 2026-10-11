@@ -23,6 +23,7 @@
 | `--color-danger`, `--color-warning`, `--color-success`, `--color-info` | estados; sempre com texto, os de atenção também com ícone ou forma (RN-12) |
 | `--color-danger-surface`, `--color-success-surface` | fundo de mensagens de erro e sucesso |
 | `--color-focus` | anel de foco (≥ 3:1 sobre o fundo e as superfícies) |
+| `--color-overlay` | fundo escurecido atrás de diálogos |
 | `--shadow-soft` | sombra de cartões |
 
 ## Escalas (iguais nos dois temas)
