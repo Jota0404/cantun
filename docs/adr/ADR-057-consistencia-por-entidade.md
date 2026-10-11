@@ -1,6 +1,6 @@
 # ADR-057 — Política de consistência por entidade
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-10-11)
 - **Data:** 2026-10-11
 - **Decisor:** Jota (owner)
 - **Escopo:** Sync / escrita offline / autoridade do servidor

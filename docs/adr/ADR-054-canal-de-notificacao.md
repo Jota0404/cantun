@@ -1,6 +1,6 @@
 # ADR-054 — Canal de notificação da escala
 
-- **Status:** Proposed (proposta curta)
+- **Status:** Accepted (owner, 2026-10-11; sem lembrete automático no primeiro corte)
 - **Data:** 2026-10-11
 - **Decisor:** Jota (owner)
 - **Escopo:** Comunicação operacional (Blueprint §54)

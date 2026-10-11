@@ -1,6 +1,6 @@
 # ADR-053 — Vagas e atribuições da escala
 
-- **Status:** Proposed
+- **Status:** Accepted (owner, 2026-10-11)
 - **Data:** 2026-10-11
 - **Decisor:** Jota (owner)
 - **Escopo:** Escala / ServicePosition / Assignment
