@@ -19,7 +19,7 @@ const dist = fileURLToPath(new URL('../../dist', import.meta.url))
 const staticRoot = existsSync(`${dist}/index.html`) ? dist : undefined
 
 const pool = createPool(process.env.DATABASE_URL ? { connectionString: process.env.DATABASE_URL } : {})
-const app = await buildApp({ pool, appOrigin, mailer, staticRoot, trustProxy: process.env.TRUST_PROXY === 'true' })
+const app = await buildApp({ pool, appOrigin, mailer, staticRoot, trustProxy: Number(process.env.TRUST_PROXY) || 0 })
 // Sem este listener, uma conexão ociosa que cai derruba o processo.
 pool.on('error', (error) => app.log.error({ err: { message: error.message } }, 'conexão ociosa do pool falhou'))
 

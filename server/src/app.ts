@@ -28,18 +28,31 @@ export interface AppOptions {
   realtime?: Partial<RealtimeOptions>
   /** Pasta com o build do front (`dist/`): servida na mesma origem da API, com fallback de SPA. */
   staticRoot?: string
-  /** Atrás de proxy (ex.: Render): IP do cliente vem do X-Forwarded-For, para o rate limit por IP. */
-  trustProxy?: boolean
+  /**
+   * Saltos de proxy confiáveis (ex.: 1 no Render). O IP do cliente é o do X-Forwarded-For
+   * contado a partir do fim; valores anteriores, que o cliente pode forjar, são ignorados.
+   */
+  trustProxy?: number
 }
 
-// Prefixos da API: nunca caem no fallback de SPA.
-const API_PREFIX = /^\/(auth|rpc|sync|realtime|health)(\/|\?|$)/
+// Rotas que consultam a sessão no banco.
+const SESSION_PREFIX = /^\/(auth|rpc|sync|realtime|health)(\/|\?|$)/
+// Nunca caem no fallback de SPA. `/auth/*` fica de fora: os links dos e-mails
+// (`/auth/verify-email?token=…`) são telas do front; as rotas reais de `/auth` respondem antes.
+const API_PREFIX = /^\/(rpc|sync|realtime|health)(\/|\?|$)/
 
-export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime, staticRoot, trustProxy = false }: AppOptions) {
-  const app = Fastify({
-    trustProxy,
-    logger: logger === true ? { redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] } : logger,
-  })
+const LOG_REDACT = ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]']
+// Sem query string no log: os links de e-mail levam o token nela.
+const LOG_SERIALIZERS = {
+  req: (req: { method: string; url: string; ip: string }) => ({ method: req.method, url: req.url.split('?')[0], remoteAddress: req.ip }),
+}
+
+export async function buildApp({ pool, appOrigin, mailer, logger = true, realtime, staticRoot, trustProxy = 0 }: AppOptions) {
+  const loggerOptions: FastifyServerOptions['logger'] =
+    logger === false ? false : { redact: LOG_REDACT, serializers: LOG_SERIALIZERS, ...(logger === true ? {} : logger) }
+  // Confia nos `trustProxy` saltos mais próximos (o que o proxy-addr faz com um número;
+  // os tipos do Fastify só aceitam a função).
+  const app = Fastify({ trustProxy: (_address: string, hop: number) => hop < trustProxy, logger: loggerOptions })
   const catalog = await loadCatalog(pool)
 
   await app.register(cookie)
@@ -55,7 +68,7 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
       throw new HttpError(403, 'origem não permitida')
     }
     // Arquivos do front não consultam a sessão no banco.
-    if (API_PREFIX.test(request.url)) request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
+    if (SESSION_PREFIX.test(request.url)) request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
   })
 
   app.setErrorHandler((error, request, reply) => {
@@ -82,15 +95,17 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
       // Arquivos com hash do Vite ficam em cache; o resto (index.html, sw.js, manifest) sempre revalida.
       setHeaders: (res, path) => res.header('cache-control', /[\\/]assets[\\/]/.test(path) ? 'public, max-age=31536000, immutable' : 'no-cache'),
     })
-    app.setNotFoundHandler((request, reply) => {
-      // Arquivo inexistente (com extensão) dá 404, não o index.html no lugar de um .js.
-      const path = request.url.split('?')[0]
-      if (request.method !== 'GET' || API_PREFIX.test(path) || /\.[a-z0-9]+$/i.test(path)) {
-        return reply.code(404).send({ error: 'não encontrado' })
-      }
-      return reply.header('cache-control', 'no-cache').sendFile('index.html')
-    })
   }
+  // Handler próprio mesmo sem front: o padrão do Fastify loga "Route GET:/x?token=… not found", com a query.
+  app.setNotFoundHandler((request, reply) => {
+    // Arquivo inexistente (com extensão) dá 404, não o index.html no lugar de um .js.
+    const path = request.url.split('?')[0]
+    if (!staticRoot || request.method !== 'GET' || API_PREFIX.test(path) || /\.[a-z0-9]+$/i.test(path)) {
+      return reply.code(404).send({ error: 'não encontrado' })
+    }
+    return reply.header('cache-control', 'no-cache').sendFile('index.html')
+  })
+
 
   return app
 }

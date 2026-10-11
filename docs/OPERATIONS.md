@@ -56,7 +56,7 @@ Sem domínio próprio, alguns provedores podem mandar esses e-mails para o spam.
 5. Clique em **Apply** (ou **Deploy Blueprint**).
 
 As demais variáveis já vêm do `render.yaml` e não precisam de mudança:
-- `NODE_ENV=production`, `NODE_VERSION=24`, `HOST=0.0.0.0` e `TRUST_PROXY=true`;
+- `NODE_ENV=production`, `NODE_VERSION=24`, `HOST=0.0.0.0` e `TRUST_PROXY=1` (confira no passo 4 da seção 5);
 - `APP_ORIGIN` e `VITE_API_URL`: se ficarem vazias, valem a URL do próprio serviço (`RENDER_EXTERNAL_URL`), que é o certo neste caso.
 
 ## 5. Primeiro deploy e conferência
@@ -67,6 +67,12 @@ As demais variáveis já vêm do `render.yaml` e não precisam de mudança:
    - `https://<sua-url>/health` mostra `{"ok":true}`;
    - criar uma conta funciona e o e-mail de confirmação chega (olhe o spam);
    - o link do e-mail abre o CANTUM e confirma a conta.
+4. **Confira o IP visto pelo servidor** (uma vez, no primeiro deploy). Esse IP é o que conta para o limite de tentativas de login, e um ajuste errado deixa esse limite burlável.
+   1. Descubra o seu IP público: abra <https://api.ipify.org> no mesmo aparelho.
+   2. Abra `https://<sua-url>/health`.
+   3. Em **Logs**, procure a linha mais recente com `"url":"/health"`. Ao lado, aparece `"remoteAddress"`.
+   4. Se for o seu IP público, está certo: deixe `TRUST_PROXY=1`.
+   5. Se aparecer um endereço interno (começando com `10.`, `172.` ou `192.168.`), há mais um proxy na frente: troque para `TRUST_PROXY=2` em **Environment** e repita. Nunca use um número maior que o necessário.
 
 ## 6. Logs
 
@@ -140,7 +146,7 @@ O número de contas tem de bater com o do app. Anote a data do teste.
 
 ## 9. Atualizações
 
-- **Automático:** todo push (ou merge de PR) na `main` dispara um novo deploy. As migrations novas rodam sozinhas na subida, antes do servidor aceitar acessos.
+- **Automático:** todo push (ou merge de PR) na branch padrão do repositório (`main`) dispara um novo deploy. As migrations novas rodam sozinhas na subida, antes do servidor aceitar acessos.
 - **Desfazer um deploy ruim:** no serviço, **Events → (deploy anterior) → Rollback**. Atenção: o rollback volta o código, mas **não** desfaz migrations já aplicadas no banco. Se a falha for no banco, restaure pelo Neon (8.1) e abra uma issue.
 - **Pausar os deploys automáticos:** **Settings → Build & Deploy → Auto-Deploy → Off**.
 

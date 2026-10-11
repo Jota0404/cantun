@@ -340,7 +340,14 @@ describe('deploy (ADR-060)', () => {
       assert.equal(route.statusCode, 200)
       assert.match(route.body, /CANTUM/)
 
-      for (const url of ['/auth/inexistente', '/rpc/x', '/realtime/x', '/health/x', '/assets/sumiu.js']) {
+      // Links dos e-mails e telas de /auth são do front.
+      for (const url of ['/auth', '/auth/verify-email?token=x', '/auth/reset-password?token=x', '/auth/forgot-password']) {
+        const response = await web.inject({ method: 'GET', url })
+        assert.equal(response.statusCode, 200, url)
+        assert.match(response.body, /CANTUM/, url)
+      }
+
+      for (const url of ['/rpc/x', '/realtime/x', '/health/x', '/sync', '/assets/sumiu.js']) {
         const response = await web.inject({ method: 'GET', url })
         assert.equal(response.statusCode, 404, url)
         assert.doesNotMatch(response.body, /CANTUM/, url)
@@ -374,5 +381,46 @@ describe('deploy (ADR-060)', () => {
       failing.send({ to: 'ana@teste.local', purpose: 'reset_password', link: 'https://app.exemplo/x?token=abc' }),
       (error: Error) => /HTTP 401/.test(error.message) && !error.message.includes('chave-secreta') && !error.message.includes('token=abc'),
     )
+  })
+
+  test('TRUST_PROXY por saltos: X-Forwarded-For forjado não muda o IP nem burla o rate limit', async () => {
+    const proxied = await buildApp({ pool, appOrigin: ORIGIN, logger: false, trustProxy: 1 })
+    proxied.get('/eco-ip', async (request) => ({ ip: request.ip }))
+    const direct = await buildApp({ pool, appOrigin: ORIGIN, logger: false })
+    direct.get('/eco-ip', async (request) => ({ ip: request.ip }))
+    try {
+      // O proxy (Render) acrescenta o IP real no fim; o começo vem do cliente.
+      const forged = (fake: string) => ({ 'x-forwarded-for': `${fake}, 203.0.113.9` })
+      for (const fake of ['6.6.6.6', '7.7.7.7']) {
+        assert.equal((await proxied.inject({ method: 'GET', url: '/eco-ip', headers: forged(fake) })).json().ip, '203.0.113.9')
+      }
+      assert.equal((await direct.inject({ method: 'GET', url: '/eco-ip', headers: forged('6.6.6.6') })).json().ip, '127.0.0.1')
+
+      // 10 por minuto nas rotas de auth: trocar o IP forjado não abre cota nova.
+      for (let i = 0; i < 10; i++) {
+        const response = await proxied.inject({ method: 'POST', url: '/auth/verify-email', headers: forged(`10.0.0.${i}`), payload: { token: 'x'.repeat(30) } })
+        assert.equal(response.statusCode, 400)
+      }
+      const blocked = await proxied.inject({ method: 'POST', url: '/auth/verify-email', headers: forged('10.0.0.99'), payload: { token: 'x'.repeat(30) } })
+      assert.equal(blocked.statusCode, 429)
+    } finally {
+      await proxied.close()
+      await direct.close()
+    }
+  })
+
+  test('log de requisição sem query string (tokens dos links de e-mail)', async () => {
+    const lines: string[] = []
+    const logged = await buildApp({ pool, appOrigin: ORIGIN, logger: { level: 'info', stream: { write: (line: string) => void lines.push(line) } } })
+    try {
+      await logged.inject({ method: 'GET', url: '/auth/verify-email?token=segredo-do-link-123' }) // 404 sem front
+      await logged.inject({ method: 'GET', url: '/health?token=segredo-do-link-123', headers: { cookie: 'cantum_session=segredo-do-cookie' } })
+      const all = lines.join('')
+      assert.match(all, /"url":"\/auth\/verify-email"/)
+      assert.match(all, /"url":"\/health"/)
+      assert.doesNotMatch(all, /segredo-do-link|segredo-do-cookie/)
+    } finally {
+      await logged.close()
+    }
   })
 })

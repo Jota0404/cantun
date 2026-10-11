@@ -6,8 +6,6 @@ services:
     runtime: node
     plan: free
     region: virginia
-    branch: main
-    autoDeployTrigger: commit
     healthCheckPath: /health
     # NODE_ENV=production vale também no build: --include=dev traz Vite e TypeScript.
     # O front chama a API na própria URL do serviço (RENDER_EXTERNAL_URL, definida pelo Render).
@@ -30,9 +28,10 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
-      # Atrás do proxy do Render: rate limit por IP do cliente, não do proxy.
+      # Saltos de proxy na frente do servidor (o do Render). Confira no primeiro deploy:
+      # docs/OPERATIONS.md, seção 5.
       - key: TRUST_PROXY
-        value: "true"
+        value: "1"
       # Secretas: o Render pede o valor na criação; nunca vão para o Git (ADR-050).
       - key: DATABASE_URL
         sync: false
