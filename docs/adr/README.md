@@ -58,6 +58,7 @@
 | [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted |
 | [ADR-059](ADR-059-own-backend-now.md) | Saída completa do Supabase: PostgreSQL + backend próprio em Node.js | Accepted |
 | [ADR-052](ADR-052-service-operacional.md) | Service operacional (equipe, estados, itens genéricos) | Accepted |
+| [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
 
 ## Números reservados
 
@@ -71,4 +72,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 | 056 | Materiais e storage | B6 |
 | 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
 
-Próximo número livre: **ADR-060** (053–057 estão reservados).
+Próximo número livre: **ADR-061** (053–057 estão reservados).
