@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # CANTUM — aplica as migrations de db/migrations ainda não registradas (ADR-059).
 #
-# Uso: scripts/db/migrate.sh <banco>
+# Uso: scripts/db/migrate.sh <banco> [ate_versao]
+#   [ate_versao] (ex.: 0005) aplica só até essa migration; usado pelos testes de atualização.
 #   <banco> é o nome do banco ou uma connection string. A conexão usa as
 #   variáveis PG* padrão (PGHOST, PGPORT, PGUSER, PGPASSWORD). Nunca imprime a
 #   connection string.
@@ -11,7 +12,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DB="${1:?uso: scripts/db/migrate.sh <banco>}"
+DB="${1:?uso: scripts/db/migrate.sh <banco> [ate_versao]}"
+UNTIL="${2:-}"
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 -d "$DB")
 
 "${PSQL[@]}" -c "set client_min_messages = warning" -c "create schema if not exists app" \
@@ -21,6 +23,7 @@ applied="$("${PSQL[@]}" -tA -c "select version from app.schema_migrations")"
 
 for file in "$ROOT"/db/migrations/*.sql; do
   version="$(basename "$file" .sql)"
+  if [ -n "$UNTIL" ] && [[ "${version%%_*}" > "$UNTIL" ]]; then break; fi
   if grep -qx "$version" <<<"$applied"; then
     continue
   fi

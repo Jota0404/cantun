@@ -7,11 +7,14 @@ import type { Repertoire } from '../domain/repertoires/repertoire'
 import type { RepertoireItem } from '../domain/repertoires/repertoireItem'
 import type { Service } from '../domain/services/service'
 import type { ServiceItem } from '../domain/services/serviceItem'
-import type { Assignment } from '../domain/services/assignment'
+import { toAssignment, type Assignment } from '../domain/services/assignment'
+import type { ServicePosition } from '../domain/services/servicePosition'
+import type { MemberAvailability } from '../domain/services/memberAvailability'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
 import { rpc } from '../platform/rpc'
+import { ApiError } from '../platform/http'
 import { notifyRemoteDataApplied } from './remoteChanges'
 import { deleteRows, selectRows, updateRows, upsertRows } from '../platform/sync'
 import type { SalmodiaDatabase } from '../db/database'
@@ -27,6 +30,8 @@ export type TargetEntityName =
   | 'services'
   | 'serviceItems'
   | 'assignments'
+  | 'servicePositions'
+  | 'memberAvailability'
   | 'stageSessions'
   | 'stageSessionStates'
 
@@ -41,12 +46,17 @@ export type TargetEntity =
   | Service
   | ServiceItem
   | Assignment
+  | ServicePosition
+  | MemberAvailability
   | StageSession
   | StageSessionState
 
 // Sessão e estado do Palco só mudam por RPC (`create_target_stage_session`, `target_stage_*`);
 // o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull.
-const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates'] as const
+// Têm `unique` por conteúdo no banco, com id gerado no cliente: 409 no push = outro aparelho criou o mesmo.
+const UNIQUE_BY_CONTENT: readonly TargetEntityName[] = ['servicePositions', 'memberAvailability']
+
+const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates', 'assignments'] as const
 
 export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
 
@@ -60,7 +70,8 @@ export type TargetWritableEntity =
   | RepertoireItem
   | Service
   | ServiceItem
-  | Assignment
+  | ServicePosition
+  | MemberAvailability
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -83,6 +94,8 @@ const tables: Record<TargetEntityName, string> = {
   services: 'services',
   serviceItems: 'service_items',
   assignments: 'assignments',
+  servicePositions: 'service_positions',
+  memberAvailability: 'member_availability',
   stageSessions: 'stage_sessions',
   stageSessionStates: 'stage_session_states',
 }
@@ -127,9 +140,13 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
       const v = value as ServiceItem
       return { id: v.id, service_id: v.serviceId, type: v.type, song_id: v.songId ?? null, title: v.title ?? null, notes: v.notes ?? null, duration_minutes: v.durationMinutes ?? null, position: v.position, repertoire_id: v.repertoireId ?? null, updated_at: v.updatedAt }
     }
-    case 'assignments': {
-      const v = value as Assignment
-      return { id: v.id, service_id: v.serviceId, user_id: v.userId, musical_function: v.musicalFunction, service_item_id: v.serviceItemId ?? null, status: v.status, created_at: v.createdAt, updated_at: v.updatedAt }
+    case 'servicePositions': {
+      const v = value as ServicePosition
+      return { id: v.id, service_id: v.serviceId, musical_function: v.musicalFunction, quantity: v.quantity, notes: v.notes ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
+    }
+    case 'memberAvailability': {
+      const v = value as MemberAvailability
+      return { id: v.id, user_id: v.userId, organization_id: v.organizationId, date: v.date, status: v.status, note: v.note ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
     }
   }
 }
@@ -145,7 +162,9 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'repertoireItems': return { id: String(row.id), repertoireId: String(row.repertoire_id), songId: String(row.song_id), position: Number(row.position), updatedAt: String(row.updated_at) }
     case 'services': return { id: String(row.id), organizationId: String(row.organization_id), teamId: row.team_id ? String(row.team_id) : null, name: String(row.name), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), type: (row.type ?? 'song') as ServiceItem['type'], songId: row.song_id ? String(row.song_id) : undefined, title: row.title ? String(row.title) : undefined, notes: row.notes ? String(row.notes) : undefined, durationMinutes: row.duration_minutes == null ? undefined : Number(row.duration_minutes), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, updatedAt: String(row.updated_at) }
-    case 'assignments': return { id: String(row.id), serviceId: String(row.service_id), userId: String(row.user_id), musicalFunction: String(row.musical_function), serviceItemId: row.service_item_id ? String(row.service_item_id) : undefined, status: row.status as Assignment['status'], createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
+    case 'assignments': return toAssignment(row)
+    case 'servicePositions': return { id: String(row.id), serviceId: String(row.service_id), musicalFunction: String(row.musical_function), quantity: Number(row.quantity), notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
+    case 'memberAvailability': return { id: String(row.id), userId: String(row.user_id), organizationId: String(row.organization_id), date: String(row.date).slice(0, 10), status: row.status as MemberAvailability['status'], note: row.note ? String(row.note) : undefined, createdAt: String(row.created_at ?? row.updated_at), updatedAt: String(row.updated_at) }
     case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
   }
@@ -163,6 +182,8 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
     services: db.services,
     serviceItems: db.serviceItems,
     assignments: db.assignments,
+    servicePositions: db.servicePositions,
+    memberAvailability: db.memberAvailability,
     stageSessions: db.stageSessions,
     stageSessionStates: db.stageSessionStates,
   }
@@ -245,8 +266,16 @@ export class TargetSyncEngine {
             await upsertRows(table, [toRemoteRow(item.entity, item.payload!)])
           }
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
-        } catch {
-          if (item.id !== undefined) await this.db.targetSyncQueue.update(item.id, { attempts: item.attempts + 1 })
+        } catch (error) {
+          if (item.id === undefined) continue
+          // Unicidade violada por outro aparelho (mesma função no serviço / mesmo dia): o servidor vence.
+          // Descarta o item e o registro local órfão; o próximo pull traz o equivalente.
+          if (error instanceof ApiError && error.status === 409 && item.operation === 'upsert' && UNIQUE_BY_CONTENT.includes(item.entity)) {
+            await this.db.targetSyncQueue.delete(item.id)
+            await localTable(this.db, item.entity).delete(item.entityId)
+            continue
+          }
+          await this.db.targetSyncQueue.update(item.id, { attempts: item.attempts + 1 })
         }
       }
 
@@ -264,6 +293,11 @@ export class TargetSyncEngine {
             const remote = value as Service
             const local = await this.db.services.get(remote.id)
             await this.db.services.put(local && local.updatedAt > remote.updatedAt ? { ...local, status: remote.status } : remote)
+            continue
+          }
+          if (entity === 'assignments') {
+            // Autoridade do servidor (ADR-057): sobrescreve sem LWW.
+            await table.put(value as never)
             continue
           }
           if (entity === 'teamMemberships') {

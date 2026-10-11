@@ -13,6 +13,7 @@ import { createPool } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
 import { brevoMailer } from './mailer.ts'
+import { inviteHook } from './schedule.ts'
 import { migrate } from './migrate.ts'
 
 const DB = 'cantum_server_test'
@@ -301,6 +302,184 @@ describe('dados sob RLS', () => {
     const invalid = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie: ana }, payload: { p_service_id: serviceId, p_to: 'completed' } })
     assert.equal(invalid.statusCode, 400)
     assert.equal(invalid.json().error, 'invalid service transition')
+  })
+})
+
+describe('escala (ADR-053, ADR-054)', () => {
+  test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
+    const ip = { remoteAddress: '10.0.0.91' }
+    const join = async (email: string, displayName: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { email, password: 'senha-forte-123', displayName } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const lia = await join('lia.escala@teste.local', 'Lia')
+    const mauro = await join('mauro.escala@teste.local', 'Mauro')
+    const call = (user: { cookie: string }, name: string, payload: object) =>
+      app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+
+    const orgId = crypto.randomUUID()
+    const teamId = crypto.randomUUID()
+    const serviceId = crypto.randomUUID()
+    const positionId = crypto.randomUUID()
+    assert.equal((await call(lia, 'create_organization', { p_id: orgId, p_name: 'Igreja da Lia' })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: lia.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, mauro.id])
+    await pool.query('insert into public.team_memberships (team_id, user_id) values ($1, $2)', [teamId, mauro.id])
+    const service = { id: serviceId, organization_id: orgId, team_id: teamId, name: 'Culto de domingo', starts_at: '2026-12-06T13:00:00Z', created_by_user_id: lia.id }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: lia.cookie }, payload: { rows: [service] } })).statusCode, 200)
+    const position = await app.inject({ method: 'POST', url: '/sync/service_positions', headers: { cookie: lia.cookie }, payload: { rows: [{ id: positionId, service_id: serviceId, musical_function: 'vocals', quantity: 2 }] } })
+    assert.equal(position.statusCode, 200, position.body)
+
+    const assigned = await call(lia, 'assign_member', { p_position_id: positionId, p_user_id: mauro.id })
+    assert.equal(assigned.statusCode, 200, assigned.body)
+    assert.equal(assigned.json().status, 'invited')
+    const assignmentId = assigned.json().id as string
+
+    // Escrita direta em assignments, pelo /sync, é negada para qualquer papel.
+    for (const user of [lia, mauro]) {
+      const write = await app.inject({ method: 'POST', url: '/sync/assignments', headers: { cookie: user.cookie }, payload: { rows: [{ id: assignmentId, status: 'confirmed' }] } })
+      assert.equal(write.statusCode, 403, write.body)
+    }
+    // A função que devolve o e-mail do convidado não está na allowlist do /rpc.
+    assert.equal((await call(lia, 'assignment_invite_mail', { p_assignment_id: assignmentId })).statusCode, 404)
+
+    const resend = () => app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { cookie: lia.cookie, origin: ORIGIN } })
+    const invites = () => mails.filter((m) => m.purpose === 'assignment_invite')
+    // Rascunho: o convite não sai (nem automático, nem reenvio) até o serviço passar de draft.
+    assert.equal(invites().length, 0)
+    assert.equal((await resend()).statusCode, 400)
+
+    // Ao sair de draft, o convite pendente sai sozinho, uma vez (gancho pós-RPC).
+    assert.equal((await call(lia, 'transition_service', { p_service_id: serviceId, p_to: 'ready' })).statusCode, 200)
+    assert.equal(invites().length, 1)
+    assert.equal(invites()[0].to, 'mauro.escala@teste.local')
+    assert.equal((await call(lia, 'transition_service', { p_service_id: serviceId, p_to: 'draft' })).statusCode, 200)
+    assert.equal((await call(lia, 'transition_service', { p_service_id: serviceId, p_to: 'ready' })).statusCode, 200)
+    assert.equal(invites().length, 1, 'voltar a ready não duplica o convite')
+
+    // Atribuir com o serviço já fora de draft envia na hora.
+    const second = await call(lia, 'assign_member', { p_position_id: positionId, p_user_id: lia.id })
+    assert.equal(second.statusCode, 200, second.body)
+    assert.equal(invites().length, 2)
+    assert.equal(invites()[1].to, 'lia.escala@teste.local')
+
+    // Reenvio manual: dentro do minuto do envio automático, 429; liberado o intervalo, 204 e mais um e-mail.
+    assert.equal((await resend()).statusCode, 429)
+    await pool.query('update public.assignments set invite_sent_at = null where id = $1', [assignmentId])
+    const before = mails.length
+    assert.equal((await resend()).statusCode, 204)
+    assert.equal(mails.length, before + 1)
+    const mail = mails.at(-1)
+    assert.equal(mail?.to, 'mauro.escala@teste.local')
+    assert.equal(mail?.purpose, 'assignment_invite')
+    assert.equal(mail?.link, `${ORIGIN}/meus-servicos`)
+    assert.deepEqual({ ...mail?.invite, startsAt: undefined }, { name: 'Mauro', musicalFunction: 'vocals', service: 'Culto de domingo', startsAt: undefined })
+    assert.equal(mail?.invite?.startsAt.toISOString(), '2026-12-06T13:00:00.000Z')
+
+    assert.equal((await resend()).statusCode, 429) // no máximo um por minuto
+    const asMember = await app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { cookie: mauro.cookie, origin: ORIGIN } })
+    assert.equal(asMember.statusCode, 400)
+    assert.equal(asMember.json().error, 'assignment not found or not authorized')
+    assert.equal((await app.inject({ method: 'POST', url: `/schedule/assignments/${assignmentId}/resend-invite`, headers: { origin: ORIGIN } })).statusCode, 401)
+    assert.equal((await app.inject({ method: 'POST', url: '/schedule/assignments/nao-e-uuid/resend-invite', headers: { cookie: lia.cookie, origin: ORIGIN } })).statusCode, 400)
+
+    // O titular responde pela RPC; depois disso não há mais convite pendente para reenviar.
+    const confirmed = await call(mauro, 'respond_to_assignment', { p_assignment_id: assignmentId, p_response: 'confirm' })
+    assert.equal(confirmed.json().status, 'confirmed')
+    await pool.query(`update public.assignments set invite_sent_at = null where id = $1`, [assignmentId])
+    assert.equal((await resend()).statusCode, 400)
+
+    // Substituir convida o substituto na hora (replace_assignment também dispara o convite).
+    const novo = await join('novo.escala@teste.local', 'Novo')
+    await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, novo.id])
+    await pool.query('insert into public.team_memberships (team_id, user_id) values ($1, $2)', [teamId, novo.id])
+    const sentBefore = invites().length
+    const replaced = await call(lia, 'replace_assignment', { p_assignment_id: assignmentId, p_new_user_id: novo.id })
+    assert.equal(replaced.statusCode, 200, replaced.body)
+    assert.equal(replaced.json().status, 'invited')
+    assert.equal(invites().length, sentBefore + 1)
+    assert.equal(invites().at(-1)?.to, 'novo.escala@teste.local')
+  })
+
+  test('gancho de convites: e-mails em paralelo e só o que falhou volta à fila', async () => {
+    const calls: { sql: string; params: unknown[] }[] = []
+    const invite = (id: string) => ({ assignment_id: id, email: `${id}@teste.local`, display_name: id, musical_function: 'keys', service_name: 'S', starts_at: new Date() })
+    const fakePool = {
+      connect: async () => ({
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params })
+          return { rows: sql.includes('claim_pending_invites') ? [invite('a'), invite('b'), invite('c')] : [] }
+        },
+        release() {},
+      }),
+    } as unknown as Pool
+    const slow = { send: async ({ to }: { to: string }) => { await new Promise((resolve) => setTimeout(resolve, 300)); if (to.startsWith('b@')) throw new Error('Brevo fora') } }
+    const started = Date.now()
+    await inviteHook(fakePool, slow, ORIGIN)({ name: 'replace_assignment', userId: 'u', row: { service_id: 's' }, log: { error() {} } as never })
+    assert.ok(Date.now() - started < 800, 'três envios de 300 ms em paralelo')
+    const released = calls.filter((call) => call.sql.includes('release_invite'))
+    assert.deepEqual(released.map((call) => call.params), [['b']])
+    // Qualquer outra RPC não dispara nada.
+    calls.length = 0
+    await inviteHook(fakePool, slow, ORIGIN)({ name: 'cancel_assignment', userId: 'u', row: { service_id: 's' }, log: { error() {} } as never })
+    assert.equal(calls.length, 0)
+  })
+
+  test('Brevo fora do ar: transição e atribuição seguem, sem 500 e sem vazar endereço', async () => {
+    const lines: string[] = []
+    const failing = await buildApp({
+      pool, appOrigin: ORIGIN,
+      logger: { level: 'error', stream: { write: (line: string) => void lines.push(line) } },
+      mailer: { send: async () => { throw new Error('Brevo recusou o envio (HTTP 401)') } },
+    })
+    try {
+      const response = await failing.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.92', payload: { email: 'sem.brevo@teste.local', password: 'senha-forte-123', displayName: 'Sem Brevo' } })
+      const cookie = cookieOf(response)
+      const userId = response.json().user.id as string
+      const call = (name: string, payload: object) => failing.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie }, payload })
+      const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID(), positionId = crypto.randomUUID()
+      await call('create_organization', { p_id: orgId, p_name: 'Sem Brevo' })
+      await failing.inject({ method: 'POST', url: '/sync/teams', headers: { cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'T' }] } })
+      await failing.inject({ method: 'POST', url: '/sync/services', headers: { cookie }, payload: { rows: [{ id: serviceId, organization_id: orgId, team_id: teamId, name: 'S', starts_at: '2026-12-06T13:00:00Z', created_by_user_id: userId }] } })
+      await failing.inject({ method: 'POST', url: '/sync/service_positions', headers: { cookie }, payload: { rows: [{ id: positionId, service_id: serviceId, musical_function: 'keys', quantity: 2 }] } })
+      assert.equal((await call('assign_member', { p_position_id: positionId, p_user_id: userId })).statusCode, 200)
+      const ready = await call('transition_service', { p_service_id: serviceId, p_to: 'ready' })
+      assert.equal(ready.statusCode, 200, ready.body)
+      assert.equal(ready.json().status, 'ready')
+      const { rows } = await pool.query('select status, invite_sent_at is not null as claimed from public.assignments where position_id = $1', [positionId])
+      // A falha devolve o convite à fila (ADR-054 §3): nada fica marcado como enviado.
+      assert.deepEqual(rows, [{ status: 'invited', claimed: false }])
+      const errors = lines.filter((line) => line.includes('falha ao enviar e-mail') && line.includes('assignment_invite'))
+      assert.equal(errors.length, 1)
+      assert.doesNotMatch(errors[0], /sem\.brevo|meus-servicos|xkeysib/)
+
+      // Na próxima oportunidade (outra transição, agora com o provedor no ar) o convite sai.
+      const before = mails.length
+      const retry = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie }, payload: { p_service_id: serviceId, p_to: 'in_progress' } })
+      assert.equal(retry.statusCode, 200, retry.body)
+      assert.equal(mails.length, before + 1)
+      assert.equal(mails.at(-1)?.to, 'sem.brevo@teste.local')
+    } finally {
+      await failing.close()
+    }
+  })
+
+  test('mailer Brevo: o convite leva pessoa, função, serviço, data e link, sem token', async () => {
+    const calls: { body: string }[] = []
+    const mailer = brevoMailer({ apiKey: 'chave', from: 'x@exemplo.com', fetch: async (_url, init) => { calls.push({ body: String(init?.body) }); return new Response('{}', { status: 201 }) } })
+    await mailer.send({
+      to: 'mauro@teste.local', purpose: 'assignment_invite', link: 'https://app.exemplo/meus-servicos',
+      invite: { name: 'Mauro', musicalFunction: 'drums', service: 'Culto', startsAt: new Date('2026-12-06T13:00:00Z') },
+    })
+    const body = JSON.parse(calls[0].body)
+    assert.equal(body.subject, 'Você foi escalado no CANTUM')
+    assert.match(body.textContent, /Mauro/)
+    assert.match(body.textContent, /bateria/)
+    assert.match(body.textContent, /"Culto"/)
+    assert.match(body.textContent, /domingo, 6 de dezembro de 2026/)
+    assert.match(body.textContent, /10:00/)
+    assert.match(body.textContent, /https:\/\/app\.exemplo\/meus-servicos/)
   })
 })
 

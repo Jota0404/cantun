@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
-import { createAssignment, deleteService, getService, listServiceAssignments, removeAssignment, transitionService, updateAssignment, updateServiceInfo } from '../../application/services/serviceService'
+import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
+import { useAuth } from '../../auth/authContext'
+import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
-import type { Assignment } from '../../domain/services/assignment'
 import type { Service } from '../../domain/services/service'
 import { SERVICE_ITEM_TYPES, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
 import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
@@ -21,9 +22,9 @@ type Result = { success: true } | { success: false; errors: string[] }
 export function ServiceDetailPage() {
   const { serviceId = '' } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [service, setService] = useState<Service>()
   const [items, setItems] = useState<ServiceItem[]>([])
-  const [assignments, setAssignments] = useState<Assignment[]>([])
   const [songs, setSongs] = useState<Song[]>([])
   const [access, setAccess] = useState<AccessContext>({ organizationRole: null })
   const [editingInfo, setEditingInfo] = useState(false)
@@ -40,15 +41,13 @@ export function ServiceDetailPage() {
     try {
       const current = await getService(serviceId)
       if (!current) { setError('Serviço não encontrado.'); return }
-      const [serviceItems, currentAssignments, allSongs, context] = await Promise.all([
+      const [serviceItems, allSongs, context] = await Promise.all([
         listServiceItems(serviceId),
-        listServiceAssignments(serviceId),
         listSongs(),
         getMyAccessContext({ organizationId: current.organizationId, teamId: current.teamId ?? undefined }),
       ])
       setService(current)
       setItems(serviceItems)
-      setAssignments(currentAssignments)
       setSongs(allSongs)
       setAccess(context)
       setError('')
@@ -129,31 +128,6 @@ export function ServiceDetailPage() {
     navigate(`/organizations/${service.organizationId}`, { replace: true })
   }
 
-  async function assign() {
-    const userId = window.prompt('ID do usuário')
-    const musicalFunction = window.prompt('Função musical (ex.: vocals, guitar)')
-    if (!userId?.trim() || !musicalFunction?.trim()) return
-    try {
-      await createAssignment({ serviceId, userId: userId.trim(), musicalFunction: musicalFunction.trim(), status: 'pending' })
-      await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a escala.') }
-  }
-
-  async function editAssignment(item: Assignment) {
-    const userId = window.prompt('ID do usuário', item.userId)
-    const musicalFunction = window.prompt('Função musical', item.musicalFunction)
-    if (!userId?.trim() || !musicalFunction?.trim()) return
-    try {
-      await updateAssignment(item.id, { userId: userId.trim(), musicalFunction: musicalFunction.trim() })
-      await load()
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar a escala.') }
-  }
-
-  async function deleteAssignment(itemId: string) {
-    try { await removeAssignment(itemId); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível remover a escala.') }
-  }
-
   if (!service) return <main className="organization-page"><p role={error ? 'alert' : undefined}>{error || 'Carregando serviço…'}</p></main>
 
   const final = isFinalStatus(service.status)
@@ -161,7 +135,6 @@ export function ServiceDetailPage() {
   const canTransition = hasPermission(access, 'service.transition')
   const isOrgAdmin = access.organizationRole === 'owner' || access.organizationRole === 'admin'
   const canDelete = canDeleteService(service.status, hasPermission(access, 'service.delete'), isOrgAdmin)
-  const canAssign = !final && hasPermission(access, 'service.edit')
   const itemLabel = (item: ServiceItem) => item.type === 'song'
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
@@ -253,15 +226,6 @@ export function ServiceDetailPage() {
       <p>Em breve: data, local e pauta do ensaio.</p>
     </section>
 
-    <section>
-      <header><h3>Escala</h3>{canAssign && <button type="button" onClick={() => void assign()}>Adicionar à escala</button>}</header>
-      <div className="organization-list">
-        {assignments.map((item) => <article className="organization-item" key={item.id}>
-          <div><strong>{item.userId}</strong><p>{item.musicalFunction} · {item.status}</p></div>
-          <div><button type="button" onClick={() => void editAssignment(item)}>Editar</button><button type="button" onClick={() => void deleteAssignment(item.id)}>Remover</button></div>
-        </article>)}
-        {assignments.length === 0 && <p>Nenhuma pessoa escalada.</p>}
-      </div>
-    </section>
+    <ServiceSchedule service={service} access={access} currentUserId={user?.id ?? ''} />
   </section></main>
 }

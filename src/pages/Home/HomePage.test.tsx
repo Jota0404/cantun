@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { HomePage } from './HomePage'
+
+const gaps = vi.hoisted(() => ({ list: [] as unknown[] }))
+vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
+vi.mock('../../application/services/scheduleService', () => ({ listManagedServiceGaps: async () => gaps.list }))
 
 function CurrentLocation() {
   return <p>{useLocation().pathname}</p>
@@ -41,5 +45,14 @@ describe('HomePage', () => {
     await user.click(screen.getByRole('link', { name: 'Abrir biblioteca' }))
 
     expect(screen.getByText('/songs')).toBeInTheDocument()
+  })
+
+  it('shows open positions of upcoming services I manage, with a link', async () => {
+    gaps.list = [{ service: { id: 'sv1', name: 'Culto de domingo', startsAt: '2026-10-11T22:00:00.000Z' }, openCount: 2, missingTotal: 3 }]
+    render(<MemoryRouter><HomePage /></MemoryRouter>)
+    const section = await screen.findByRole('region', { name: 'Escalas com vagas abertas' })
+    expect(within(section).getByRole('link', { name: 'Culto de domingo' })).toHaveAttribute('href', '/services/sv1')
+    expect(within(section).getByText('Faltam 3 pessoa(s) em 2 vaga(s)')).toBeInTheDocument()
+    gaps.list = []
   })
 })

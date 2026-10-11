@@ -13,6 +13,7 @@ import type { Mailer } from './mailer.ts'
 import { devMailer } from './mailer.ts'
 import type { RealtimeOptions } from './realtime.ts'
 import { realtimeRoutes } from './realtime.ts'
+import { inviteHook, scheduleRoutes } from './schedule.ts'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -36,10 +37,10 @@ export interface AppOptions {
 }
 
 // Rotas que consultam a sessão no banco.
-const SESSION_PREFIX = /^\/(auth|rpc|sync|realtime|health)(\/|\?|$)/
+const SESSION_PREFIX = /^\/(auth|rpc|sync|realtime|schedule|health)(\/|\?|$)/
 // Nunca caem no fallback de SPA. `/auth/*` fica de fora: os links dos e-mails
 // (`/auth/verify-email?token=…`) são telas do front; as rotas reais de `/auth` respondem antes.
-const API_PREFIX = /^\/(rpc|sync|realtime|health)(\/|\?|$)/
+const API_PREFIX = /^\/(rpc|sync|realtime|schedule|health)(\/|\?|$)/
 
 const LOG_REDACT = ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]']
 // Sem query string no log: os links de e-mail levam o token nela.
@@ -89,8 +90,10 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
     return { ok: true }
   })
 
-  await app.register(authRoutes, { pool, mailer: mailer ?? devMailer(app.log), appOrigin, secureCookies: appOrigin.startsWith('https://') })
-  await app.register(dataRoutes, { pool, catalog })
+  const mail = mailer ?? devMailer(app.log)
+  await app.register(authRoutes, { pool, mailer: mail, appOrigin, secureCookies: appOrigin.startsWith('https://') })
+  await app.register(scheduleRoutes, { pool, mailer: mail, appOrigin })
+  await app.register(dataRoutes, { pool, catalog, afterRpc: inviteHook(pool, mail, appOrigin) })
   await app.register(realtimeRoutes, { pool, appOrigin, options: realtime })
 
   if (staticRoot) {

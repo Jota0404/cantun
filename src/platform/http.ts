@@ -23,6 +23,17 @@ export class ApiError extends Error {
 
 // Mensagens P0001 do banco (chegam como 400 `{ error }`) traduzidas para a UI.
 const SERVER_MESSAGES: Record<string, string> = {
+  'position not found or not authorized': 'Vaga não encontrada ou sem permissão.',
+  'assignment not found or not authorized': 'Escala não encontrada ou sem permissão.',
+  'service is completed or cancelled': 'Serviço encerrado não aceita mudanças na escala.',
+  'user is not an active member of the service team': 'Só membros ativos da equipe do serviço podem ser escalados.',
+  'member already assigned to this position': 'Esta pessoa já está nesta vaga.',
+  'position is full': 'A vaga já está completa.',
+  'invalid assignment transition': 'Esta mudança não é permitida para o estado atual da escala.',
+  'invalid assignment response': 'Resposta inválida.',
+  'cannot replace a member with the same member': 'Escolha outra pessoa para substituir.',
+  'position quantity is below active assignments': 'A quantidade não pode ficar abaixo das pessoas já escaladas.',
+  'position function cannot change with assignments': 'A função não muda enquanto houver pessoas escaladas.',
   'not authorized to create stage sessions': 'Só Owner e Admin podem iniciar o Modo Palco.',
   'display name must have 1 to 80 characters': 'Informe um nome de 1 a 80 caracteres.',
   'invalid invite expiration': 'Validade do convite inválida.',

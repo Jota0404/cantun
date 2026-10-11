@@ -7,7 +7,7 @@ vi.mock('../../platform/http', () => ({ isPlatformConfigured: true }))
 vi.mock('../../platform/sync', () => ({ selectRows: vi.fn(async () => []), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 
 import { db } from '../../db/database'
-import { createOrganization } from './organizationService'
+import { createOrganization, listMyOrganizations } from './organizationService'
 
 describe('createOrganization', () => {
   it('saves the organization and queues its sync without a store error', async () => {
@@ -17,5 +17,8 @@ describe('createOrganization', () => {
 
     expect(await db.organizations.get('00000000-0000-4000-8000-000000000001')).toMatchObject({ name: 'Igreja' })
     expect(rpc).toHaveBeenCalledWith('create_organization', { p_id: '00000000-0000-4000-8000-000000000001', p_name: 'Igreja' })
+  })
+  it('lists the organizations stored locally', async () => {
+    expect((await listMyOrganizations()).map((organization) => organization.id)).toContain('00000000-0000-4000-8000-000000000001')
   })
 })

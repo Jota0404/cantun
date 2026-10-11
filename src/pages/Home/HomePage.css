@@ -190,3 +190,8 @@
     min-height: 150px;
   }
 }
+
+.home-gaps { display: grid; gap: .75rem; margin-bottom: 32px; }
+.home-gaps ul { display: grid; gap: .5rem; padding: 0; list-style: none; }
+.home-gaps li { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; padding: .75rem 1rem; border: 1px solid var(--color-primary); border-radius: var(--radius-md); background: var(--color-surface); }
+.home-gaps a { font-weight: 700; min-height: 24px; }

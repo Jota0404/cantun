@@ -1,0 +1,12 @@
+.service-schedule { display: grid; gap: .75rem; }
+.service-schedule ul { display: grid; gap: .5rem; padding: 0; list-style: none; }
+.service-schedule__positions > li { display: grid; gap: .5rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.service-schedule__positions > li > header { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; }
+.service-schedule__people > li, .service-schedule__picker li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; align-items: center; }
+.service-schedule__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.service-schedule button { min-height: 44px; }
+.service-schedule__form { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+.service-schedule__form label { display: grid; gap: .25rem; font-weight: 700; }
+.service-schedule__picker { padding: .75rem; border: 1px dashed var(--color-border); border-radius: var(--radius-md); }
+.schedule-state { padding: .1rem .55rem; border: 1px solid var(--color-border); border-radius: 999px; font-weight: 700; font-size: .85rem; }
+.schedule-state--open { border-color: var(--color-primary); }

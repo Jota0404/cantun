@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
+import { listManagedServiceGaps, type ManagedServiceGap } from '../../application/services/scheduleService'
+import { formatServiceDate } from '../../components/service/serviceLabels'
 import './HomePage.css'
 
 const homeActions = [
@@ -33,6 +37,16 @@ const homeActions = [
 ]
 
 export function HomePage() {
+  const [gaps, setGaps] = useState<ManagedServiceGap[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () => { void listManagedServiceGaps().then((next) => { if (!cancelled) setGaps(next) }).catch(() => undefined) }
+    load()
+    const unsubscribe = onRemoteDataApplied(load)
+    return () => { cancelled = true; unsubscribe() }
+  }, [])
+
   return (
     <main className="home-page">
       <section className="home-hero" aria-labelledby="home-title">
@@ -47,6 +61,21 @@ export function HomePage() {
           Abrir biblioteca
         </Link>
       </section>
+
+      {gaps.length > 0 && (
+        <section className="home-gaps" aria-labelledby="home-gaps-title">
+          <h3 id="home-gaps-title">Escalas com vagas abertas</h3>
+          <ul>
+            {gaps.map(({ service, openCount, missingTotal }) => (
+              <li key={service.id}>
+                <Link to={`/services/${service.id}`}>{service.name}</Link>
+                <span>{formatServiceDate(service.startsAt)}</span>
+                <span>Faltam {missingTotal} pessoa(s) em {openCount} vaga(s)</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="home-actions" aria-labelledby="home-actions-title">
         <div className="home-section-heading">
