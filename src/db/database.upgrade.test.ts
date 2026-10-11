@@ -204,3 +204,33 @@ describe('SalmodiaDatabase version 14 (scheduling)', () => {
     expect(await db.memberAvailability.where('[organizationId+date]').equals(['o', '2026-10-11']).count()).toBe(0)
   })
 })
+
+describe('SalmodiaDatabase version 15 (member profiles cache)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('adds memberProfiles keyed by organization and user, and keeps existing data', async () => {
+    const song = await seedVersion10()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(await db.songs.toArray()).toEqual([song])
+    expect(Array.from(db.backendDB().objectStoreNames)).toContain('memberProfiles')
+    await db.memberProfiles.bulkPut([
+      { userId: 'u1', displayName: 'Ana', organizationId: 'o1', updatedAt: now },
+      { userId: 'u2', displayName: 'Bia', organizationId: 'o2', updatedAt: now },
+      { userId: 'u1', displayName: 'Ana', organizationId: 'o2', updatedAt: now },
+    ])
+    expect(await db.memberProfiles.count()).toBe(3)
+    expect((await db.memberProfiles.where('organizationId').equals('o1').toArray()).map((p) => p.displayName)).toEqual(['Ana'])
+    expect((await db.memberProfiles.where('organizationId').equals('o2').toArray()).map((p) => p.userId).sort()).toEqual(['u1', 'u2'])
+  })
+})

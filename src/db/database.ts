@@ -12,6 +12,7 @@ import type { ServiceItem } from '../domain/services/serviceItem'
 import type { Assignment } from '../domain/services/assignment'
 import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
+import type { MemberProfile } from '../domain/users/memberProfile'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import type { SyncQueueItem } from '../sync/syncEngine'
@@ -32,6 +33,7 @@ export class SalmodiaDatabase extends Dexie {
   assignments!: Table<Assignment, string>
   servicePositions!: Table<ServicePosition, string>
   memberAvailability!: Table<MemberAvailability, string>
+  memberProfiles!: Table<MemberProfile, [string, string]>
   stageSessions!: Table<StageSession, string>
   stageSessionStates!: Table<StageSessionState, string>
   targetSyncQueue!: Table<TargetSyncQueueItem, number>
@@ -218,6 +220,10 @@ export class SalmodiaDatabase extends Dexie {
         assignment.status = statusMap[String(assignment.status)] ?? assignment.status
         assignment.positionId ??= null
       })
+    })
+    // B4: nomes de exibição dos membros para leitura offline (cache, sem sync; limpeza por saída da org no B8).
+    this.version(15).stores({
+      memberProfiles: '[organizationId+userId], organizationId',
     })
   }
 }
