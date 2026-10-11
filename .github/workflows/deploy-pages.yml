@@ -1,4 +1,4 @@
-name: Deploy CANTUM to GitHub Pages
+name: Redirect GitHub Pages to Render
 
 on:
   push:
@@ -22,36 +22,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Run tests
-        run: npm test
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-        env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-
-      - name: Configure SPA fallback
-        run: cp dist/index.html dist/404.html
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: dist
+          path: pages-redirect
 
   deploy:
     environment:

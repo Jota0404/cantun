@@ -17,7 +17,6 @@ const previewHttps =
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/cantun/' : '/',
 
   plugins: [
     react(),
