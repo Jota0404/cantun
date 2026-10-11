@@ -25,15 +25,9 @@ import { OrganizationInvitePage } from './pages/Organization/OrganizationInviteP
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
 import { PendingLocalChangesError } from './auth/localSession'
+import { SkipLink } from './components/ui/SkipLink'
+import { applyTheme, getInitialTheme, type Theme } from './theme'
 import './App.css'
-
-type Theme = 'light' | 'dark'
-
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light'
-  const saved = window.localStorage.getItem('cantum-theme')
-  return saved === 'dark' ? 'dark' : 'light'
-}
 
 function App() {
   const location = useLocation()
@@ -66,10 +60,7 @@ function App() {
     return () => window.removeEventListener('online', handleOnline)
   }, [user])
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    window.localStorage.setItem('cantum-theme', theme)
-  }, [theme])
+  useEffect(() => { applyTheme(theme) }, [theme])
 
   if (loading) return <div className="shell"><main aria-live="polite"><p>Carregando sessão…</p></main></div>
 
@@ -77,6 +68,7 @@ function App() {
 
   return (
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
+      <SkipLink />
       {!isStageMode && !isAuthRoute && !isInviteRoute && <>
         <header className="app-header">
           <div><p className="app-header__eyebrow">MUSIC WORKSPACE</p><h1><Link to="/">CANTUM</Link></h1></div>
