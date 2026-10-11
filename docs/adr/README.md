@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Atualizado em 2026-10-08. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-11. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -55,13 +55,15 @@
 | [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted (cronograma substituído pelo ADR-059) |
 | [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted (emendado pelo ADR-058) |
 | [ADR-051](ADR-051-papeis-dois-niveis-e-permissoes.md) | Papéis em dois níveis e matriz de permissões | Accepted |
-| [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted |
+| [ADR-058](ADR-058-ai-merge-and-branch-cleanup.md) | Emenda ao ADR-050: merge e limpeza de branches pela IA | Accepted (push/PR revisados pelo ADR-061) |
 | [ADR-059](ADR-059-own-backend-now.md) | Saída completa do Supabase: PostgreSQL + backend próprio em Node.js | Accepted |
 | [ADR-052](ADR-052-service-operacional.md) | Service operacional (equipe, estados, itens genéricos) | Accepted |
 | [ADR-053](ADR-053-vagas-e-atribuicoes.md) | Vagas e atribuições | Accepted |
 | [ADR-054](ADR-054-canal-de-notificacao.md) | Canal de notificação | Accepted |
+| [ADR-055](ADR-055-design-system-tokens.md) | Design system: tokens em CSS custom properties | Accepted |
 | [ADR-057](ADR-057-consistencia-por-entidade.md) | Política de consistência por entidade | Accepted |
 | [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
+| [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
 
 ## Números reservados
 
@@ -69,7 +71,6 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 
 | ADR | Tema | Bloco |
 |---|---|---|
-| 055 | Design system | B5 |
 | 056 | Materiais e storage | B6 |
 
-Próximo número livre: **ADR-061** (055 e 056 estão reservados).
+Próximo número livre: **ADR-062** (056 está reservado).

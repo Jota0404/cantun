@@ -62,11 +62,11 @@ O legado Band/Setlist foi removido no B1 (ADR-059, PR 5); não recriar.
 - Mudou contrato de RPC/Realtime → atualizar tipos TS, testes e doc de contrato no mesmo PR.
 - Permissões são verificadas no banco (RLS/RPC); a UI nunca é o mecanismo de segurança (Blueprint NFR-005, §49–50).
 
-## Git (ADR-009, revisado pelos ADR-050 e ADR-058)
+## Git (ADR-009, revisado pelos ADR-050, ADR-058 e ADR-061)
 
 - Branch a partir de `main` atualizada, PR para `main`, Conventional Commits.
 - Com aprovação explícita do Jota para **cada ação**, a IA pode: criar branch, commitar, rodar testes, fazer push da própria branch, abrir PR, criar issues/labels, fazer merge de PR com CI verde e excluir branches já mescladas ou fechadas (registrando o SHA). A aprovação não se estende a outras ações, outros PRs nem outras sessões.
-- Antes de cada PR: apresentar o plano (arquivos) e aguardar o ok. Rodar o gate antes de cada push e mostrar o resultado. A descrição do PR traz resumo, requisitos atendidos, testes executados e checklist DoD (Blueprint §36).
+- Push e PR são aprovados **por fatia** (ADR-061): o Jota aprova o plano (arquivos) no início; depois o lead faz push e abre o PR sem nova pergunta quando gate verde + Revisor OK + QA OK (quando se aplica). Mudança de escopo volta ao Jota. Merge e exclusão de branch seguem com aprovação por ação. Rodar o gate antes de cada push e mostrar o resultado. A descrição do PR traz resumo, requisitos atendidos, testes executados e checklist DoD (Blueprint §36).
 - Exclusivo do Jota: push forçado em `main`, rebase de branch compartilhada, mudança de settings/secrets/variables do GitHub e qualquer ação em banco ou ambiente de produção.
 
 ## Agentes e trabalho paralelo
@@ -83,6 +83,8 @@ Equipe em `.claude/agents/`. A sessão principal é o **lead**: fatia o trabalho
 | `qa` | reproduzir bug e validar aceite no app (celular, tablet, offline) | — (só relatório) | baixo |
 
 O lead passa o esforço da tabela em cada chamada de agente e só sobe um nível com motivo registrado. Todos seguem a seção "Economia de tokens" do próprio arquivo.
+
+Modelos: agentes em Sonnet. Haiku só por tarefa pequena: rechecagem do `reviewer` restrita ao diff das correções e retoques de doc do `planner`. O lead troca o modelo do chat para Haiku antes e volta para Sonnet depois. Revisão completa de fatia, auth/RLS e spec nova nunca em Haiku.
 
 Fluxo de uma fatia: `planner` → `backend-engineer` → `core-engineer` → `ui-engineer` → lead roda `/ponytail:ponytail-review` no diff e o dono aplica os cortes → `reviewer` → `qa` → lead (gate + PR). Bug: `qa` reproduz → engenheiro da camada corrige com teste → `reviewer` → lead.
 
