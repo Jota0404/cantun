@@ -172,4 +172,30 @@ describe('TargetSyncEngine scheduling (VS-03)', () => {
     expect(await db.servicePositions.get('p1')).toMatchObject({ quantity: 2, notes: undefined })
     expect(await db.memberAvailability.get('m1')).toMatchObject({ date: '2026-10-11', status: 'unavailable' })
   })
+
+  it('on 409 (unique by content from another device) drops the queue item and the orphan record', async () => {
+    const { ApiError } = await import('../platform/http')
+    await db.servicePositions.put(position)
+    await db.memberAvailability.put(availability as never)
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'servicePositions', entityId: 'p1', operation: 'upsert', payload: position, updatedAt: now, attempts: 0 },
+      { entity: 'memberAvailability', entityId: 'm1', operation: 'upsert', payload: availability, updatedAt: now, attempts: 0 },
+    ] as unknown as TargetSyncQueueItem[])
+    remote.upsertRows.mockRejectedValue(new ApiError(409, 'conflito'))
+    await new TargetSyncEngine(db).sync()
+    expect(await db.targetSyncQueue.count()).toBe(0)
+    expect(await db.servicePositions.get('p1')).toBeUndefined()
+    expect(await db.memberAvailability.get('m1')).toBeUndefined()
+  })
+
+  it('keeps retrying on 409 for other entities and on non-409 errors', async () => {
+    const { ApiError } = await import('../platform/http')
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'servicePositions', entityId: 'p1', operation: 'upsert', payload: position, updatedAt: now, attempts: 0 },
+      { entity: 'teams', entityId: 't1', operation: 'upsert', payload: { id: 't1', organizationId: 'o', name: 'T', createdAt: now, updatedAt: now }, updatedAt: now, attempts: 0 },
+    ] as unknown as TargetSyncQueueItem[])
+    remote.upsertRows.mockRejectedValueOnce(new ApiError(500, 'erro')).mockRejectedValueOnce(new ApiError(409, 'conflito'))
+    await new TargetSyncEngine(db).sync()
+    expect((await db.targetSyncQueue.toArray()).map((i) => [i.entity, i.attempts])).toEqual([['servicePositions', 1], ['teams', 1]])
+  })
 })

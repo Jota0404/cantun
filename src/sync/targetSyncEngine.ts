@@ -14,6 +14,7 @@ import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
 import { rpc } from '../platform/rpc'
+import { ApiError } from '../platform/http'
 import { notifyRemoteDataApplied } from './remoteChanges'
 import { deleteRows, selectRows, updateRows, upsertRows } from '../platform/sync'
 import type { SalmodiaDatabase } from '../db/database'
@@ -52,6 +53,9 @@ export type TargetEntity =
 
 // Sessão e estado do Palco só mudam por RPC (`create_target_stage_session`, `target_stage_*`);
 // o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull.
+// Têm `unique` por conteúdo no banco, com id gerado no cliente: 409 no push = outro aparelho criou o mesmo.
+const UNIQUE_BY_CONTENT: readonly TargetEntityName[] = ['servicePositions', 'memberAvailability']
+
 const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates', 'assignments'] as const
 
 export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
@@ -262,8 +266,16 @@ export class TargetSyncEngine {
             await upsertRows(table, [toRemoteRow(item.entity, item.payload!)])
           }
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
-        } catch {
-          if (item.id !== undefined) await this.db.targetSyncQueue.update(item.id, { attempts: item.attempts + 1 })
+        } catch (error) {
+          if (item.id === undefined) continue
+          // Unicidade violada por outro aparelho (mesma função no serviço / mesmo dia): o servidor vence.
+          // Descarta o item e o registro local órfão; o próximo pull traz o equivalente.
+          if (error instanceof ApiError && error.status === 409 && item.operation === 'upsert' && UNIQUE_BY_CONTENT.includes(item.entity)) {
+            await this.db.targetSyncQueue.delete(item.id)
+            await localTable(this.db, item.entity).delete(item.entityId)
+            continue
+          }
+          await this.db.targetSyncQueue.update(item.id, { attempts: item.attempts + 1 })
         }
       }
 
