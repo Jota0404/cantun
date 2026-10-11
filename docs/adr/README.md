@@ -60,6 +60,7 @@
 | [ADR-052](ADR-052-service-operacional.md) | Service operacional (equipe, estados, itens genéricos) | Accepted |
 | [ADR-053](ADR-053-vagas-e-atribuicoes.md) | Vagas e atribuições | Accepted |
 | [ADR-054](ADR-054-canal-de-notificacao.md) | Canal de notificação | Accepted |
+| [ADR-055](ADR-055-design-system-tokens.md) | Design system: tokens em CSS custom properties | Proposed |
 | [ADR-057](ADR-057-consistencia-por-entidade.md) | Política de consistência por entidade | Accepted |
 | [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
 
@@ -69,7 +70,6 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 
 | ADR | Tema | Bloco |
 |---|---|---|
-| 055 | Design system | B5 |
 | 056 | Materiais e storage | B6 |
 
-Próximo número livre: **ADR-061** (055 e 056 estão reservados).
+Próximo número livre: **ADR-061** (056 está reservado).
