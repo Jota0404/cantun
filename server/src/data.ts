@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify'
+import type { FastifyBaseLogger, FastifyInstance, FastifyRequest } from 'fastify'
 import type { Catalog, Table } from './catalog.ts'
 import { ident } from './catalog.ts'
 import type { Pool } from './db.ts'
@@ -41,9 +41,11 @@ function whereClause(table: Table, filters: Record<string, string>, params: unkn
 export interface DataOptions {
   pool: Pool
   catalog: Catalog
+  /** Depois do commit de uma RPC bem-sucedida. Falha do gancho nunca vira erro da RPC. */
+  afterRpc?: (call: { name: string; userId: string; row: Record<string, unknown> | null; log: FastifyBaseLogger }) => Promise<void>
 }
 
-export async function dataRoutes(app: FastifyInstance, { pool, catalog }: DataOptions) {
+export async function dataRoutes(app: FastifyInstance, { pool, catalog, afterRpc }: DataOptions) {
   app.post<{ Params: { name: string }; Body: Record<string, unknown> | undefined }>('/rpc/:name', async (request, reply) => {
     const userId = requireUser(request)
     const fn = catalog.functions.get(request.params.name)
@@ -62,6 +64,13 @@ export async function dataRoutes(app: FastifyInstance, { pool, catalog }: DataOp
     const { rows } = await asUser(pool, userId, (client) =>
       client.query(`select * from public.${ident(fn.name)}(${args.join(', ')})`, params),
     )
+    if (afterRpc) {
+      try {
+        await afterRpc({ name: fn.name, userId, row: fn.returns === 'row' && !fn.returnsSet ? (rows[0] ?? null) : null, log: request.log })
+      } catch (error) {
+        request.log.error({ rpc: fn.name, err: { message: (error as Error).message } }, 'falha no gancho pós-RPC')
+      }
+    }
     if (fn.returns === 'void') return null
     if (fn.returns === 'row') return fn.returnsSet ? rows : (rows[0] ?? null)
     const values = rows.map((row) => row[fn.name])

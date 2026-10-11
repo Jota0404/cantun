@@ -158,7 +158,7 @@ grant select, insert, update, delete on public.service_positions to cantum_user;
 -- ---------------------------------------------------------------------------
 
 alter table public.assignments
-  add column position_id uuid references public.service_positions(id) on delete no action,
+  add column position_id uuid references public.service_positions(id) on delete cascade,
   add column responded_at timestamptz,
   add column replaced_assignment_id uuid references public.assignments(id) on delete set null,
   add column invite_sent_at timestamptz;
@@ -229,6 +229,26 @@ $$;
 revoke all on function app.guard_service_position() from public;
 create trigger service_positions_guard before update on public.service_positions
   for each row execute function app.guard_service_position();
+
+-- Excluir vaga: só sem atribuição ativa (invited, confirmed, replacement_needed); as terminais
+-- (declined, cancelled) saem junto, pelo cascade da FK. Quando o serviço é que está sendo
+-- excluído (a linha dele já não existe no cascade), a vaga sai com tudo.
+create function app.guard_service_position_delete() returns trigger
+  language plpgsql security definer
+  set search_path = ''
+as $$
+begin
+  if exists (select 1 from public.services s where s.id = old.service_id)
+     and exists (select 1 from public.assignments a
+                 where a.position_id = old.id and a.status in ('invited', 'confirmed', 'replacement_needed')) then
+    raise exception 'position has active assignments' using errcode = 'foreign_key_violation';
+  end if;
+  return old;
+end;
+$$;
+revoke all on function app.guard_service_position_delete() from public;
+create trigger service_positions_guard_delete before delete on public.service_positions
+  for each row execute function app.guard_service_position_delete();
 
 -- Escrita direta barrada (E5); só as RPCs (dono da tabela) mudam a atribuição.
 revoke insert, update, delete on public.assignments from cantum_user;
@@ -452,6 +472,36 @@ end;
 $$;
 revoke all on function app.assignment_invite_mail(uuid) from public;
 grant execute on function app.assignment_invite_mail(uuid) to cantum_user;
+
+-- Convites automáticos (ADR-054): o servidor chama depois do commit de transition_service e
+-- assign_member. Reivindica de forma atômica (update … returning) as atribuições 'invited' do
+-- serviço ainda sem envio, quando ele já saiu do rascunho e não é final; quem reivindica
+-- é quem gere a escala. Sem permissão ou sem pendências devolve vazio, nunca erro.
+create function app.claim_pending_invites(p_service_id uuid)
+  returns table(email text, display_name text, musical_function text, service_name text, starts_at timestamptz)
+  language plpgsql security definer
+  set search_path = ''
+as $$
+declare
+  v_service public.services;
+begin
+  select s.* into v_service from public.services s where s.id = p_service_id;
+  if v_service.id is null or v_service.status in ('draft', 'completed', 'cancelled')
+     or not app.has_permission(v_service.organization_id, v_service.team_id, 'schedule.manage') then
+    return;
+  end if;
+  return query
+    with claimed as (
+      update public.assignments a set invite_sent_at = now()
+      where a.service_id = p_service_id and a.status = 'invited' and a.invite_sent_at is null
+      returning a.user_id, a.musical_function
+    )
+    select u.email, u.display_name, c.musical_function, v_service.name, v_service.starts_at
+    from claimed c join app.users u on u.id = c.user_id;
+end;
+$$;
+revoke all on function app.claim_pending_invites(uuid) from public;
+grant execute on function app.claim_pending_invites(uuid) to cantum_user;
 
 -- ---------------------------------------------------------------------------
 -- 5. Disponibilidade (RN-10, RN-11)

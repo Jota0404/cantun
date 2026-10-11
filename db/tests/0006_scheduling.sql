@@ -288,10 +288,28 @@ select public.assign_member('70000000-0000-0000-0000-000000000601', '00000000-00
 select pg_temp.fails($q$update public.service_positions set quantity = 1 where id = '70000000-0000-0000-0000-000000000601'$q$, 'E11 abaixo das ativas', 'P0001', 'position quantity is below active assignments');
 select pg_temp.fails($q$update public.service_positions set musical_function = 'bass' where id = '70000000-0000-0000-0000-000000000601'$q$, 'função muda com atribuições', 'P0001', 'position function cannot change with assignments');
 select pg_temp.fails($q$delete from public.service_positions where id = '70000000-0000-0000-0000-000000000601'$q$, 'E11 exclui vaga com atribuição', '23503');
-select pg_temp.fails($q$delete from public.service_positions where id = '70000000-0000-0000-0000-000000000602'$q$, 'E11 exclui vaga com histórico', '23503');
+select pg_temp.fails($q$delete from public.service_positions where id = '70000000-0000-0000-0000-000000000602'$q$, 'E11 exclui vaga com atribuição ativa (reconvidado)', '23503');
 select pg_temp.affects($q$update public.service_positions set quantity = 2 where id = '70000000-0000-0000-0000-000000000601'$q$, 1, 'quantidade igual às ativas');
 insert into public.service_positions (id, service_id, musical_function, quantity) values ('70000000-0000-0000-0000-000000000608', '60000000-0000-0000-0000-000000000601', 'drums', 1);
 select pg_temp.affects($q$delete from public.service_positions where id = '70000000-0000-0000-0000-000000000608'$q$, 1, 'exclui vaga sem atribuições');
+
+-- Exclusão de vaga: terminais saem junto; ativa (inclusive replacement_needed) barra.
+reset role;
+insert into public.service_positions (id, service_id, musical_function, quantity) values
+  ('70000000-0000-0000-0000-000000000609', '60000000-0000-0000-0000-000000000601', 'brass', 2),
+  ('70000000-0000-0000-0000-00000000060a', '60000000-0000-0000-0000-000000000601', 'strings', 1);
+insert into public.assignments (position_id, user_id, status) values
+  ('70000000-0000-0000-0000-000000000609', '00000000-0000-0000-0000-000000000605', 'declined'),
+  ('70000000-0000-0000-0000-000000000609', '00000000-0000-0000-0000-000000000606', 'cancelled'),
+  ('70000000-0000-0000-0000-00000000060a', '00000000-0000-0000-0000-000000000605', 'replacement_needed');
+set local role cantum_user;
+select pg_temp.as_user('00000000-0000-0000-0000-000000000603');
+select pg_temp.fails($q$delete from public.service_positions where id = '70000000-0000-0000-0000-00000000060a'$q$, 'E11 exclui vaga com replacement_needed', '23503', 'position has active assignments');
+select pg_temp.affects($q$delete from public.service_positions where id = '70000000-0000-0000-0000-000000000609'$q$, 1, 'exclui vaga só com terminais');
+select pg_temp.ok((select count(*) = 0 from public.assignments where position_id = '70000000-0000-0000-0000-000000000609'), 'as terminais saíram junto');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000605');
+select pg_temp.affects($q$delete from public.service_positions where id = '70000000-0000-0000-0000-00000000060a'$q$, 0, 'Membro não exclui vaga');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000603');
 
 -- ---------------------------------------------------------------------------
 -- Disponibilidade (E10)
@@ -341,6 +359,17 @@ reset role;
 set local role cantum_user;
 
 -- ---------------------------------------------------------------------------
+-- Excluir o serviço leva vagas e atribuições (inclusive ativas) junto
+-- ---------------------------------------------------------------------------
+select pg_temp.as_user('00000000-0000-0000-0000-000000000601');
+select pg_temp.ok((select count(*) = 1 from public.assignments where service_id = '60000000-0000-0000-0000-000000000605'), 'S_C tem uma atribuição ativa');
+select pg_temp.affects($q$delete from public.services where id = '60000000-0000-0000-0000-000000000605'$q$, 1, 'Owner exclui o serviço com escala ativa');
+reset role;
+select pg_temp.ok(not exists (select 1 from public.service_positions where service_id = '60000000-0000-0000-0000-000000000605')
+  and not exists (select 1 from public.assignments where service_id = '60000000-0000-0000-0000-000000000605'), 'vagas e atribuições do serviço saíram');
+set local role cantum_user;
+
+-- ---------------------------------------------------------------------------
 -- E-mail de convite (servidor): app.assignment_invite_mail
 -- ---------------------------------------------------------------------------
 select pg_temp.as_user('00000000-0000-0000-0000-000000000603');
@@ -361,6 +390,32 @@ select pg_temp.fails(format($q$select * from app.assignment_invite_mail(%L)$q$, 
 select pg_temp.as_user('00000000-0000-0000-0000-000000000601');
 select public.assign_member('70000000-0000-0000-0000-000000000605', '00000000-0000-0000-0000-000000000606');
 select pg_temp.fails(format($q$select * from app.assignment_invite_mail(%L)$q$, pg_temp.aid('70000000-0000-0000-0000-000000000605', '00000000-0000-0000-0000-000000000606')), 'serviço em rascunho', 'P0001', 'service is still a draft');
+
+-- ---------------------------------------------------------------------------
+-- Convites automáticos: app.claim_pending_invites reivindica uma vez só
+-- ---------------------------------------------------------------------------
+reset role;
+create temp table pending_before on commit drop as
+  select count(*)::int as n from public.assignments
+  where service_id = '60000000-0000-0000-0000-000000000601' and status = 'invited' and invite_sent_at is null;
+grant select on pending_before to cantum_user;
+set local role cantum_user;
+select pg_temp.ok((select n >= 2 from pending_before), 'há convites pendentes de envio no S_A');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000605'); -- Membro: sem permissão, sem erro e sem marcar
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'Membro não reivindica');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000604'); -- Líder de outra equipe
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'Líder de outra equipe não reivindica');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000607'); -- Líder inativo
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'Líder inativo não reivindica');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000601'); -- Owner: rascunho e serviço final não enviam
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000604')), 'rascunho não envia');
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000603')), 'serviço final não envia');
+select pg_temp.as_user('00000000-0000-0000-0000-000000000603'); -- Líder da equipe
+select pg_temp.ok((select count(*) = (select n from pending_before) and bool_and(email like '%@b4.local') from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'Líder reivindica todos os pendentes');
+select pg_temp.ok((select count(*) = 0 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'sem duplicar: a segunda chamada não devolve nada');
+insert into public.service_positions (id, service_id, musical_function, quantity) values ('70000000-0000-0000-0000-00000000060b', '60000000-0000-0000-0000-000000000601', 'drums', 1);
+select public.assign_member('70000000-0000-0000-0000-00000000060b', '00000000-0000-0000-0000-000000000605');
+select pg_temp.ok((select count(*) = 1 from app.claim_pending_invites('60000000-0000-0000-0000-000000000601')), 'convite novo é reivindicado uma vez');
 
 -- ---------------------------------------------------------------------------
 -- Stage: musical_role vem da vaga da atribuição ativa (D6)

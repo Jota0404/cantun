@@ -60,6 +60,7 @@ export function brevoMailer({ apiKey, from, fetch: send = fetch }: BrevoOptions)
   return {
     async send({ to, purpose, link, invite }) {
       const response = await send('https://api.brevo.com/v3/smtp/email', {
+        signal: AbortSignal.timeout(10_000),
         method: 'POST',
         headers: { 'api-key': apiKey, 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({

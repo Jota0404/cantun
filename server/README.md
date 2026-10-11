@@ -67,6 +67,8 @@ Uma linha que a RLS não deixa ver ou alterar não gera erro em `PATCH` e `DELET
 
 ### Escala (`/schedule`)
 
+**Convites automáticos:** depois do commit de `transition_service` (serviço sai de `draft`) e de `assign_member` (serviço já fora de `draft`), o `/rpc` reivindica no banco (`app.claim_pending_invites`, atômico por `invite_sent_at`) os convites ainda não enviados e manda o e-mail; não duplica, e falha do provedor não desfaz a transição nem a atribuição (log sem endereço nem link). O Líder pode reenviar à mão:
+
 `POST /schedule/assignments/:id/resend-invite` (sem corpo, exige sessão): reenvia o e-mail do convite de escala (ADR-054). Quem gere a escala da equipe do serviço dispara; só atribuição `invited` de serviço fora de `draft` e não final; no máximo um envio por minuto por atribuição (429 depois). O e-mail leva pessoa, função, serviço, data/hora e um link para `/meus-servicos`, que exige login: nada confirma sem autenticar. 204 em caso de sucesso, inclusive se o provedor de e-mail falhar (registrado no log, sem endereço nem link). As mudanças de estado da atribuição são só por RPC (`assign_member`, `respond_to_assignment`, `request_replacement`, `replace_assignment`, `cancel_assignment`); `assignments` não aceita escrita pelo `/sync`.
 
 ### Tempo real (`/realtime`)

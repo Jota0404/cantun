@@ -13,7 +13,7 @@ import type { Mailer } from './mailer.ts'
 import { devMailer } from './mailer.ts'
 import type { RealtimeOptions } from './realtime.ts'
 import { realtimeRoutes } from './realtime.ts'
-import { scheduleRoutes } from './schedule.ts'
+import { inviteHook, scheduleRoutes } from './schedule.ts'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -93,7 +93,7 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
   const mail = mailer ?? devMailer(app.log)
   await app.register(authRoutes, { pool, mailer: mail, appOrigin, secureCookies: appOrigin.startsWith('https://') })
   await app.register(scheduleRoutes, { pool, mailer: mail, appOrigin })
-  await app.register(dataRoutes, { pool, catalog })
+  await app.register(dataRoutes, { pool, catalog, afterRpc: inviteHook(pool, mail, appOrigin) })
   await app.register(realtimeRoutes, { pool, appOrigin, options: realtime })
 
   if (staticRoot) {
