@@ -137,3 +137,7 @@ p {
   color: var(--color-on-primary);
   background: var(--color-primary);
 }
+
+button {
+  min-width: var(--size-touch-min);
+}

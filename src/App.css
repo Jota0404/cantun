@@ -153,3 +153,12 @@
     flex: 1 1 auto;
   }
 }
+
+.app-header h1 a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-touch-min);
+}
+.app-content:focus {
+  outline: none;
+}

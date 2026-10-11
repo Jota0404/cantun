@@ -93,11 +93,13 @@
   :root,
   :root[data-theme='dark'] {
     --color-border: #94a3b8;
+    --color-border-control: #e2e8f0;
     --color-text-muted: #e2e8f0;
   }
 
   :root[data-theme='light'] {
     --color-border: #475569;
+    --color-border-control: #334155;
     --color-text-muted: #334155;
   }
 }

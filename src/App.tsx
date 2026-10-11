@@ -77,6 +77,7 @@ function App() {
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
         <EmailVerificationNotice />
       </>}
+      <div id="conteudo" tabIndex={-1} className="app-content">
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
         <Route path="/auth/verify-email" element={<VerifyEmailPage />} /><Route path="/auth/forgot-password" element={<ForgotPasswordPage />} /><Route path="/auth/reset-password" element={<ResetPasswordPage />} />
@@ -86,6 +87,7 @@ function App() {
         <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/meus-servicos" element={<MyServicesPage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
     </div>
   )
 }

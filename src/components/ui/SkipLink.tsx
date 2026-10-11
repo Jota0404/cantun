@@ -1,6 +1,6 @@
 import './SkipLink.css'
 
-/** RN-11: primeiro item da tabulação; leva o foco ao `<main>` da página atual. */
+/** RN-11: primeiro item da tabulação; leva o foco ao contêiner das rotas (`#conteudo`, em App.tsx). */
 export function SkipLink() {
   return (
     <a
@@ -8,10 +8,7 @@ export function SkipLink() {
       href="#conteudo"
       onClick={(event) => {
         event.preventDefault()
-        const main = document.querySelector('main')
-        if (!main) return
-        main.setAttribute('tabindex', '-1')
-        main.focus()
+        document.getElementById('conteudo')?.focus()
       }}
     >
       Pular para o conteúdo

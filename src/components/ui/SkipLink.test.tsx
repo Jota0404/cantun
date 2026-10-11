@@ -8,12 +8,12 @@ import { SkipLink } from './SkipLink'
 describe('SkipLink', () => {
   it('is the first tab stop and moves focus to the main content', async () => {
     const user = userEvent.setup()
-    render(<><SkipLink /><button type="button">Outro</button><main><h1>Página</h1></main></>)
+    render(<><SkipLink /><button type="button">Outro</button><div id="conteudo" tabIndex={-1}><section><h1>Página sem main</h1></section></div></>)
 
     await user.tab()
     const link = screen.getByRole('link', { name: 'Pular para o conteúdo' })
     expect(link).toHaveFocus()
     await user.keyboard('{Enter}')
-    expect(screen.getByRole('main')).toHaveFocus()
+    expect(document.getElementById('conteudo')).toHaveFocus()
   })
 })
