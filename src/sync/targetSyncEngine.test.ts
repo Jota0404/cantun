@@ -86,3 +86,48 @@ describe('TargetSyncEngine team memberships (VS-01)', () => {
     expect((await db.teamMemberships.toArray()).map((m) => m.id)).toEqual(['tm-server'])
   })
 })
+
+describe('TargetSyncEngine services (VS-02)', () => {
+  const service = { id: 'svc-1', organizationId: 'org-1', teamId: 'team-1', name: 'Culto', startsAt: now, status: 'ready', createdByUserId: 'u', createdAt: now, updatedAt: now }
+  const item = (id: string, position: number, serviceId = 'svc-1') => ({ id, serviceId, type: id === 'i1' ? 'song' : 'prayer', songId: id === 'i1' ? 'song-1' : undefined, title: id === 'i1' ? undefined : 'Oração', position, updatedAt: now })
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.services.clear(), db.serviceItems.clear()])
+  })
+
+  it('pushes services without status and the items of one service in a single batch', async () => {
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'services', entityId: 'svc-1', operation: 'upsert', payload: service, updatedAt: now, attempts: 0 },
+      { entity: 'serviceItems', entityId: 'i1', operation: 'upsert', payload: item('i1', 1), updatedAt: now, attempts: 0 },
+      { entity: 'serviceItems', entityId: 'x1', operation: 'upsert', payload: item('x1', 0, 'svc-2'), updatedAt: now, attempts: 0 },
+      { entity: 'serviceItems', entityId: 'i2', operation: 'upsert', payload: item('i2', 0), updatedAt: now, attempts: 0 },
+    ] as unknown as TargetSyncQueueItem[])
+    await new TargetSyncEngine(db).sync()
+
+    const calls = remote.upsertRows.mock.calls
+    expect(calls[0][0]).toBe('services')
+    expect(calls[0][1][0]).not.toHaveProperty('status')
+    expect(calls[0][1][0]).toMatchObject({ team_id: 'team-1' })
+    expect(calls[1]).toEqual(['service_items', [
+      expect.objectContaining({ id: 'i1', type: 'song', song_id: 'song-1', title: null, position: 1 }),
+      expect.objectContaining({ id: 'i2', type: 'prayer', song_id: null, title: 'Oração', position: 0 }),
+    ]])
+    expect(calls[2][1].map((row: { id: string }) => row.id)).toEqual(['x1'])
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('pull overwrites status without LWW and maps the new item fields', async () => {
+    await db.services.put({ ...service, status: 'draft', name: 'Local', updatedAt: '2030-01-01T00:00:00Z' } as never)
+    remote.selectRows.mockImplementation(async (table: string) => {
+      if (table === 'services') return [{ id: 'svc-1', organization_id: 'org-1', team_id: 'team-1', name: 'Remoto', starts_at: now, location: null, notes: null, status: 'in_progress', created_by_user_id: 'u', created_at: now, updated_at: now }]
+      if (table === 'service_items') return [{ id: 'i9', service_id: 'svc-1', type: 'announcement', song_id: null, title: 'Avisos', notes: null, duration_minutes: 5, position: 0, repertoire_id: null, updated_at: now }]
+      return []
+    })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.services.get('svc-1')).toMatchObject({ status: 'in_progress', name: 'Local' })
+    expect(await db.serviceItems.get('i9')).toMatchObject({ type: 'announcement', title: 'Avisos', durationMinutes: 5, songId: undefined })
+  })
+})

@@ -134,3 +134,41 @@ describe('SalmodiaDatabase version 12 (team roles and status)', () => {
     expect(await db.teamMemberships.where('[teamId+userId]').equals(['team-1', 'user-a']).count()).toBe(1)
   })
 })
+
+describe('SalmodiaDatabase version 13 (operational service)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('maps old statuses, assigns the oldest team and marks items as songs', async () => {
+    await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ teams: 'id, organizationId, updatedAt', services: 'id, organizationId, startsAt, status, updatedAt', serviceItems: 'id, serviceId, songId, position, updatedAt, [serviceId+position]' })
+    await legacy.table('teams').bulkAdd([
+      { id: 'team-new', organizationId: 'org-1', name: 'B', createdAt: '2026-10-02T00:00:00Z', updatedAt: now },
+      { id: 'team-old', organizationId: 'org-1', name: 'A', createdAt: '2026-10-01T00:00:00Z', updatedAt: now },
+    ])
+    await legacy.table('services').bulkAdd([
+      { id: 'svc-1', organizationId: 'org-1', name: 'Culto', startsAt: now, status: 'planned', createdByUserId: 'u', createdAt: now, updatedAt: now },
+      { id: 'svc-2', organizationId: 'org-1', name: 'Ceia', startsAt: now, status: 'confirmed', createdByUserId: 'u', createdAt: now, updatedAt: now },
+      { id: 'svc-3', organizationId: 'org-2', name: 'Outro', startsAt: now, status: 'completed', createdByUserId: 'u', createdAt: now, updatedAt: now },
+    ])
+    await legacy.table('serviceItems').add({ id: 'item-1', serviceId: 'svc-1', songId: 'song-1', position: 0, updatedAt: now })
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(await db.services.get('svc-1')).toMatchObject({ status: 'draft', teamId: 'team-old' })
+    expect(await db.services.get('svc-2')).toMatchObject({ status: 'ready', teamId: 'team-old' })
+    expect(await db.services.get('svc-3')).toMatchObject({ status: 'completed', teamId: null })
+    expect(await db.serviceItems.get('item-1')).toMatchObject({ type: 'song', songId: 'song-1' })
+    expect(await db.services.where('teamId').equals('team-old').count()).toBe(2)
+  })
+})

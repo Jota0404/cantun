@@ -120,11 +120,12 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
     }
     case 'services': {
       const v = value as Service
-      return { id: v.id, organization_id: v.organizationId, name: v.name, starts_at: v.startsAt, status: v.status, created_by_user_id: v.createdByUserId, created_at: v.createdAt, updated_at: v.updatedAt }
+      // Sem `status`: só muda por `transition_service` (RN-03).
+      return { id: v.id, organization_id: v.organizationId, team_id: v.teamId, name: v.name, starts_at: v.startsAt, location: v.location ?? null, notes: v.notes ?? null, created_by_user_id: v.createdByUserId, created_at: v.createdAt, updated_at: v.updatedAt }
     }
     case 'serviceItems': {
       const v = value as ServiceItem
-      return { id: v.id, service_id: v.serviceId, song_id: v.songId, position: v.position, repertoire_id: v.repertoireId ?? null, updated_at: v.updatedAt }
+      return { id: v.id, service_id: v.serviceId, type: v.type, song_id: v.songId ?? null, title: v.title ?? null, notes: v.notes ?? null, duration_minutes: v.durationMinutes ?? null, position: v.position, repertoire_id: v.repertoireId ?? null, updated_at: v.updatedAt }
     }
     case 'assignments': {
       const v = value as Assignment
@@ -142,8 +143,8 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'organizationSongs': return { id: String(row.id), organizationId: String(row.organization_id), songId: String(row.song_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoires': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdByUserId: String(row.created_by_user_id), version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoireItems': return { id: String(row.id), repertoireId: String(row.repertoire_id), songId: String(row.song_id), position: Number(row.position), updatedAt: String(row.updated_at) }
-    case 'services': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), startsAt: String(row.starts_at), status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
-    case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), songId: String(row.song_id), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, updatedAt: String(row.updated_at) }
+    case 'services': return { id: String(row.id), organizationId: String(row.organization_id), teamId: row.team_id ? String(row.team_id) : null, name: String(row.name), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
+    case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), type: (row.type ?? 'song') as ServiceItem['type'], songId: row.song_id ? String(row.song_id) : undefined, title: row.title ? String(row.title) : undefined, notes: row.notes ? String(row.notes) : undefined, durationMinutes: row.duration_minutes == null ? undefined : Number(row.duration_minutes), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, updatedAt: String(row.updated_at) }
     case 'assignments': return { id: String(row.id), serviceId: String(row.service_id), userId: String(row.user_id), musicalFunction: String(row.musical_function), serviceItemId: row.service_item_id ? String(row.service_item_id) : undefined, status: row.status as Assignment['status'], createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
@@ -212,7 +213,22 @@ export class TargetSyncEngine {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
       await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES]).delete()
       const pending = await this.db.targetSyncQueue.orderBy('id').toArray()
+      const done = new Set<number | undefined>()
       for (const item of pending) {
+        if (done.has(item.id)) continue
+        // Itens de um serviço sobem num só lote (uma transação no servidor; unique de posição deferida).
+        if (item.entity === 'serviceItems' && item.operation === 'upsert') {
+          const serviceId = (item.payload as ServiceItem).serviceId
+          const batch = pending.filter((p) => !done.has(p.id) && p.entity === 'serviceItems' && p.operation === 'upsert' && (p.payload as ServiceItem).serviceId === serviceId)
+          for (const p of batch) done.add(p.id)
+          try {
+            await upsertRows(tables.serviceItems, batch.map((p) => toRemoteRow('serviceItems', p.payload!)))
+            await this.db.targetSyncQueue.bulkDelete(batch.flatMap((p) => p.id === undefined ? [] : [p.id]))
+          } catch {
+            for (const p of batch) if (p.id !== undefined) await this.db.targetSyncQueue.update(p.id, { attempts: p.attempts + 1 })
+          }
+          continue
+        }
         try {
           const table = tables[item.entity]
           if (item.operation === 'delete') {
@@ -243,6 +259,13 @@ export class TargetSyncEngine {
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId
             : (value as Exclude<TargetEntity, StageSessionState>).id
+          if (entity === 'services') {
+            // `status` é do servidor: sobrescreve sem LWW; demais campos seguem LWW.
+            const remote = value as Service
+            const local = await this.db.services.get(remote.id)
+            await this.db.services.put(local && local.updatedAt > remote.updatedAt ? { ...local, status: remote.status } : remote)
+            continue
+          }
           if (entity === 'teamMemberships') {
             await this.applyTeamMembership(value as TeamMembership)
             continue

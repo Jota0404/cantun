@@ -56,4 +56,10 @@ describe('apiRequest', () => {
       status: 400, message: 'Confirme seu e-mail antes de aceitar este convite.',
     })
   })
+
+  it('turns a network failure into a pt-BR ApiError(0)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')))
+    const { apiRequest } = await loadHttp()
+    await expect(apiRequest('GET', '/sync/songs')).rejects.toMatchObject({ status: 0, message: 'Sem conexão: tente de novo quando estiver online.' })
+  })
 })

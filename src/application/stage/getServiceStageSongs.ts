@@ -51,6 +51,8 @@ async function getLocalServiceStageSongs(stageSessionId: string): Promise<Servic
   const serviceAssignments = assignments.filter((assignment) => assignment.serviceId === session.serviceId)
   const result: ServiceStageSong[] = []
   for (const item of items) {
+    // RN-07: o Stage só lê itens de música.
+    if (item.type !== 'song' || !item.songId) continue
     const song = await songRepository.getById(item.songId)
     if (!song) continue
     const assignment = serviceAssignments.find((value) =>

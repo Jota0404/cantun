@@ -13,8 +13,10 @@ select set_config('app.user_id', '00000000-0000-0000-0000-0000000003a1', true);
 select public.create_organization('20000000-0000-0000-0000-0000000003a1', 'Igreja da Ana');
 insert into public.songs (user_id, id, title, original_key, current_key, lyrics, created_at, updated_at)
   values ('00000000-0000-0000-0000-0000000003a1', '40000000-0000-0000-0000-0000000003a1', 'Música', 'C', 'C', 'C', now(), now());
-insert into public.services (id, organization_id, name, starts_at, created_by_user_id)
-  values ('50000000-0000-0000-0000-0000000003a1', '20000000-0000-0000-0000-0000000003a1', 'Culto', now(), '00000000-0000-0000-0000-0000000003a1');
+insert into public.teams (id, organization_id, name)
+  values ('30000000-0000-0000-0000-0000000003a1', '20000000-0000-0000-0000-0000000003a1', 'Louvor');
+insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id)
+  values ('50000000-0000-0000-0000-0000000003a1', '20000000-0000-0000-0000-0000000003a1', '30000000-0000-0000-0000-0000000003a1', 'Culto', now(), '00000000-0000-0000-0000-0000000003a1');
 insert into public.service_items (service_id, song_id, position)
   values ('50000000-0000-0000-0000-0000000003a1', '40000000-0000-0000-0000-0000000003a1', 0);
 select public.create_target_stage_session('50000000-0000-0000-0000-0000000003a1', '60000000-0000-0000-0000-0000000003a1');

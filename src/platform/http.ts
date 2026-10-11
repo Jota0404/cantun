@@ -23,6 +23,7 @@ export class ApiError extends Error {
 
 // Mensagens P0001 do banco (chegam como 400 `{ error }`) traduzidas para a UI.
 const SERVER_MESSAGES: Record<string, string> = {
+  'not authorized to create stage sessions': 'Só Owner e Admin podem iniciar o Modo Palco.',
   'display name must have 1 to 80 characters': 'Informe um nome de 1 a 80 caracteres.',
   'invalid invite expiration': 'Validade do convite inválida.',
   'invalid invite role': 'Papel do convite inválido.',
@@ -48,15 +49,20 @@ export function translateServerMessage(message: string): string {
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
-/** Lança `ApiError` para respostas não-2xx; erros de rede propagam como vêm do `fetch`. */
+/** Lança `ApiError` para respostas não-2xx; sem resposta (rede), `ApiError(0)`. */
 export async function apiRequest<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
   if (!isPlatformConfigured) throw new ApiError(0, 'Servidor não configurado.')
-  const response = await fetch(`${apiUrl}${path}`, {
-    method,
-    credentials: 'include',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      method,
+      credentials: 'include',
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new ApiError(0, 'Sem conexão: tente de novo quando estiver online.')
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => null) as { error?: unknown } | null
     throw new ApiError(response.status, typeof data?.error === 'string' ? translateServerMessage(data.error) : `Erro ${response.status} do servidor.`)

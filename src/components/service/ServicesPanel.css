@@ -1,0 +1,10 @@
+.services-panel { display: grid; gap: 1rem; }
+.services-panel > header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; }
+.services-panel__form { display: grid; gap: .75rem; max-width: 520px; }
+.services-panel__form label { display: grid; gap: .25rem; font-weight: 700; }
+.services-panel__list { display: grid; gap: .5rem; padding: 0; list-style: none; }
+.services-panel__list li { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: center; padding: .75rem 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.services-panel__list a { font-weight: 700; min-height: 24px; }
+.service-status { padding: .1rem .55rem; border: 1px solid var(--color-border); border-radius: 999px; font-size: .85rem; font-weight: 700; }
+.service-status--ready, .service-status--in_progress { border-color: var(--color-primary); }
+.service-status--cancelled { text-decoration: line-through; }

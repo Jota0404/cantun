@@ -40,7 +40,7 @@ Tornar o serviço o centro operacional que o B4 (escala) e o B6 (repertório e m
 - [ ] Serviço `completed`/`cancelled` não aceita edição.
 - [ ] O Stage mostra só as músicas, na ordem; anterior/próxima respeitam a ordem e pulam itens não musicais (§34.1, ex. 3).
 - [ ] Lista agrupa próximos, em planejamento e realizados, com estado visível (§53).
-- [ ] Offline: leitura funciona; criação e edição entram na fila e respeitam a autorização ao subir.
+- [ ] Offline: leitura funciona; criação e edição entram na fila e respeitam a autorização ao subir; mudança de status é só online (sem rede: "Sem conexão: tente de novo quando estiver online." e nada muda).
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -85,7 +85,7 @@ Rastreio: RF-SVC-001 → RN-01, RN-08; RF-SVC-002 → RN-02, RN-03, RN-06; RF-SV
   - RLS: substitui "organization admins can write services/service items" por políticas com `app.has_permission(organization_id, team_id, 'service.*')`; leitura mantém "membro da organização", com a regra de ativo do §4.
   - As sete funções do Stage listadas acima: `create or replace` com o filtro `type = 'song'`. `create_target_stage_session` continua exigindo owner/admin (ver decisões).
 - **Dexie:** nova `this.version(13)` (a v12 é do B2; confirmar no PR): `services: 'id, organizationId, teamId, startsAt, status, updatedAt'`; `upgrade()`: `planned → draft`, `confirmed → ready`, `teamId` = equipe local mais antiga da organização ou `null` (o pull corrige); `serviceItems` recebe `type = 'song'`. Teste de upgrade v12 → v13.
-- **Sync (`TargetSyncEngine`):** mapeia os campos novos. `status` **não** sobe no push (só por RPC) e o pull o sobrescreve sem LWW; demais campos LWW (ADR-026). Transição offline entra na fila; recusa do servidor reverte e avisa. Itens de um serviço sobem depois do serviço e numa mesma transação de push (renumeração com a `unique` deferida). **Confirmado:** `POST /sync/:table` grava todas as linhas do lote numa única transação (`server/src/data.ts:85`); o cliente só precisa enviar os itens renumerados de um serviço no mesmo lote.
+- **Sync (`TargetSyncEngine`):** mapeia os campos novos. `status` **não** sobe no push (só por RPC) e o pull o sobrescreve sem LWW; demais campos LWW (ADR-026). Transição de status é **só online** (mesmo padrão do B2 para papel/status), sem fila: sem rede, a UI mostra "Sem conexão: tente de novo quando estiver online." e nada muda localmente; recusa do servidor mostra o erro; o estado local muda só com a resposta da RPC. Itens de um serviço sobem depois do serviço e numa mesma transação de push (renumeração com a `unique` deferida). **Confirmado:** `POST /sync/:table` grava todas as linhas do lote numa única transação (`server/src/data.ts:85`); o cliente só precisa enviar os itens renumerados de um serviço no mesmo lote.
 - **RLS / permissões:** `service.*` em `PERMISSIONS.md` §3.4 e casos S1–S8 em §5.1; a UI não é mecanismo de segurança.
 
 ## Decisões pendentes do owner (propostas do planner)
@@ -107,11 +107,11 @@ Até a decisão, as regras RN-02, RN-08 e as seções correspondentes valem como
 ## Plano de testes
 - **Domínio / application:** todas as transições (válidas e inválidas); validação de item por tipo; reordenação e renumeração com tipos mistos; casos de uso com sucesso e `errors`.
 - **Repositórios (fake-indexeddb):** upgrade v12 → v13 (status migrado, `teamId`, `type = 'song'`); índices `teamId`/`status`.
-- **Sync:** `toRow`/`fromRow` dos campos novos; push sem `status`; pull sobrescreve `status`; recusa de transição reverte (`src/platform` mockado).
+- **Sync:** `toRow`/`fromRow` dos campos novos; push sem `status`; pull sobrescreve `status`; transição sem rede não altera o estado local e devolve o aviso de conexão; recusa do servidor não altera o estado local (`src/platform` mockado).
 - **UI (papel/label):** lista agrupada; criar serviço; ordem com subir/descer por teclado e anúncio da nova posição; item não musical com título; ações conforme `permissions.ts`; estado final sem edição.
 - **RLS / SQL (`scripts/db`):** Owner, Admin, Líder da equipe × Líder de outra equipe × Membro × outra organização × sem vínculo × anônimo × `inactive`; casos S1–S8 abaixo; `check`s de item; FK composta (equipe de outra organização); renumeração com `unique` deferida.
 - **Regressão do Stage:** serviço com itens mistos: snapshot, `next`/`previous`/`goto`/`prepare_next` só em músicas; serviço só com itens não musicais não cria sessão.
-- **Manual:** mobile/tablet; offline (leitura e fila); Stage com itens mistos.
+- **Manual:** mobile/tablet; offline (leitura, fila de criação/edição, transição bloqueada com aviso); Stage com itens mistos.
 
 Casos negativos novos (para o `PERMISSIONS.md`):
 | # | Caso | Esperado |
@@ -132,7 +132,7 @@ Casos negativos novos (para o `PERMISSIONS.md`):
 | Renumerar a ordem esbarra na `unique (service_id, position)` no push | `unique` deferida + itens do serviço no mesmo lote de `POST /sync/:table` (uma transação, `server/src/data.ts:85`); teste de servidor |
 | Ajuste do Stage vira feature (D6) | Só o filtro `type = 'song'` nas sete funções; nenhuma UI nova no Stage |
 | Equipe excluída com serviços | `on delete restrict`; Admin cancela/move antes (decisão pendente) |
-| Status offline divergente | Status só por RPC, pull autoritativo, reversão com aviso |
+| Status offline divergente | Transição só online por RPC, sem fila; pull autoritativo |
 
 ## Issues
 - [ ] Épico B3 / VS-02

@@ -96,8 +96,8 @@ insert into public.organization_songs (organization_id, song_id) values
 insert into public.repertoires (id, organization_id, name, created_by_user_id) values
   ('50000000-0000-0000-0000-000000000404', '10000000-0000-0000-0000-000000000401', 'Do Mauro', '00000000-0000-0000-0000-000000000404'),
   ('50000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000401', 'Da Olga', '00000000-0000-0000-0000-000000000401');
-insert into public.services (id, organization_id, name, starts_at, created_by_user_id) values
-  ('60000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000401', 'Culto', now(), '00000000-0000-0000-0000-000000000401');
+insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values
+  ('60000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000401', '30000000-0000-0000-0000-000000000401', 'Culto', now(), '00000000-0000-0000-0000-000000000401');
 insert into public.service_items (service_id, song_id, position) values
   ('60000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000404', 0);
 select pg_temp.as_user('00000000-0000-0000-0000-000000000401');
