@@ -80,7 +80,20 @@ Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-02-se
 
 Leitura de serviços e da ordem: membro **ativo na organização** (seção 4), sem capacidade própria.
 
-Capacidades ainda fora (gerenciar escala, confirmar participação, Network) seguem o Blueprint §49 e entram nos blocos B4 e B10.
+### 3.5 Escala e disponibilidade (B4 — proposta, ADR-053 `Proposed`)
+
+Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-03-escala.md`](specs/VS-03-escala.md).
+
+| Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
+|---|---|:-:|:-:|:-:|:-:|---|
+| `schedule.manage` | equipe | ✅ | ✅ | **L** | ❌ | Definir vagas, atribuir (só membro **ativo da equipe**), substituir, cancelar e pedir substituição de outra pessoa. Negado em serviço `completed`/`cancelled`. Mudanças de estado só por RPC. |
+| `schedule.respond` | próprio recurso | **P** | **P** | **P** | **P** | Confirmar, recusar ou pedir substituição da **própria** atribuição. Vale para qualquer papel, mas **só o titular**, ativo. Ninguém responde por outra pessoa. Não passa por `app.has_permission`: a RPC compara `assignments.user_id` com `app.current_user_id()`. |
+| `availability.set_own` | organização | **P** | **P** | **P** | **P** | Informar disponibilidade por dia **só do próprio** usuário, ativo na organização. |
+| `availability.read` | alvo | **P** | **P** | **P** | **P** | Ler a disponibilidade de um membro: o próprio, ou Owner, Admin e Líder ativo de uma equipe da qual o alvo é membro (`app.can_read_availability`). Membro comum não lê a de outros. Não passa por `app.has_permission`. |
+
+Leitura de vagas e atribuições (quem está escalado): membro **ativo** na organização (seção 4), sem capacidade própria (proposta, decisão do owner).
+
+Capacidades ainda fora (Network, solicitações externas) seguem o Blueprint §49 e entram no B10.
 
 ## 4. Membro `inactive`, Líder inativo e quem está "ativo"
 
@@ -134,11 +147,29 @@ Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria e
 
 Contraste: Owner, Admin e Líder ativo da equipe do serviço conseguem; Membro ativo lê serviço e ordem.
 
+### 5.2 Escala e disponibilidade (B4 — proposta, ADR-053)
+
+| # | Caso | Resultado esperado |
+|---|---|---|
+| E1 | Membro confirma, recusa ou pede substituição da atribuição de **outra** pessoa | negado |
+| E2 | Owner, Admin ou Líder responde (confirmar/recusar) **por** outra pessoa | negado (só o titular) |
+| E3 | Líder da equipe A cria vaga, atribui, substitui ou cancela em serviço da equipe B | negado |
+| E4 | Membro cria ou edita vaga, atribui ou cancela atribuição | negado |
+| E5 | `insert`, `update` ou `delete` direto em `assignments` (inclui o sync), por qualquer papel | negado; só as RPCs mudam a atribuição |
+| E6 | Atribuir pessoa que não é membro **ativo** da equipe do serviço (outra equipe, outra organização, `inactive`, sem vínculo) | negado |
+| E7 | Transição inválida (`declined → confirmed`, `cancelled → invited`, `invited → replacement_needed`) | negado |
+| E8 | Criar ou alterar vaga, atribuição ou resposta em serviço `completed`/`cancelled` | negado |
+| E9 | Líder `inactive`, ou titular `inactive`, tenta agir (gerir ou responder) | negado |
+| E10 | Ler a disponibilidade ou a nota de outro membro: membro comum, Líder de equipe da qual o alvo não faz parte, outra organização, anônimo; escrever a de outra pessoa | negado |
+| E11 | Reduzir `quantity` abaixo das atribuições ativas, ou excluir vaga com atribuição ativa | negado |
+| E12 | Segunda atribuição ativa da mesma pessoa na mesma vaga | negado (`unique` parcial) |
+
+Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o titular ativo responde; o membro lê a escala do serviço (proposta) e escreve a própria disponibilidade.
+
 ## 6. Fora do B2
 
 - Troca ou recuperação de Owner (issue futura).
-- Disponibilidade do membro e escala (B4; RF-TEAM-005).
-- Gerenciar escala, confirmar participação, Network (B4, B10). Serviço: seção 3.4 (B3).
+- Network (B10). Serviço: seção 3.4 (B3). Escala e disponibilidade: seção 3.5 (B4).
 - Permissões granulares por recurso (ACL): rejeitado no ADR-051.
 
 ## 7. Pendências e pontos em aberto (não alterados no B2)
@@ -156,6 +187,7 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço conseguem; Membro a
 |---|---|---|
 | Matriz (este documento) | `docs/PERMISSIONS.md` | B2 PR 1 |
 | `app.has_permission` + RLS/RPCs | `db/migrations/0004_team_roles.sql` | B2 PR 2 (`feat/team-roles-schema`) |
-| `service.*` + RLS + `transition_service` | `db/migrations/` | B3 PR 2 (`feat/service-schema`) |
+| `service.*` + RLS + `transition_service` | `db/migrations/0005_service_ops.sql` | B3 PR 2 (`feat/service-schema`) |
+| `schedule.manage` + vagas + RPCs de atribuição + disponibilidade | `db/migrations/0006_schedule.sql` | B4 PR 2 (`feat/schedule-schema`) |
 | Espelho `permissions.ts` | `src/domain/access/` | B2 PR 3 (`feat/team-roles-domain`) |
 | Uso na UI (esconder/desabilitar) | `src/pages`, `src/components` | B2 PR 4 e PR 5 |
