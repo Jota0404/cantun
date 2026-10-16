@@ -85,14 +85,12 @@ insert into public.team_memberships (id, team_id, user_id, role, status) values
 insert into public.team_musical_functions (team_membership_id, musical_function) values
   ('31000000-0000-0000-0000-000000000405', 'bass'), ('31000000-0000-0000-0000-000000000407', 'drums');
 
-insert into public.songs (user_id, id, title, original_key, current_key, lyrics, created_at, updated_at) values
-  ('00000000-0000-0000-0000-000000000404', '40000000-0000-0000-0000-000000000404', 'Do Mauro', 'C', 'C', 'C', now(), now()),
-  ('00000000-0000-0000-0000-000000000403', '40000000-0000-0000-0000-000000000403', 'Da Lia', 'D', 'D', 'D', now(), now()),
-  ('00000000-0000-0000-0000-000000000407', '40000000-0000-0000-0000-000000000407', 'Do Ivo', 'E', 'E', 'E', now(), now()),
-  ('00000000-0000-0000-0000-000000000404', '40000000-0000-0000-0000-000000000414', 'Do Mauro, nova', 'G', 'G', 'G', now(), now());
-insert into public.organization_songs (organization_id, song_id) values
-  ('10000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000404'),
-  ('10000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000403');
+-- 404 e 403 são cópias do Ministério (autoria de Mauro e Lia); 407 e 414 são músicas pessoais.
+insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000404', '40000000-0000-0000-0000-000000000404', '10000000-0000-0000-0000-000000000401', 'Do Mauro', 'C', 'C', 'C', now(), now()),
+  ('00000000-0000-0000-0000-000000000403', '40000000-0000-0000-0000-000000000403', '10000000-0000-0000-0000-000000000401', 'Da Lia', 'D', 'D', 'D', now(), now()),
+  ('00000000-0000-0000-0000-000000000407', '40000000-0000-0000-0000-000000000407', null, 'Do Ivo', 'E', 'E', 'E', now(), now()),
+  ('00000000-0000-0000-0000-000000000404', '40000000-0000-0000-0000-000000000414', null, 'Do Mauro, nova', 'G', 'G', 'G', now(), now());
 insert into public.repertoires (id, organization_id, name, created_by_user_id) values
   ('50000000-0000-0000-0000-000000000404', '10000000-0000-0000-0000-000000000401', 'Do Mauro', '00000000-0000-0000-0000-000000000404'),
   ('50000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000401', 'Da Olga', '00000000-0000-0000-0000-000000000401');
@@ -124,7 +122,7 @@ select pg_temp.affects($q$update public.repertoires set name = 'Editado pela Lia
 select pg_temp.as_user('00000000-0000-0000-0000-000000000404'); -- Membro
 select pg_temp.ok((select array_agg(musical_function) = array['bass'] from public.set_my_team_musical_functions('30000000-0000-0000-0000-000000000401', array['bass'])), 'Membro define as próprias funções');
 select pg_temp.affects($q$update public.songs set title = 'Minha' where id = '40000000-0000-0000-0000-000000000404'$q$, 1, 'Membro edita a própria música');
-insert into public.organization_songs (organization_id, song_id) values ('10000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000414');
+select public.copy_song_to_organization('40000000-0000-0000-0000-000000000414', '10000000-0000-0000-0000-000000000401', null);
 insert into public.repertoires (id, organization_id, name, created_by_user_id)
   values ('50000000-0000-0000-0000-000000000414', '10000000-0000-0000-0000-000000000401', 'Novo do Mauro', '00000000-0000-0000-0000-000000000404');
 insert into public.repertoire_items (repertoire_id, song_id, position)
@@ -200,7 +198,6 @@ select pg_temp.affects($q$delete from public.songs where id = '40000000-0000-000
 select pg_temp.affects($q$update public.repertoires set name = 'Invadido' where id = '50000000-0000-0000-0000-000000000401'$q$, 0, 'N7 Membro edita repertório de outro');
 select pg_temp.affects($q$delete from public.repertoires where id = '50000000-0000-0000-0000-000000000401'$q$, 0, 'N7 Membro exclui repertório de outro');
 select pg_temp.denied($q$insert into public.repertoire_items (repertoire_id, song_id, position) values ('50000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000404', 9)$q$, 'N7 Membro altera itens de repertório de outro');
-select pg_temp.affects($q$delete from public.organization_songs where song_id = '40000000-0000-0000-0000-000000000403'$q$, 0, 'N7 Membro desvincula música de outro');
 select pg_temp.denied($q$insert into public.teams (id, organization_id, name) values ('30000000-0000-0000-0000-000000000413', '10000000-0000-0000-0000-000000000401', 'Nova')$q$, 'N13 Membro cria equipe');
 select pg_temp.affects($q$update public.organizations set name = 'Pelo membro'$q$, 0, 'Membro renomeia organização');
 
@@ -243,7 +240,7 @@ set local role cantum_user;
 
 -- N11 — inactive em todas as equipes
 select pg_temp.as_user('00000000-0000-0000-0000-000000000407');
-select pg_temp.denied($q$insert into public.organization_songs (organization_id, song_id) values ('10000000-0000-0000-0000-000000000401', '40000000-0000-0000-0000-000000000407')$q$, 'N11 cria música na organização');
+select pg_temp.denied($q$select public.copy_song_to_organization('40000000-0000-0000-0000-000000000407', '10000000-0000-0000-0000-000000000401', null)$q$, 'N11 copia música para a organização', 'not authorized to copy songs to this organization');
 select pg_temp.denied($q$insert into public.repertoires (organization_id, name, created_by_user_id) values ('10000000-0000-0000-0000-000000000401', 'Inativo', '00000000-0000-0000-0000-000000000407')$q$, 'N11 cria repertório');
 select pg_temp.ok(not app.can_subscribe_stage_session('70000000-0000-0000-0000-000000000401'), 'N11 assina o Stage');
 select pg_temp.denied($q$select public.get_target_stage_snapshot('70000000-0000-0000-0000-000000000401')$q$, 'N11 snapshot', 'stage session not found or not authorized');
@@ -350,12 +347,8 @@ select pg_temp.as_user('00000000-0000-0000-0000-000000000402');
 select pg_temp.affects($q$delete from public.repertoires where id = '50000000-0000-0000-0000-000000000404'$q$, 1, 'Admin exclui repertório de outro');
 select pg_temp.affects($q$delete from public.songs where id = '40000000-0000-0000-0000-000000000403'$q$, 1, 'Admin exclui música de outro');
 
--- Música vinculada a duas organizações: terceiros não editam (salvaguarda 2).
-reset role;
-insert into public.organization_songs (organization_id, song_id) values ('10000000-0000-0000-0000-000000000402', '40000000-0000-0000-0000-000000000414');
-set local role cantum_user;
-select pg_temp.as_user('00000000-0000-0000-0000-000000000402');
-select pg_temp.affects($q$update public.songs set title = 'Admin' where id = '40000000-0000-0000-0000-000000000414'$q$, 0, 'música em duas organizações');
+-- Música pessoal é do dono: nem Owner nem Admin leem ou editam.
+select pg_temp.affects($q$update public.songs set title = 'Admin' where id = '40000000-0000-0000-0000-000000000414'$q$, 0, 'Admin não edita música pessoal');
 
 reset role;
 rollback;
