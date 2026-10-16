@@ -15,6 +15,7 @@ import { useOnline } from '../../components/schedule/useOnline'
 import { musicalFunctionLabel } from '../../components/team/musicalFunctions'
 import { formatServiceDate } from '../../components/service/serviceLabels'
 import './MyServicesPage.css'
+import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
@@ -120,9 +121,9 @@ export function MyServicesPage() {
 
       <section aria-labelledby="my-availability-title">
         <h3 id="my-availability-title">Minha disponibilidade</h3>
-        {!activeOrganizationId ? <p>Você ainda não participa de nenhuma organização.</p> : <>
+        {!activeOrganizationId ? <p>{labels.noOrganizationYet}</p> : <>
           <form className="my-services__form" onSubmit={(event) => void saveAvailability(event)} aria-label="Informar disponibilidade">
-            {organizations.length > 1 && <label>Organização
+            {organizations.length > 1 && <label>{labels.organization}
               <select value={activeOrganizationId} onChange={(event) => setOrganizationId(event.target.value)}>
                 {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
               </select>

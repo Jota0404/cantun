@@ -26,6 +26,7 @@ import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
 import { PendingLocalChangesError } from './auth/localSession'
 import './App.css'
+import { labels } from './ui/labels'
 
 type Theme = 'light' | 'dark'
 
@@ -82,7 +83,7 @@ function App() {
           <div><p className="app-header__eyebrow">MUSIC WORKSPACE</p><h1><Link to="/">CANTUM</Link></h1></div>
           <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
         </header>
-        <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
+        <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">{labels.organizations}</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
         <EmailVerificationNotice />
       </>}
       <Routes>

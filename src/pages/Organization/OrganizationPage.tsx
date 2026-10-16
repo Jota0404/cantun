@@ -29,7 +29,7 @@ export function OrganizationPage() {
       setOnboarding((current) => current ?? orgs.length === 0)
       setTeams(grouped)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar as organizações.')
+      setError(err instanceof Error ? err.message : `Não foi possível carregar os ${labels.organizations}.`)
     } finally {
       setLoading(false)
     }
@@ -46,7 +46,7 @@ export function OrganizationPage() {
     await load()
   }
 
-  if (loading) return <main className="organization-page"><p>Carregando organizações…</p></main>
+  if (loading) return <main className="organization-page"><p>Carregando {labels.organizations}…</p></main>
 
   return (
     <main className="organization-page">

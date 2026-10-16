@@ -6,10 +6,11 @@ import { buildOrganizationInviteUrl, createOrganizationInvite } from '../../appl
 import { setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
 import { MUSICAL_FUNCTIONS } from './musicalFunctions'
 import './TeamOnboarding.css'
+import { labels } from '../../ui/labels'
 
-const STEPS = ['Organização', 'Equipe principal', 'Convidar', 'Suas funções', 'Pronto']
+const STEPS = [labels.organization, labels.mainTeamStep, 'Convidar', 'Suas funções', 'Pronto']
 
-/** Onboarding de quem ainda não tem organização (RN-11: uma organização principal por conta). */
+/** Onboarding de quem ainda não tem Ministério (RN-11: um Ministério principal por conta). */
 export function TeamOnboarding({ onFinished }: { onFinished?: () => void }) {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
@@ -41,14 +42,14 @@ export function TeamOnboarding({ onFinished }: { onFinished?: () => void }) {
 
   return (
     <section className="team-onboarding" aria-labelledby="onboarding-title">
-      <h2 id="onboarding-title">Vamos preparar sua equipe</h2>
+      <h2 id="onboarding-title">{labels.prepareTeam}</h2>
       <ol className="team-onboarding__steps">
         {STEPS.map((label, index) => <li key={label} aria-current={index === step ? 'step' : undefined}>{label}</li>)}
       </ol>
       <p className="team-onboarding__progress">Passo {step + 1} de {STEPS.length}: {STEPS[step]}</p>
       <form className="team-onboarding__form" onSubmit={submit}>
-        {step === 0 && <label>Nome da organização<input value={value} onChange={(event) => setValue(event.target.value)} required pattern=".*\S.*" placeholder="Ex.: Igreja Esperança" /></label>}
-        {step === 1 && <label>Nome da equipe principal<input value={value} onChange={(event) => setValue(event.target.value)} required pattern=".*\S.*" placeholder="Ex.: Louvor domingo" /></label>}
+        {step === 0 && <label>{labels.organizationName}<input value={value} onChange={(event) => setValue(event.target.value)} required pattern=".*\S.*" placeholder="Ex.: Igreja Esperança" /></label>}
+        {step === 1 && <label>{labels.mainTeamName}<input value={value} onChange={(event) => setValue(event.target.value)} required pattern=".*\S.*" placeholder="Ex.: Louvor domingo" /></label>}
         {step === 2 && <>
           <label>E-mail da pessoa (opcional)<input type="email" value={value} onChange={(event) => setValue(event.target.value)} /></label>
           {inviteUrl && <label>Link do convite<input readOnly value={inviteUrl} /></label>}
@@ -62,12 +63,12 @@ export function TeamOnboarding({ onFinished }: { onFinished?: () => void }) {
             </label>
           ))}
         </fieldset>}
-        {step === 4 && <p role="status">Tudo pronto. Sua equipe já pode ser usada.</p>}
+        {step === 4 && <p role="status">{labels.teamReady}</p>}
         {error && <p role="alert" className="organization-error">{error}</p>}
         <div className="team-onboarding__actions">
           {step < 4 && <button type="submit" disabled={busy}>{step === 2 ? 'Gerar convite' : 'Continuar'}</button>}
           {(step === 2 || step === 3) && <button type="button" onClick={next}>{step === 2 && inviteUrl ? 'Continuar' : 'Pular'}</button>}
-          {step === 4 && <button type="button" onClick={finish}>Abrir equipe</button>}
+          {step === 4 && <button type="button" onClick={finish}>{labels.openTeam}</button>}
         </div>
       </form>
     </section>

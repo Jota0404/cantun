@@ -54,7 +54,7 @@ export function TeamPage() {
       setAccess(context)
       setMembers(teamMembers)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar a equipe.')
+      setError(err instanceof Error ? err.message : labels.teamLoadError)
     } finally {
       setLoading(false)
     }

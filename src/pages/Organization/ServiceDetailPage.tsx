@@ -16,6 +16,7 @@ import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
 import './OrganizationPage.css'
 import './ServiceDetailPage.css'
+import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
@@ -145,7 +146,7 @@ export function ServiceDetailPage() {
 
   return <main className="organization-page"><section className="organization-card">
     <header>
-      <Link to={`/organizations/${service.organizationId}`}>← Organização</Link>
+      <Link to={`/organizations/${service.organizationId}`}>{labels.backToOrganization}</Link>
       <span>SERVIÇO</span>
       <h2>{service.name}</h2>
       <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>

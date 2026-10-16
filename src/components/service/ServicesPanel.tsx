@@ -8,6 +8,7 @@ import type { Service } from '../../domain/services/service'
 import type { Team } from '../../domain/teams/team'
 import { SERVICE_STATUS_LABEL, formatServiceDate } from './serviceLabels'
 import './ServicesPanel.css'
+import { labels } from '../../ui/labels'
 
 const GROUPS: Array<{ key: keyof ServiceGroups; title: string; empty: string }> = [
   { key: 'upcoming', title: 'Próximos', empty: 'Nenhum serviço pronto ou em andamento.' },
@@ -68,7 +69,7 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
     setReloadKey((key) => key + 1)
   }
 
-  const teamName = (service: Service) => teams.find((team) => team.id === service.teamId)?.name ?? 'Sem equipe'
+  const teamName = (service: Service) => teams.find((team) => team.id === service.teamId)?.name ?? labels.noTeam
 
   return (
     <section aria-labelledby="services-title" className="services-panel">
@@ -79,7 +80,7 @@ export function ServicesPanel({ organizationId, teams }: { organizationId: strin
       {error && <p role="alert" className="organization-error">{error}</p>}
       {creating && (
         <form className="services-panel__form" onSubmit={(event) => void submit(event)} aria-label="Novo serviço">
-          <label>Equipe
+          <label>{labels.team}
             <select value={teamId || creatableTeams[0]?.id} onChange={(event) => setTeamId(event.target.value)} required>
               {creatableTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
             </select>

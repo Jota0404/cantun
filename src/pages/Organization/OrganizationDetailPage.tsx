@@ -50,7 +50,7 @@ export function OrganizationDetailPage() {
       setRepertoires(reps)
       // Mantém a referência quando nada mudou: a recarga ao vivo não deve recarregar o painel de serviços.
       setTeams((current) => JSON.stringify(current) === JSON.stringify(currentTeams) ? current : currentTeams)
-    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar a organização.') }
+    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o Ministério.') }
   }, [organizationId])
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function OrganizationDetailPage() {
 
   async function addOrgSong(songId: string) {
     try { await addSongToOrganization(organizationId, songId); await load() }
-    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível adicionar a música à organização.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível vincular a música ao Ministério.') }
   }
 
   if (!organization) return <main className="organization-page"><p role={error || notFound ? 'alert' : undefined}>{error || (notFound ? labels.organizationNotFound : labels.loadingOrganization)}</p></main>

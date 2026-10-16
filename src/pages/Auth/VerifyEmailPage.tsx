@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import './AuthPage.css'
+import { labels } from '../../ui/labels'
 
 type Status = 'verifying' | 'verified' | 'failed'
 
@@ -33,7 +34,7 @@ export function VerifyEmailPage() {
         <p className="auth-card__eyebrow">MUSIC WORKSPACE</p>
         <h1 id="verify-email-title">Confirmar e-mail</h1>
         {!failed && status === 'verifying' && <p className="auth-card__subtitle" role="status">Confirmando seu e-mail…</p>}
-        {status === 'verified' && <p className="auth-message" role="status">E-mail confirmado. Agora você pode aceitar convites para equipes.</p>}
+        {status === 'verified' && <p className="auth-message" role="status">E-mail confirmado. Agora você pode aceitar {labels.inviteMention}.</p>}
         {failed && <p className="auth-error" role="alert">{token ? error : 'Link de confirmação inválido: o token não foi informado.'}</p>}
         {status !== 'verifying' || failed
           ? <Link className="auth-link" to={user ? '/' : '/auth'}>{user ? 'Continuar' : 'Ir para o login'}</Link>
