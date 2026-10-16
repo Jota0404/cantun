@@ -120,13 +120,13 @@ export class SyncEngine {
     // RN-A14: a cópia é atualizada por `id`, sem trocar autor, organização nem origem; nunca upsert com `user_id` = eu.
     if (isCopy) {
       const song = item.payload as Song
-      if (item.operation === 'delete') await updateRows(table, { id: item.entityId }, { deleted_at: item.updatedAt })
-      else await updateRows(table, { id: item.entityId }, copyPatch(song))
+      assertApplied(await updateRows(table, { id: item.entityId }, item.operation === 'delete' ? { deleted_at: item.updatedAt } : copyPatch(song)))
       return
     }
 
     if (item.operation === 'delete') {
-      await updateRows(table, { user_id: userId, id: item.entityId }, { deleted_at: item.updatedAt })
+      // Música pessoal que nunca chegou ao servidor: nada a apagar lá.
+      if (remote) assertApplied(await updateRows(table, { user_id: userId, id: item.entityId }, { deleted_at: item.updatedAt }))
       return
     }
     await upsertRows(table, [{ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }])
@@ -171,6 +171,11 @@ function toRemoteRow(song: Entity) {
 /** Colunas que a RLS deixa o editor mudar numa cópia (sem `user_id`, `organization_id` nem `source_song_id`). */
 function copyPatch(song: Song) {
   return { title: song.title, artist: song.artist ?? null, original_key: song.originalKey, current_key: song.currentKey, bpm: song.bpm ?? null, lyrics: song.lyrics, notes: song.notes ?? null, updated_at: song.updatedAt }
+}
+
+/** O /sync devolve `count: 0` sem erro quando a RLS nega; sem isto o item sairia da fila como sucesso. */
+function assertApplied(result: { count: number }) {
+  if (result.count === 0) throw new Error('O servidor não aplicou a alteração.')
 }
 
 function getUpdatedAt(entity: Entity) {

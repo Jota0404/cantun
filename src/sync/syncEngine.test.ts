@@ -116,4 +116,34 @@ describe('SyncEngine (songs)', () => {
     await engine.sync('user-1')
     expect(remote.updateRows).toHaveBeenCalledWith('songs', { id: 'c1' }, { deleted_at: copy.updatedAt })
   })
+  it('keeps a copy edit in the queue when the server answers count 0 (RLS denied)', async () => {
+    const copy = { ...song('2026-10-05T00:00:00Z', 'Negada'), id: 'c1', organizationId: 'org-1' }
+    remote.selectRows.mockResolvedValue([{ ...remoteRow('2026-10-01T00:00:00Z'), id: 'c1', organization_id: 'org-1', user_id: 'author' }])
+    remote.updateRows.mockResolvedValue({ count: 0 })
+    await db.syncQueue.add({ userId: 'user-1', entity: 'songs', entityId: 'c1', operation: 'upsert', payload: copy, updatedAt: copy.updatedAt, attempts: 0 })
+    await new SyncEngine(db).sync('user-1')
+
+    const [item] = await db.syncQueue.toArray()
+    expect(item).toMatchObject({ entityId: 'c1', attempts: 1 })
+  })
+
+  it('keeps a copy delete queued on count 0, but drops the delete of a personal song the server never had', async () => {
+    const copy = { ...song('2026-10-05T00:00:00Z'), id: 'c1', organizationId: 'org-1' }
+    remote.updateRows.mockResolvedValue({ count: 0 })
+    remote.selectRows.mockResolvedValue([])
+    await db.syncQueue.bulkAdd([
+      { userId: 'user-1', entity: 'songs', entityId: 'c1', operation: 'delete', payload: copy, updatedAt: copy.updatedAt, attempts: 0 },
+      { userId: 'user-1', entity: 'songs', entityId: 'never-synced', operation: 'delete', updatedAt: copy.updatedAt, attempts: 0 },
+    ])
+    await new SyncEngine(db).sync('user-1')
+    expect((await db.syncQueue.toArray()).map((item) => [item.entityId, item.attempts])).toEqual([['c1', 1]])
+  })
+
+  it('keeps a personal delete queued when the row exists but count is 0', async () => {
+    remote.selectRows.mockResolvedValue([{ ...remoteRow('2026-10-01T00:00:00Z') }])
+    remote.updateRows.mockResolvedValue({ count: 0 })
+    await db.syncQueue.add({ userId: 'user-1', entity: 'songs', entityId: 'song-1', operation: 'delete', updatedAt: '2026-10-05T00:00:00Z', attempts: 0 })
+    await new SyncEngine(db).sync('user-1')
+    expect((await db.syncQueue.toArray())[0]).toMatchObject({ entityId: 'song-1', attempts: 1 })
+  })
 })
