@@ -5,7 +5,7 @@
 -- 3. RPC copy_song_to_organization (idempotente).
 -- 4. Triggers de escopo dos itens de repertório e de serviço.
 -- 5. FKs de item → música: RESTRICT vira NO ACTION, para o cascade da organização.
--- 6. PARTE FINAL (isolada, pendente de decisão do Jota): conversão de organization_songs em cópias.
+-- 6. PARTE FINAL: limpeza de organization_songs e dos itens de teste (decisão do Jota).
 
 -- ---------------------------------------------------------------------------
 -- 1. Colunas e unicidade da cópia
@@ -197,88 +197,23 @@ alter table public.service_items add constraint service_items_song_id_fkey
   foreign key (song_id) references public.songs(id) on delete no action;
 
 -- ===========================================================================
--- 6. PARTE FINAL — conversão de organization_songs em cópias (ADR-062 §6)
---    Isolada: o Jota ainda decide entre converter (esta parte) e limpar vínculos e itens de
---    teste. Para "limpar", troque esta parte por: delete dos itens de repertório e de serviço
---    das organizações, e o bloco "remoção" no fim.
+-- 6. PARTE FINAL — limpeza de organization_songs (ADR-062 §6; decisão do Jota, 2026-10-16)
+--    Só há dados de teste (ADR-059 §1): em vez de converter, apaga os itens de repertório e de
+--    serviço que apontavam para músicas, zera as referências do Palco e remove a tabela.
+--    As músicas pessoais ficam; as organizações passam a ter cópias só pelo fluxo novo.
 -- ===========================================================================
 
--- 6.1 Cópias: S(O) = vinculadas em O ∪ referenciadas por repertórios de O ∪ referenciadas por
--- serviços de O (cobre itens órfãos, cujas músicas nunca foram vinculadas).
-create temp table song_copy_map on commit drop as
-with scope as (
-  select os.organization_id, os.song_id from public.organization_songs os
-  union
-  select r.organization_id, ri.song_id
-  from public.repertoire_items ri join public.repertoires r on r.id = ri.repertoire_id
-  union
-  select sv.organization_id, si.song_id
-  from public.service_items si join public.services sv on sv.id = si.service_id
-  where si.song_id is not null
-)
-select sc.organization_id, sc.song_id as source_id, gen_random_uuid() as copy_id
-from scope sc join public.songs s on s.id = sc.song_id
-where s.organization_id is null;
+delete from public.repertoire_items;
+delete from public.service_items where song_id is not null;
 
-create temp table song_conversion_before on commit drop as
-select
-  (select count(*) from public.repertoire_items) as repertoire_items,
-  (select count(*) from public.service_items where song_id is not null) as service_items,
-  (select count(*) from song_copy_map) as copies;
-
-insert into public.songs (id, user_id, organization_id, source_song_id, title, artist, original_key, current_key,
-                          bpm, lyrics, notes, is_favorite, created_at, updated_at, deleted_at)
-select m.copy_id, s.user_id, m.organization_id, s.id, s.title, s.artist, s.original_key, s.current_key,
-       s.bpm, s.lyrics, s.notes, s.is_favorite, s.created_at, s.updated_at, s.deleted_at
-from song_copy_map m join public.songs s on s.id = m.source_id;
-
--- 6.2 Reaponta itens e o estado do Palco (sem a guarda do operador: é manutenção de schema).
-update public.repertoire_items ri set song_id = m.copy_id
-from public.repertoires r, song_copy_map m
-where r.id = ri.repertoire_id and m.organization_id = r.organization_id and m.source_id = ri.song_id;
-
-update public.service_items si set song_id = m.copy_id
-from public.services sv, song_copy_map m
-where sv.id = si.service_id and m.organization_id = sv.organization_id and m.source_id = si.song_id;
-
+-- Sem a guarda do operador: é manutenção de schema.
 alter table public.stage_session_states disable trigger stage_session_states_operator_guard;
-update public.stage_session_states st
-set current_song_id = coalesce((select m.copy_id from song_copy_map m where m.organization_id = sv.organization_id and m.source_id = st.current_song_id), st.current_song_id),
-    prepared_song_id = coalesce((select m.copy_id from song_copy_map m where m.organization_id = sv.organization_id and m.source_id = st.prepared_song_id), st.prepared_song_id),
-    revision = st.revision + 1
-from public.stage_sessions ss, public.services sv
-where ss.id = st.stage_session_id and sv.id = ss.service_id
-  and (st.current_song_id is not null or st.prepared_song_id is not null);
+update public.stage_session_states
+set current_song_id = null, prepared_song_id = null, revision = revision + 1
+where current_song_id is not null or prepared_song_id is not null;
 alter table public.stage_session_states enable trigger stage_session_states_operator_guard;
 
--- 6.3 Conferência: nenhum item pode apontar para música de outro escopo; contagens iguais.
-do $$
-declare
-  v_before record;
-begin
-  select * into v_before from song_conversion_before;
-  if exists (select 1 from public.repertoire_items ri
-             join public.repertoires r on r.id = ri.repertoire_id
-             join public.songs s on s.id = ri.song_id
-             where s.organization_id is distinct from r.organization_id) then
-    raise exception 'conversion left a repertoire item pointing to a song of another scope';
-  end if;
-  if exists (select 1 from public.service_items si
-             join public.services sv on sv.id = si.service_id
-             join public.songs s on s.id = si.song_id
-             where s.organization_id is distinct from sv.organization_id) then
-    raise exception 'conversion left a service item pointing to a song of another scope';
-  end if;
-  if (select count(*) from public.repertoire_items) <> v_before.repertoire_items
-     or (select count(*) from public.service_items where song_id is not null) <> v_before.service_items then
-    raise exception 'conversion changed the number of items';
-  end if;
-  if (select count(*) from public.songs where organization_id is not null) <> v_before.copies then
-    raise exception 'conversion created an unexpected number of copies';
-  end if;
-end $$;
-
--- 6.4 Remoção: tabela (as políticas dela caem junto) e as funções que dependiam dela.
+-- Remoção: tabela (as políticas dela caem junto) e as funções que dependiam dela.
 drop table public.organization_songs;
 drop function app.can_manage_organization_song(uuid, text);
 drop function app.is_my_song(uuid);

@@ -109,13 +109,7 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 - **Escopo dos itens (trigger):** item de repertório ou de serviço **da organização** só aceita música com `songs.organization_id` igual ao da organização; item de repertório **pessoal** só aceita música **pessoal do dono**.
 - **Cascade:** apagar a organização apaga repertórios, serviços e **suas cópias**; não toca em músicas pessoais. As FKs `repertoire_items.song_id` e `service_items.song_id` são `ON DELETE RESTRICT` (checado na hora) e **bloqueariam** o cascade: passam a `NO ACTION` (checado ao fim do comando), mantendo a proteção contra apagar música em uso. Teste obrigatório do cascade.
 - **RPC** `copy_song_to_organization(p_song_id uuid, p_organization_id uuid, p_new_id uuid)` (`security definer`, `set search_path = ''`): confere que a música é pessoal e do usuário e `song.create` na organização; devolve a cópia existente (por `source_song_id`) ou cria a nova. Só online; na allowlist de `/rpc`.
-- **Conversão de `organization_songs` (plano padrão, transação única):** só há dados de desenvolvimento (ADR-059 §1), mas a conversão é completa e testada.
-  1. Para cada organização O, o conjunto S(O) = músicas vinculadas a O em `organization_songs` **∪** músicas referenciadas por `repertoire_items` de repertórios de O **∪** músicas referenciadas por `service_items` de serviços de O. (Cobre os **itens órfãos**: item que aponta para música que nunca foi vinculada.)
-  2. Para cada `(O, música)` em S(O), cria uma **cópia** (id novo, `organization_id` = O, `user_id` = dono da original, `source_song_id` = original, conteúdo copiado). A mesma música em duas organizações gera duas cópias.
-  3. Reaponta para a cópia: `repertoire_items.song_id`, `service_items.song_id`, `stage_session_states.current_song_id` e `prepared_song_id` (das sessões de serviços de O).
-  4. Remove, nesta ordem: as políticas de `songs` do `0004` que dependem de `organization_songs`; as funções `app.can_manage_organization_song` e `app.is_my_song` (e o que mais depender delas); por fim a tabela `organization_songs` (as políticas dela caem junto).
-  5. Recria as políticas de `songs` pelo modelo novo. A migration confere contagens antes e depois (itens por organização, cópias criadas) e falha se algum item ficar apontando para música de outro escopo.
-  - **Alternativa pendente do Jota (opção B):** *limpar* em vez de converter: apagar os vínculos e os itens de repertório e de serviço das organizações e recomeçar. Mais simples e descartável porque os dados são de teste; perde o conteúdo de teste. O plano padrão acima é o que está especificado; a escolha final é do Jota.
+- **Limpeza de `organization_songs` (decisão do Jota, 2026-10-16; transação única):** só há dados de teste (ADR-059 §1), então não se converte. A migration apaga todos os `repertoire_items` e os `service_items` com música, zera `stage_session_states.current_song_id`/`prepared_song_id` (revisão avança), remove as funções `app.can_manage_organization_song` e `app.is_my_song` e a tabela `organization_songs` (as políticas dela caem junto). Músicas pessoais, repertórios e serviços ficam; as cópias passam a nascer só pelo fluxo novo. Teste de upgrade confere as contagens.
 - **Dexie:** nova `this.version(16)`: `songs` com o índice `organizationId` (e o campo `sourceSongId`); sem transformação de dados (as músicas locais existentes são pessoais). Domínio `Song` ganha `organizationId?` e `sourceSongId?`. A biblioteca (Músicas) mostra as pessoais, com filtro para as do Ministério. Teste de upgrade.
 - **Sync:**
   - **Pull** de `songs`: pessoais + cópias de cada Ministério do usuário, **uma requisição por Ministério** (filtro por `organization_id`).
@@ -162,7 +156,7 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 | Copiar música para o Ministério expõe o conteúdo à banda | Aviso na ação ("será copiada para o Ministério"); exige `song.create`; só músicas do próprio usuário |
 | Apagar a conta do autor apaga as cópias do Ministério | Pendência do B8: reatribuir autoria antes; registrada em Dados |
 | FK `RESTRICT` impede o cascade da organização | Trocar para `NO ACTION` e testar o cascade; migration reescreve as FKs |
-| Conversão de `organization_songs` perde dados ou deixa item órfão | Só dev; conversão completa (vínculos ∪ itens), em transação, com contagem antes/depois e falha se sobrar item de outro escopo; testes de migração com órfãos; alternativa "limpar" pendente do Jota |
+| Limpeza de `organization_songs` apaga itens de teste | Só dev (ADR-059 §1); decisão do Jota; teste de upgrade confere que nada fora dos itens é perdido |
 | Push da cópia cria linha nova do editor (upsert com `user_id` = eu) | RN-A14: atualização por `id` sem trocar o autor; teste com Líder/Admin não autor |
 | Recarga ao vivo reinicia o formulário | RN-A12: atualização no lugar; teste de UI |
 | Duplicação de músicas entre pessoal e Ministério confunde | Cópia idempotente por origem, rótulo "copiada de" na cópia e filtro Minhas × Ministério |
@@ -175,11 +169,11 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 **Fechadas pelo Jota (2026-10-15):** P1 repertório pessoal só com músicas da biblioteca dele; P2 música da organização é cópia (não vínculo); P3 ordem do serviço sem música repetida, com reprise e medley no B6; P4 "Ministério" e "Banda" na interface, num módulo único de textos.
 
 **Para o Jota:**
-0. **Conversão de `organization_songs`:** plano padrão = converter tudo em cópias; alternativa = limpar vínculos e itens (dados de teste). Estou especificando a conversão; o lead está perguntando ao Jota.
+0. **Limpeza de `organization_songs`:** decidida pelo Jota (2026-10-16): limpar vínculos e itens de teste em vez de converter.
 1. **Autoria das cópias ao excluir a conta:** reatribuir a um Owner/Admin no B8. Recomendo.
 2. **Nome do módulo de rótulos** (`src/ui/labels.ts`): a critério do ui-engineer, sem decisão de produto.
 
 ## Issues
-- [ ] FIX-01 / A — `fix/music-unblock` — migration de músicas (cópia, políticas, RPC, FKs, conversão de `organization_songs`), Dexie v16, formulários, seletor, importador, pull por Ministério, push da cópia, convite de conta nova, recarga ao vivo, rótulos e textos (backend-engineer + core-engineer + ui-engineer)
+- [ ] FIX-01 / A — `fix/music-unblock` — migration de músicas (cópia, políticas, RPC, FKs, limpeza de `organization_songs`), Dexie v16, formulários, seletor, importador, pull por Ministério, push da cópia, convite de conta nova, recarga ao vivo, rótulos e textos (backend-engineer + core-engineer + ui-engineer)
 - [ ] FIX-01 / B — `fix/sync-reliability` — migration (`unique` deferida, `unique` parcial, `stage.start`), lote, fila e contador, descarte, onboarding, botão do Líder (backend-engineer + core-engineer + ui-engineer)
 - [ ] FIX-01 / C — `feat/personal-repertoire` — migration (pessoal, importação), Dexie v18, sync, UI das abas, tons menores (backend-engineer + core-engineer + ui-engineer)
