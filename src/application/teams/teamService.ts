@@ -15,6 +15,11 @@ export async function createTeam(organizationId: string, name: string, id = cryp
   return team
 }
 
+/** Equipes da organização, do Dexie (offline). */
+export function listTeams(organizationId: string, repository = teamRepository): Promise<Team[]> {
+  return repository.listByOrganizationId(organizationId)
+}
+
 /** Lê do Dexie: funciona offline. */
 export function getTeam(teamId: string, repository = teamRepository): Promise<Team | undefined> {
   return repository.getById(teamId)
