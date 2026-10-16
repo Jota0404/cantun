@@ -180,11 +180,12 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 | F4 | Membro (sem Líder ativo) ou Líder `inactive` importa repertório pessoal | negado |
 | F5 | Importar para organização da qual o usuário não é membro | negado |
 | F6 | Copiar ou importar música que não é do usuário, ou já pessoal de outra pessoa, ou copiar para organização da qual ele não é membro ativo | negado |
-| F10 | Editar ou excluir a **cópia** da organização por Membro que não é o autor | negado; a música pessoal de origem nunca muda |
-| F11 | Apagar a organização: as cópias e os repertórios dela somem, as músicas e os repertórios pessoais dos membros permanecem | só Owner apaga (N12); efeito conferido em teste |
-| F7 | Membro, ou Líder de **outra** equipe, ou Líder `inactive`, inicia o Palco do serviço | negado |
-| F8 | Líder ativo da equipe do serviço inicia o Palco (serviço `ready`/`in_progress`) | permitido |
-| F9 | Escrita direta de `organization_id` em repertório pessoal para "roubar" para uma organização, ou vice-versa | negado (a mudança só ocorre pela RPC de importação, que cria cópia) |
+| F7 | Editar ou excluir a **cópia** da organização por Membro que não é o autor | negado; a música pessoal de origem nunca muda |
+| F8 | Apagar a organização: as cópias e os repertórios dela somem, as músicas e os repertórios pessoais dos membros permanecem | só Owner apaga (N12); efeito conferido em teste |
+| F9 | Membro, ou Líder de **outra** equipe, ou Líder `inactive`, inicia o Palco do serviço | negado |
+| F10 | Líder ativo da equipe do serviço inicia o Palco (serviço `ready`/`in_progress`) | permitido |
+| F11 | Escrita direta de `organization_id` em repertório pessoal para "roubar" para uma organização, ou vice-versa | negado (a mudança só ocorre pela RPC de importação, que cria cópia) |
+| F12 | Atualizar uma cópia da organização trocando `user_id` (autor) ou `organization_id`, ou upsert que cria linha própria do editor em vez de editar a cópia | negado (trigger de guarda); Líder/Admin não autor editam **a mesma linha**, sem trocar o autor |
 
 ## 6. Fora do B2
 
