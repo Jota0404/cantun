@@ -21,6 +21,7 @@ vi.mock('../../application/stage/getServiceStageSongs', () => ({
 vi.mock('../../application/stage/stageExecutionService', () => ({
   StageExecutionService: class {
     connect = async () => snapshot
+    connectOrLocal = async () => snapshot
     disconnect = async () => undefined
     trackPresence = async () => undefined
     getSnapshot = async () => snapshot

@@ -19,8 +19,9 @@ const m = vi.hoisted(() => ({
   moveServiceItem: vi.fn(),
   removeServiceItem: vi.fn(),
   deleteService: vi.fn(),
+  orgSongs: [] as unknown[],
 }))
-vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => [] }))
+vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => m.orgSongs }))
 vi.mock('../../application/songs/copySongToOrganization', () => ({ OFFLINE_COPY_MESSAGE: 'Sem conexão: tente de novo quando estiver online.' }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
@@ -125,5 +126,12 @@ describe('ServiceDetailPage', () => {
   it('owner starts the stage on an open service', async () => {
     renderWith({ status: 'ready' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+  })
+
+  it('does not list a personal song twice once its Ministry copy exists', async () => {
+    m.orgSongs = [{ id: 'c1', title: 'Grande é o Senhor', sourceSongId: 's1', organizationId: 'o1' }]
+    renderWith({}, leader)
+    expect(await screen.findAllByRole('option', { name: 'Grande é o Senhor' })).toHaveLength(1)
+    m.orgSongs = []
   })
 })

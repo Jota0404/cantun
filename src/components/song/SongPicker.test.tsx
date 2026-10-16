@@ -43,4 +43,24 @@ describe('SongPicker', () => {
     render(<SongPicker songs={[]} onPick={vi.fn()} />)
     expect(screen.getByText(/ainda não tem músicas/)).toBeInTheDocument()
   })
+
+  it('says everything was added instead of "no results" when the search is empty', () => {
+    render(<SongPicker songs={songs} excludeSongIds={new Set(['1', '2', '3'])} onPick={vi.fn()} />)
+    expect(screen.getByText('Todas as músicas desta lista já foram adicionadas.')).toBeInTheDocument()
+    expect(screen.queryByText(/Nenhuma música encontrada/)).not.toBeInTheDocument()
+  })
+
+  it('warns offline as soon as the picker opens, without expanding "Da minha biblioteca"', () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(<SongPicker songs={[]} personalSongs={songs} onPick={vi.fn()} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão')
+    vi.restoreAllMocks()
+  })
+
+  it('keeps a song already added to the destination listed under "Da minha biblioteca"', async () => {
+    const user = userEvent.setup()
+    render(<SongPicker songs={songs} personalSongs={songs} excludeSongIds={new Set(['2'])} onPick={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'Mostrar minha biblioteca' }))
+    expect(screen.getAllByRole('button', { name: 'Adicionar Oceano' })).toHaveLength(1)
+  })
 })

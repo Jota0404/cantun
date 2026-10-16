@@ -6,6 +6,7 @@ import { deleteSong } from '../../application/songs/deleteSong'
 import { getSongById } from '../../application/songs/getSongById'
 import { updateSong } from '../../application/songs/updateSong'
 import { transposeSong } from '../../application/songs/transposeSong'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import './SongDetailPage.css'
@@ -38,7 +39,9 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
       if (!cancelled) { setSong(result); setLoadedSongId(songId) }
     }
     void loadSong()
-    return () => { cancelled = true }
+    // Depois de um pull a música pode ter chegado (ex.: cópia do Ministério de quem acabou de entrar).
+    const off = onRemoteDataApplied(() => { void loadSong() })
+    return () => { cancelled = true; off() }
   }, [songId, repository])
 
   const closeDeleteModal = useCallback(() => {
