@@ -26,7 +26,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   'position not found or not authorized': 'Vaga não encontrada ou sem permissão.',
   'assignment not found or not authorized': 'Escala não encontrada ou sem permissão.',
   'service is completed or cancelled': 'Serviço encerrado não aceita mudanças na escala.',
-  'user is not an active member of the service team': 'Só membros ativos da equipe do serviço podem ser escalados.',
+  'user is not an active member of the service team': 'Só membros ativos da banda do serviço podem ser escalados.',
   'member already assigned to this position': 'Esta pessoa já está nesta vaga.',
   'position is full': 'A vaga já está completa.',
   'invalid assignment transition': 'Esta mudança não é permitida para o estado atual da escala.',
@@ -41,7 +41,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   'invalid invite': 'Convite inválido.',
   'invalid musical function': 'Função musical inválida.',
   'invalid team member status': 'Status de membro inválido.',
-  'invalid team role': 'Papel de equipe inválido.',
+  'invalid team role': 'Papel na banda inválido.',
   'invite already used': 'Este convite já foi usado.',
   'invite expired': 'Este convite expirou.',
   'invite is restricted to another email': 'Este convite é para outro e-mail.',
@@ -49,7 +49,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   'invite revoked': 'Este convite foi revogado.',
   'invite without email can only grant member': 'Convite sem e-mail só pode conceder o papel de membro.',
   'not authorized to invite organization members': 'Você não tem permissão para convidar pessoas.',
-  'team does not belong to organization': 'A equipe não pertence a esta organização.',
+  'team does not belong to organization': 'A banda não pertence a este Ministério.',
   'team membership not found': 'Membro não encontrado.',
 }
 

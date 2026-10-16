@@ -26,7 +26,7 @@ describe('service use cases', () => {
     const result = await createService({ organizationId: 'o1', teamId: 't1', name: ' Ceia ', startsAt: now, location: ' ' }, undefined, '00000000-0000-4000-8000-000000000001')
     expect(result).toMatchObject({ success: true, service: { status: 'draft', teamId: 't1', name: 'Ceia', createdByUserId: 'u1', location: undefined } })
     await expect(createService({ organizationId: 'o1', teamId: '', name: '', startsAt: 'x' })).resolves.toEqual({
-      success: false, errors: ['Informe o nome do serviço.', 'Informe data e hora válidas.', 'Escolha a equipe do serviço.'],
+      success: false, errors: ['Informe o nome do serviço.', 'Informe data e hora válidas.', 'Escolha a banda do serviço.'],
     })
   })
 
