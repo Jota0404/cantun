@@ -35,6 +35,14 @@ begin
        or new.source_song_id is distinct from old.source_song_id then
       raise exception 'song owner, organization and source cannot change' using errcode = 'insufficient_privilege';
     end if;
+    -- Exclusão suave de cópia é exclusão: exige song.delete ou o autor com song.delete_own
+    -- (senão o update de song.edit contornaria a política de delete).
+    if old.organization_id is not null and old.deleted_at is null and new.deleted_at is not null
+       and app.current_user_id() is not null
+       and not (app.has_permission(old.organization_id, null, 'song.delete')
+                or (old.user_id = app.current_user_id() and app.has_permission(old.organization_id, null, 'song.delete_own'))) then
+      raise exception 'not authorized to delete this song' using errcode = 'insufficient_privilege';
+    end if;
   elsif new.created_by_user_id is distinct from old.created_by_user_id
      or new.organization_id is distinct from old.organization_id then
     raise exception 'repertoire owner and organization cannot change' using errcode = 'insufficient_privilege';

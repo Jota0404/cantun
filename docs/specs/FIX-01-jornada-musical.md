@@ -116,7 +116,7 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
   4. Remove, nesta ordem: as políticas de `songs` do `0004` que dependem de `organization_songs`; as funções `app.can_manage_organization_song` e `app.is_my_song` (e o que mais depender delas); por fim a tabela `organization_songs` (as políticas dela caem junto).
   5. Recria as políticas de `songs` pelo modelo novo. A migration confere contagens antes e depois (itens por organização, cópias criadas) e falha se algum item ficar apontando para música de outro escopo.
   - **Alternativa pendente do Jota (opção B):** *limpar* em vez de converter: apagar os vínculos e os itens de repertório e de serviço das organizações e recomeçar. Mais simples e descartável porque os dados são de teste; perde o conteúdo de teste. O plano padrão acima é o que está especificado; a escolha final é do Jota.
-- **Dexie:** nova `this.version(16)` (a 15 é a última; confirmar no PR): `songs` com o índice `organizationId` (e o campo `sourceSongId`); sem transformação de dados (as músicas locais existentes são pessoais). Domínio `Song` ganha `organizationId?` e `sourceSongId?`. A biblioteca (Músicas) mostra as pessoais, com filtro para as do Ministério. Teste de upgrade.
+- **Dexie:** nova `this.version(16)`: `songs` com o índice `organizationId` (e o campo `sourceSongId`); sem transformação de dados (as músicas locais existentes são pessoais). Domínio `Song` ganha `organizationId?` e `sourceSongId?`. A biblioteca (Músicas) mostra as pessoais, com filtro para as do Ministério. Teste de upgrade.
 - **Sync:**
   - **Pull** de `songs`: pessoais + cópias de cada Ministério do usuário, **uma requisição por Ministério** (filtro por `organization_id`).
   - **Push** de cópias: classe A (LWW) mas **atualiza por `id`** sem alterar `user_id`; nunca upsert com `user_id` = usuário atual. Exclusão (soft delete) por `id`. Criar cópia é só pela RPC (classe B).
@@ -133,7 +133,7 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 - `app.has_permission` ganha `repertoire.import_personal`.
 - RPC `import_personal_repertoire(p_repertoire_id uuid, p_organization_id uuid, p_new_id uuid)`: confere dono e `repertoire.import_personal`, cria o repertório da organização com os mesmos itens e ordem, usando a lógica de cópia por música da Fatia A (reaproveita cópia existente), e devolve o repertório e as contagens (copiadas, reaproveitadas). Só online; na allowlist de `/rpc`.
 - Subtítulo da lista de repertórios pessoais usa só dados do próprio dono, já no cliente (Dexie): sem RPC.
-- **Dexie:** nova `this.version(17)`: `repertoires: 'id, organizationId, createdByUserId, updatedAt'`; sem transformação de dados. Teste de upgrade.
+- **Dexie:** nova `this.version(18)` (a 17 removeu `organizationSongs` na Fatia A): `repertoires: 'id, organizationId, createdByUserId, updatedAt'`; sem transformação de dados. Teste de upgrade.
 - **Sync:** pull de `repertoires` pessoais (`created_by_user_id` = usuário, `organization_id` nulo).
 
 - **RLS / permissões:** `PERMISSIONS.md` §3.3 (`stage.start`, `repertoire.import_personal`, pessoal, cópia) e §5.3 (F1–F12).
@@ -182,4 +182,4 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 ## Issues
 - [ ] FIX-01 / A — `fix/music-unblock` — migration de músicas (cópia, políticas, RPC, FKs, conversão de `organization_songs`), Dexie v16, formulários, seletor, importador, pull por Ministério, push da cópia, convite de conta nova, recarga ao vivo, rótulos e textos (backend-engineer + core-engineer + ui-engineer)
 - [ ] FIX-01 / B — `fix/sync-reliability` — migration (`unique` deferida, `unique` parcial, `stage.start`), lote, fila e contador, descarte, onboarding, botão do Líder (backend-engineer + core-engineer + ui-engineer)
-- [ ] FIX-01 / C — `feat/personal-repertoire` — migration (pessoal, importação), Dexie v17, sync, UI das abas, tons menores (backend-engineer + core-engineer + ui-engineer)
+- [ ] FIX-01 / C — `feat/personal-repertoire` — migration (pessoal, importação), Dexie v18, sync, UI das abas, tons menores (backend-engineer + core-engineer + ui-engineer)

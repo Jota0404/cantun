@@ -159,6 +159,8 @@ select pg_temp.affects($q$update public.songs set title = 'Editada pela Lia' whe
 select pg_temp.ok((select user_id = '00000000-0000-0000-0000-000000000704' and title = 'Editada pela Lia' from public.songs where id = '41000000-0000-0000-0000-000000000701'), 'autor continua o Mauro');
 select pg_temp.ok((select count(*) = 1 from public.songs where id = '41000000-0000-0000-0000-000000000701'), 'nenhuma linha nova do editor');
 select pg_temp.affects($q$delete from public.songs where id = '41000000-0000-0000-0000-000000000701'$q$, 0, 'Líder não exclui o que é de outro (song.delete)');
+select pg_temp.fails($q$update public.songs set deleted_at = now() where id = '41000000-0000-0000-0000-000000000701'$q$, 'Líder não apaga (soft) a cópia de outro', '42501', 'not authorized to delete this song');
+select pg_temp.affects($q$update public.songs set title = 'Ainda edita' where id = '41000000-0000-0000-0000-000000000701'$q$, 1, 'Líder continua editando');
 select pg_temp.as_user('00000000-0000-0000-0000-000000000702'); -- Admin
 select pg_temp.affects($q$update public.songs set title = 'Editada pelo Admin' where id = '41000000-0000-0000-0000-000000000701'$q$, 1, 'Admin edita a cópia');
 select pg_temp.ok((select count(*) = 1 from public.songs where id = '41000000-0000-0000-0000-000000000701' and user_id = '00000000-0000-0000-0000-000000000704'), 'Admin não troca o autor');
@@ -222,8 +224,11 @@ set local role cantum_user;
 -- ---------------------------------------------------------------------------
 -- F8 — apagar o Ministério: cópias, repertórios e serviços somem; o pessoal fica
 -- ---------------------------------------------------------------------------
-select pg_temp.as_user('00000000-0000-0000-0000-000000000701');
+-- O Palco é criado pelo Admin: o MD (Admin) não é o Owner que apaga o Ministério, então o cascade
+-- não pode depender de quem é o operador nem da ordem dos gatilhos.
+select pg_temp.as_user('00000000-0000-0000-0000-000000000702');
 select public.create_target_stage_session('60000000-0000-0000-0000-000000000701', '70000000-0000-0000-0000-000000000701');
+select pg_temp.ok((select md_user_id = '00000000-0000-0000-0000-000000000702' from public.stage_sessions where id = '70000000-0000-0000-0000-000000000701'), 'MD é o Admin, não o Owner');
 reset role;
 select pg_temp.ok(pg_temp.raw_count($q$select count(*) from public.songs where organization_id = '10000000-0000-0000-0000-000000000701'$q$) >= 2, 'há cópias do Ministério antes de apagar');
 create temp table personal_before on commit drop as
