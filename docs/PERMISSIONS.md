@@ -55,7 +55,7 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 
 | Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
 |---|---|:-:|:-:|:-:|:-:|---|
-| `song.create` | organização | ✅ | ✅ | ✅ | ✅ | Decisão 4. Criar música pessoal é livre; `song.create` é exigido para **vincular** a música à organização (`organization_songs`, só o dono vincula a própria). Desvincular: `song.delete` ou o dono (`song.delete_own`). |
+| `song.create` | organização | ✅ | ✅ | ✅ | ✅ | Decisão 4. Criar música pessoal é livre; `song.create` é exigido para **copiar** uma música pessoal para a organização (`copy_song_to_organization`; a cópia é uma música **da organização**, ADR-062). A música pessoal é só do dono. Na cópia: `song.edit` (Owner, Admin, L\*) ou o autor editam; `song.delete` (Owner, Admin) ou o autor excluem. |
 | `song.edit` | organização | ✅ | ✅ | **L\*** | ❌ | Qualquer música da organização. O Líder **edita** a biblioteca como Owner e Admin, mas não exclui o que é de outra pessoa. |
 | `song.edit_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
 | `song.delete` | organização | ✅ | ✅ | ❌ | ❌ | Só Owner e Admin excluem o que é de outra pessoa (decisão do Jota). O Líder exclui só o que criou (`song.delete_own`). |
@@ -65,7 +65,11 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 | `repertoire.edit_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
 | `repertoire.delete` | organização | ✅ | ✅ | ❌ | ❌ | Mesma regra de `song.delete`. |
 | `repertoire.delete_own` | próprio recurso | ✅ | ✅ | ✅ | **P** | |
+| `repertoire.import_personal` | organização | ✅ | ✅ | **L\*** | ❌ | Copia um **repertório pessoal do próprio usuário** para a organização, criando cópias das músicas para a organização (reaproveita a cópia que já existir; ADR-062). Só online, por RPC. Nada fica ligado à origem. |
 | `stage.run` | organização | ✅ | ✅ | ✅ | ✅ | Executar o Modo Palco. A autorização do operador (MD) do Stage não muda neste bloco. |
+| `stage.start` | equipe | ✅ | ✅ | **L** | ❌ | Iniciar o Palco do serviço (`create_target_stage_session`). Decisão D4 do Jota, 2026-10-15: antes só Owner e Admin; agora também o **Líder ativo da equipe do serviço**. O Membro executa o Palco, mas não o inicia. |
+
+**Repertório pessoal** (ADR-062): não passa por `app.has_permission`. Vale `created_by_user_id = app.current_user_id()` e `organization_id` nulo: só o dono lê, edita e exclui, em qualquer papel (Owner e Admin da organização não o veem). Os itens só aceitam músicas da biblioteca do dono.
 
 ### 3.4 Serviço (B3 — ADR-052 `Accepted`)
 
@@ -101,7 +105,7 @@ Capacidades ainda fora (Network, solicitações externas) seguem o Blueprint §4
 - **Líder inativo** perde todos os poderes de Líder naquela equipe. Só Owner ou Admin o reativam (`team_member.set_leader_status`).
 - **Membro `inactive` não é editado pelo Líder.** A única ação do Líder sobre um alvo `inactive` é reativá-lo (`team_member.set_status`), e só se o alvo não for Líder. O Líder não altera as funções de um membro inativo.
 - **Escopo de organização** (`song.*`, `repertoire.*`, `stage.run`): vale para quem tem vínculo na organização e está **ativo na organização**. Define-se "ativo na organização" como: não possui vínculos de equipe naquela organização **ou** possui ao menos um com `status = 'active'`. Só `active` e `inactive` existem em `team_memberships`; convite pendente não conta como vínculo. Quem está `inactive` em todas as suas equipes não exerce capacidades de organização.
-- **Exceções à regra de "ativo"** (implementação do B2): editar e excluir o **próprio** recurso (`*_own`) não exige estar ativo; ler músicas vinculadas à organização, funções musicais dos membros e perfis (`get_organization_member_profiles`, nome sem e-mail) exige só ser membro da organização, mesmo `inactive`.
+- **Exceções à regra de "ativo"** (implementação do B2): editar e excluir o **próprio** recurso (`*_own`) não exige estar ativo; ler as músicas da organização (cópias), funções musicais dos membros e perfis (`get_organization_member_profiles`, nome sem e-mail) exige só ser membro da organização, mesmo `inactive`.
 - **L\*** exige ser Líder **ativo** de ao menos uma equipe da organização.
 - **Owner e Admin** não dependem de `team_memberships`: o papel de organização basta, mesmo que tenham vínculos de equipe `inactive`.
 
@@ -121,7 +125,7 @@ Cada caso vira teste de RLS/RPC no harness (`feat/team-roles-schema`) e teste de
 | N8 | Membro de outra organização tenta ler ou escrever em equipe, música ou repertório | negado |
 | N9 | Usuário sem membership (autenticado) tenta qualquer capacidade | negado |
 | N10 | Usuário anônimo (sem `app.current_user_id()`) | negado |
-| N11 | Membro `inactive` em todas as equipes tenta vincular música à organização, criar repertório ou executar o Stage (inclui assinar o realtime e ler sessão, músicas e snapshot do Stage, também na revalidação de 60 s) | negado |
+| N11 | Membro `inactive` em todas as equipes tenta copiar música para a organização, criar repertório ou executar o Stage (inclui assinar o realtime e ler sessão, músicas e snapshot do Stage, também na revalidação de 60 s) | negado |
 | N12 | Admin tenta excluir a organização | negado |
 | N13 | Líder ou Membro tenta criar equipe | negado |
 | N14 | Capacidade desconhecida, ou `p_team_id` de outra organização | `false` (negação por padrão) |
@@ -166,6 +170,23 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço conseguem; Membro a
 
 Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o titular ativo responde; o membro lê a escala do serviço (proposta) e escreve a própria disponibilidade.
 
+### 5.3 Repertório pessoal, importação e início do Palco (correção FIX-01)
+
+| # | Caso | Resultado esperado |
+|---|---|---|
+| F1 | Outro usuário (inclui Owner e Admin da organização) lê, edita ou exclui um repertório pessoal | negado |
+| F2 | Adicionar a um repertório pessoal uma música que não é da biblioteca do dono | negado |
+| F3 | Importar repertório pessoal de **outra** pessoa | negado |
+| F4 | Membro (sem Líder ativo) ou Líder `inactive` importa repertório pessoal | negado |
+| F5 | Importar para organização da qual o usuário não é membro | negado |
+| F6 | Copiar ou importar música que não é do usuário, ou já pessoal de outra pessoa, ou copiar para organização da qual ele não é membro ativo | negado |
+| F7 | Editar ou excluir a **cópia** da organização por Membro que não é o autor | negado; a música pessoal de origem nunca muda |
+| F8 | Apagar a organização: as cópias e os repertórios dela somem, as músicas e os repertórios pessoais dos membros permanecem | só Owner apaga (N12); efeito conferido em teste |
+| F9 | Membro, ou Líder de **outra** equipe, ou Líder `inactive`, inicia o Palco do serviço | negado |
+| F10 | Líder ativo da equipe do serviço inicia o Palco (serviço `ready`/`in_progress`) | permitido |
+| F11 | Escrita direta de `organization_id` em repertório pessoal para "roubar" para uma organização, ou vice-versa | negado (a mudança só ocorre pela RPC de importação, que cria cópia) |
+| F12 | Atualizar uma cópia da organização trocando `user_id` (autor) ou `organization_id`, ou upsert que cria linha própria do editor em vez de editar a cópia | negado (trigger de guarda); Líder/Admin não autor editam **a mesma linha**, sem trocar o autor |
+
 ## 6. Fora do B2
 
 - Troca ou recuperação de Owner (issue futura).
@@ -179,7 +200,7 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 3. **`pending_invite` (resolvido).** O convite é uma entidade própria (`organization_invites`) e o vínculo só nasce no aceite, padrão de GitHub, Slack, Linear e Clerk/WorkOS. O banco persiste só `active | inactive`; `pending_invite` é derivado do convite aberto (`accepted_at` e `revoked_at` nulos, `expires_at > now()`). `organization_invites.team_id` **já é `not null`** (migration `20260920120000`): todo convite já tem equipe de destino, sem mudança de schema. Garantias existentes mantidas: token de 256 bits guardado só como hash SHA-256, uso único com `for update`, expiração padrão de 7 dias (máx. 30), revogação e e-mail opcional conferido no aceite. Endurecimento no PR de schema: (a) convite **sem e-mail** (link) só concede `member`; `admin` exige convite com e-mail ou promoção depois; (b) aceite de convite com e-mail exige e-mail **verificado**; (c) só quem tem `team_member.add` na equipe lista os convites pendentes; (d) **criar** convite é só Owner e Admin; (e) convite antigo de `admin` sem e-mail foi rebaixado a `member` pela migration `0004_team_roles.sql`. Decisão do Jota (delegada), 2026-10-08; (d) e (e) na implementação.
 4. **`team_member.remove` (decidido: fora do B2).** O B2 só **inativa** (`team_member.set_status`); não existe capacidade de remover vínculo de equipe. Remover e anonimizar (vínculos, autoria de música e repertório, funções) vai para o **B8** (exclusão de conta e privacidade). Até lá, o delete direto de `team_memberships` continua restrito a Owner e Admin, como na política atual, sem capacidade nomeada. Decisão do Jota, 2026-10-01.
 5. **Excluir música ou repertório de outra pessoa (resolvido).** O Líder **edita** o que é de outra pessoa, mas só Owner e Admin o **excluem** (`song.delete` e `repertoire.delete`: Líder ❌). `*.delete_own` permanece para todos. Decisão do Jota, 2026-10-01.
-6. **Dono da música (resolvido):** alternativa A (o usuário é dono; a organização vincula) no B2, com salvaguardas; a alternativa B (organização dona) vira ADR no B6. Ver a spec VS-01.
+6. **Dono da música (revisto):** o B2 adotou a alternativa A (o usuário é dono; a organização vincula). Em 2026-10-15 o [ADR-062](adr/ADR-062-repertorio-pessoal.md) trocou o vínculo por **cópia pertencente à organização** (`songs.organization_id`); a música pessoal segue só do usuário. Ver a spec VS-01 (nota) e FIX-01.
 
 ## 8. Mapa de implementação
 

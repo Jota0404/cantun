@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Atualizado em 2026-10-11. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-15. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -24,8 +24,8 @@
 | [ADR-018](ADR-018-band-organization-team-bridge.md) | Legacy Band Bridge to Organization and Team | Accepted |
 | [ADR-019](ADR-019-organization-team-invites-and-membership-migration.md) | Organization/Team Invite and Membership Migration | Accepted |
 | [ADR-020](ADR-020-musical-functions-on-team-membership.md) | Musical Functions Belong to Team Membership | Accepted |
-| [ADR-021](ADR-021-organization-song-ownership.md) | Organization Song Ownership | Accepted |
-| [ADR-022](ADR-022-repertoire-is-organization-owned.md) | Repertoire is Organization-Owned | Accepted |
+| [ADR-021](ADR-021-organization-song-ownership.md) | Organization Song Ownership | Accepted (revisado em parte pelo ADR-062) |
+| [ADR-022](ADR-022-repertoire-is-organization-owned.md) | Repertoire is Organization-Owned | Accepted (repertório pessoal pelo ADR-062) |
 | [ADR-023](ADR-023-service-vs-stage-session.md) | Service vs Stage Session | Accepted |
 | [ADR-024](ADR-024-service-ownership-and-assignments.md) | Service Ownership and Assignments | Accepted |
 | [ADR-025](ADR-025-stage-migration-boundary.md) | Stage migration boundary | Accepted |
@@ -64,6 +64,7 @@
 | [ADR-057](ADR-057-consistencia-por-entidade.md) | Política de consistência por entidade | Accepted |
 | [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
 | [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
+| [ADR-062](ADR-062-repertorio-pessoal.md) | Repertório pessoal e importação para a organização (revisa o ADR-022) | Accepted |
 
 ## Números reservados
 
@@ -73,4 +74,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 |---|---|---|
 | 056 | Materiais e storage | B6 |
 
-Próximo número livre: **ADR-062** (056 está reservado).
+Próximo número livre: **ADR-063** (056 está reservado).

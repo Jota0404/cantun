@@ -7,7 +7,7 @@
 - **Decisão associada:** [ADR-055](../adr/ADR-055-design-system-tokens.md) (Accepted) · Base: Blueprint §17, §32, §52, §53, §61, §62, Apêndice B; NFR-001/003/004
 
 ## Feature
-Navegação principal que reflete o modelo mental da equipe (**Início · Serviços · Músicas · Equipe · Mais**), tokens de design em CSS custom properties com tema escuro por padrão, Início contextual, badges de estado e acessibilidade verificável (WCAG 2.2 AA, alvos de toque ≥ 44 px, inclusive no Modo Palco).
+Navegação principal que reflete o modelo mental da equipe (**Início · Serviços · Músicas · Bandas · Mais**), tokens de design em CSS custom properties com tema escuro por padrão, Início contextual, badges de estado e acessibilidade verificável (WCAG 2.2 AA, alvos de toque ≥ 44 px, inclusive no Modo Palco).
 
 ## Objetivo
 O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as lacunas aparecem sem procurar (§62.2–3) e a interface é legível e tocável no celular, no tablet e no desktop. Sustenta o Blueprint §26 (itens 3 e 4) e os NFR-003 e NFR-004. Telas novas dos blocos B2–B4 passam a nascer com os tokens.
@@ -22,11 +22,11 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 - Como **pessoa que prefere tema claro**, quero trocar de tema e ter a escolha lembrada.
 
 ## Regras de negócio
-- **RN-01** Destinos principais, nesta ordem: **Início, Serviços, Músicas, Equipe, Mais**. "Mais" agrupa Repertórios, Configurações e Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem, sem placeholder vazio. Network é futuro (B10) e não aparece.
+- **RN-01** Destinos principais, nesta ordem: **Início, Serviços, Músicas, Bandas, Mais** ("Bandas" é o rótulo de interface de *Team*; ver RN-17). "Mais" agrupa Repertórios, Configurações e Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem, sem placeholder vazio. Network é futuro (B10) e não aparece.
 - **RN-02** **Serviços** abre `/servicos` com duas abas: **Meus serviços** (`/meus-servicos`, criada no B4) e **Todos os serviços** (lista por equipe, próximos / em planejamento / realizados, ADR-052). Quem não tem permissão de gestão (`service.create`) vê só "Meus serviços". "Meus serviços" também é atalho no Início.
 - **RN-03** Mobile (< 900 px): barra inferior fixa com os 5 destinos. Desktop e tablet largo (≥ 900 px): barra lateral com os mesmos destinos e rótulos de texto. Nunca só ícone.
 - **RN-04** O destino ativo usa `aria-current="page"` e indicação visual além de cor.
-- **RN-05** Saem do cabeçalho: "Nova música" e "Importar música" (viram ações da tela Músicas), "Organizações" no plural e "MUSIC WORKSPACE". O nome do produto é "CANTUM". As rotas existentes (`/organizations*`, `/songs*`, `/repertoires*`, `/services/:id`) **continuam válidas**; "Equipe" (`/equipe`) resolve a organização principal da conta (B2 RN-11) e leva à lista de equipes dela.
+- **RN-05** Saem do cabeçalho: "Nova música" e "Importar música" (viram ações da tela Músicas), "Organizações" no plural e "MUSIC WORKSPACE". O nome do produto é "CANTUM". As rotas existentes (`/organizations*`, `/songs*`, `/repertoires*`, `/services/:id`) **continuam válidas**; "Bandas" (`/bandas`, antes `/equipe`) resolve o Ministério principal da conta (B2 RN-11) e leva à lista de bandas dele.
 - **RN-06** Modo Palco (`/stage/*`) continua sem navegação do app (já é assim): tela cheia, escuro, poucos controles (D6).
 - **RN-07** **Tema:** escuro por padrão; claro continua disponível; a escolha salva (`cantum-theme`) é respeitada. Sem escolha salva, usa escuro. (Alternativa descartada: seguir o sistema.)
 - **RN-08** **Tokens** (ADR-055): cores, espaçamento, raio, tipografia, sombras, foco e tamanho mínimo de toque são custom properties em um único arquivo; componentes e telas novas não usam cores nem tamanhos literais. As telas existentes migram aos poucos, sem redesenho em massa.
@@ -37,6 +37,7 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 - **RN-13** **Início contextual** (§52.1), para cada papel: (a) próximo serviço relevante do usuário (data, local, função, estado); (b) pendências: confirmar escala (B4), serviços com vagas abertas (Líder/Admin/Owner); (c) atalhos: Meus serviços, abrir Músicas, abrir Modo Palco quando houver sessão `live`. Usuário novo sem organização vê o onboarding (B2). O bloco de atividade é do B7 e não entra.
 - **RN-14** **Apêndice B** em toda tela nova: a spec ou a PR descreve tarefa principal, informação prioritária e ação óbvia.
 - **RN-15** **Componentes só com repetição comprovada** (§61.1): certos no primeiro corte = `AppNav` (barra inferior e lateral) e `Badge`. Candidatos, entram no 3º uso real: `Button`, `Card`, `Field`, `Tabs`. Sem biblioteca de UI.
+- **RN-17** (P4, Jota 2026-10-15) **Nomenclatura da interface:** Organização aparece como **"Ministério"** e Equipe como **"Banda"** (plural "Ministérios" e "Bandas"), vindos de um único módulo de textos (FIX-01 RN-A11). O código e o banco seguem `Organization` e `Team` (ADR-011). Os rótulos da navegação usam esse módulo.
 - **RN-16** Movimento: respeita `prefers-reduced-motion`. A navegação funciona sem JavaScript de animação.
 
 ## Acceptance Criteria
@@ -77,7 +78,7 @@ Sem mudança: nenhum SQL, Dexie `version()`, sync ou RPC. O Início lê dados qu
 ### Arquitetura
 - Camadas: UI apenas (`src/pages`, `src/components`, `src/App.tsx`, CSS). Casos de uso de leitura para o Início (`getHomeSummary`) em `application/` quando a lógica de "próximo serviço" e "pendências" ultrapassar uma consulta simples; domínio puro para a seleção do "próximo serviço".
 - ADR-055 (Accepted): tokens em CSS custom properties, sem biblioteca de UI.
-- Arquivos: `src/styles/tokens.css` (novo) importado antes de `index.css`; `src/cantum-theme.css` passa a consumir os tokens; `src/App.tsx` (cabeçalho e navegação); páginas novas finas para `/servicos`, `/equipe`, `/mais`.
+- Arquivos: `src/styles/tokens.css` (novo) importado antes de `index.css`; `src/cantum-theme.css` passa a consumir os tokens; `src/App.tsx` (cabeçalho e navegação); páginas novas finas para `/servicos`, `/bandas`, `/mais`.
 - **Dono de config:** o lead adiciona `eslint-plugin-jsx-a11y` (regras no `eslint.config.js`) e uma biblioteca de `axe` para testes (ex.: `vitest-axe`). Ambas são dependências de desenvolvimento, não de UI, e entram em PR de `chore/a11y-lint` com justificativa.
 - Documentação: `docs/DESIGN_TOKENS.md` (lista de tokens e uso), mantida junto do `tokens.css`.
 
@@ -96,7 +97,7 @@ Sem mudança: nenhum SQL, Dexie `version()`, sync ou RPC. O Início lê dados qu
 ## Plano de testes
 - **Domínio / application:** seleção do "próximo serviço" e das pendências do Início por papel (sem dados, só serviços, com escala).
 - **UI (papel/label acessível):** `AppNav` por papel e largura (mobile 5 destinos, desktop lateral), `aria-current`, "Meus serviços" por papel; tema padrão escuro e persistência; Início por papel (novo, membro, líder); badges por estado com texto; tela Músicas com as ações movidas.
-- **Acessibilidade automatizada:** `eslint-plugin-jsx-a11y` sem erros; `axe` nas páginas principais (Início, Serviços, Músicas, Equipe, Mais, Serviço, Auth) nos dois temas.
+- **Acessibilidade automatizada:** `eslint-plugin-jsx-a11y` sem erros; `axe` nas páginas principais (Início, Serviços, Músicas, Bandas, Mais, Serviço, Auth) nos dois temas.
 - **Alvo de toque:** teste de componente verifica `min-height`/`min-width` ≥ 44 px dos controles de `Button`, `AppNav`, `Tabs`, `Field`; checagem dos controles do Palco em CSS ou por teste de computed style onde o jsdom permitir.
 - **Manual:** celular, tablet e desktop; navegação por teclado; leitor de tela (VoiceOver/TalkBack) nas telas principais; contraste dos estados de foco e desabilitado; `prefers-contrast: more`, `forced-colors` e `prefers-reduced-motion`; Modo Palco no celular em retrato e paisagem, com polegar.
 
@@ -126,6 +127,6 @@ As oito propostas abaixo foram **aprovadas** pelo owner, repassadas pelo lead; `
 - [ ] Épico B5 / VS-05
 - [ ] `docs/design-system-adr` — esta spec + ADR-055 (planner, lead revisa)
 - [ ] `feat/design-tokens-dark-default` — `tokens.css`, `docs/DESIGN_TOKENS.md`, tema, migração do `cantum-theme.css`, alvos de toque do Palco (ui-engineer)
-- [ ] `feat/app-navigation` — `AppNav` mobile/desktop, `/servicos`, `/equipe`, `/mais`, cabeçalho limpo (ui-engineer)
+- [ ] `feat/app-navigation` — `AppNav` mobile/desktop, `/servicos`, `/bandas`, `/mais`, cabeçalho limpo (ui-engineer)
 - [ ] `feat/home-contextual` — Início por papel; `getHomeSummary` se necessário (core-engineer + ui-engineer; depende do B4)
 - [ ] `chore/a11y-lint` — `jsx-a11y` + `axe` (lead)

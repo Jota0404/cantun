@@ -108,6 +108,8 @@ Rastreio: RF-TEAM-001 → RN-03, RN-09, RN-15; RF-TEAM-002 → RN-10, RN-11, RN-
 - **Nome de exibição no cliente:** `src/platform` expõe `displayName` da sessão e a leitura dos perfis da organização. Não há store Dexie nova: os nomes da equipe são lidos online; offline, a tela mostra o último valor em memória. A presença do Stage envia `displayName` da sessão (contrato §5) e deixa de usar o prefixo do e-mail. O cadastro (`src/pages/Auth`) ganha o campo de nome, obrigatório.
 - **RLS / permissões:** conforme `docs/PERMISSIONS.md`; a UI não é mecanismo de segurança.
 
+> **Nota (2026-10-15):** a parte "a organização vincula a música do usuário" (`organization_songs`) foi substituída pelo [ADR-062](../adr/ADR-062-repertorio-pessoal.md): a música da organização é uma **cópia** pertencente a ela, e a salvaguarda "uma música, uma organização" deixou de existir. O texto abaixo é o histórico da decisão do B2.
+
 ## Decisão tomada: a música pertence ao usuário (alternativa A)
 
 **Decidido pelo Jota em 2026-10-01: alternativa A no B2, com as salvaguardas da recomendação abaixo; a alternativa B vira um ADR no B6.** O texto seguinte registra o comparativo que embasou a decisão.

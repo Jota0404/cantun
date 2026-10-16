@@ -504,6 +504,8 @@ Uma música pode pertencer a vários repertórios.
 
 Um repertório pode ser reutilizado em diferentes serviços, evitando retrabalho.
 
+**v1.3 — repertório pessoal.** Além do repertório da organização, cada usuário tem **repertórios pessoais**: só ele os vê e edita, em todos os aparelhos e offline, com qualquer música da própria biblioteca. A aba Repertórios cria repertório pessoal por padrão. Dentro da organização, Owner, Admin e Líder podem **importar** um repertório pessoal: o sistema o **copia** (não move) para a organização e vincula as músicas à organização; as duas cópias evoluem separadas. Ver ADR-062.
+
 Operações essenciais:
 
 - criar;
@@ -2276,6 +2278,8 @@ Organization
    owns Services
 ```
 
+Exceção (ADR-062): o **repertório pessoal** pertence ao usuário, sem organização, até ser copiado para uma.
+
 O usuário acessa dados em razão de sua membership/permissão, não porque conhece um identificador.
 
 ### 48.2 Service como agregador operacional
@@ -2423,6 +2427,10 @@ Deve priorizar:
 - situação da escala;
 - atividades de preparação;
 - acesso rápido às partes importantes do serviço.
+
+### 52.1.1 Nomenclatura da interface (v1.3)
+
+Na interface, a **Organization** aparece como **"Ministério"** e o **Team** como **"Banda"** (por exemplo, "Banda de domingo"); no plural, "Ministérios" e "Bandas". O destino "Equipe" da navegação (§52) fica **"Bandas"**. Este documento, o código, o banco e as rotas técnicas continuam usando Organization e Team. Os rótulos ficam centralizados em **um único módulo de textos**, para trocar o termo no futuro sem procurar strings pelas telas. Decisão do Jota, 2026-10-15.
 
 ### 52.2 Serviço
 
