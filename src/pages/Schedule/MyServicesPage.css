@@ -3,7 +3,7 @@
 .my-services__list { display: grid; gap: .75rem; padding: 0; list-style: none; }
 .my-services__list > li { display: grid; gap: .4rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
 .my-services__list header { display: flex; flex-wrap: wrap; gap: .25rem .75rem; align-items: baseline; }
-.my-services__list a { font-weight: 700; }
+.my-services__list a { display: inline-flex; align-items: center; font-weight: 700; min-height: var(--size-touch-min); }
 .my-services__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .my-services button { min-height: 44px; }
 .my-services__form { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
