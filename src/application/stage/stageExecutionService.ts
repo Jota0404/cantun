@@ -4,6 +4,10 @@ import { normalizeStageAnnotation } from '../../domain/stage/stageAnnotation'
 import type { StageParticipant, StagePresencePayload } from '../../domain/stage/stagePresence'
 import type { StageCommandResult, StageSnapshot, StageSession } from '../../domain/stage/stage'
 import { toStageSessionState } from '../../domain/stage/stage'
+import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
+import { stageSessionStateRepository } from '../../db/repositories/stageSessionStateRepository'
+
+const CONNECT_TIMEOUT_MS = 5000
 
 export interface StageConnectionCallbacks {
   onSnapshot?: (snapshot: StageSnapshot, reason: StageSnapshotReason) => void
@@ -38,6 +42,27 @@ export class StageExecutionService {
 
   async connect(stageSessionId: string, callbacks: StageConnectionCallbacks = {}): Promise<StageSnapshot> {
     return this.realtime(stageSessionId, callbacks).connect()
+  }
+
+  /** Realtime fora do ar ou lento (offline, rede ruim): abre o Palco com a sessão e o estado já puxados no aparelho. */
+  async connectOrLocal(stageSessionId: string, callbacks: StageConnectionCallbacks = {}, timeoutMs = CONNECT_TIMEOUT_MS): Promise<StageSnapshot> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        this.connect(stageSessionId, callbacks),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs) }),
+      ])
+    } catch {
+      const [session, state] = await Promise.all([
+        stageSessionRepository.getById(stageSessionId),
+        stageSessionStateRepository.getByStageSessionId(stageSessionId),
+      ])
+      if (!session || !state) throw new Error('Sessão de palco não disponível offline.')
+      callbacks.onStatus?.('DISCONNECTED')
+      return { session, state }
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   async trackPresence(stageSessionId: string, payload: StagePresencePayload): Promise<void> {

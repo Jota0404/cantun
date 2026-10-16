@@ -1,6 +1,7 @@
 import type { EntityName } from './types'
 import { db } from '../db/database'
 import { isPlatformConfigured } from '../platform/http'
+import { getCurrentUser } from '../platform/auth'
 import { SyncEngine } from './syncEngine'
 import { TargetSyncEngine, type TargetWritableEntity, type TargetWritableEntityName } from './targetSyncEngine'
 
@@ -30,4 +31,8 @@ export async function queueTargetDelete(entity: TargetWritableEntityName, entity
 export async function syncTargetDomain() {
   if (!targetSyncEngine) return
   await targetSyncEngine.sync()
+  // As músicas do Ministério (RN-A6) dependem dos Ministérios já puxados acima: sem isto, quem acabou
+  // de entrar por convite só as veria na próxima sincronização.
+  const user = getCurrentUser()
+  if (user) await syncEngine?.sync(user.id)
 }

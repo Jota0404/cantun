@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Song } from '../../domain/songs/song'
+import { notifyRemoteDataApplied } from '../../sync/remoteChanges'
 import { SongDetailPage } from './SongDetailPage'
 
 const getSongByIdMock = vi.fn()
@@ -234,5 +235,15 @@ describe('SongDetailPage', () => {
       'Não foi possível atualizar os favoritos. Tente novamente.',
     )
     expect(screen.getByRole('button', { name: 'Adicionar aos favoritos' })).toBeInTheDocument()
+  })
+
+  it('rereads the song after a pull brings it to the device', async () => {
+    getSongByIdMock.mockResolvedValueOnce(undefined).mockResolvedValue(song())
+    render(<MemoryRouter initialEntries={['/songs/song-1']}><Routes><Route path="/songs/:songId" element={<SongDetailPage />} /></Routes></MemoryRouter>)
+    expect(await screen.findByText('Música não encontrada.')).toBeInTheDocument()
+
+    notifyRemoteDataApplied()
+
+    expect(await screen.findByText('Grandioso És Tu')).toBeInTheDocument()
   })
 })

@@ -60,7 +60,7 @@ export function ServiceStagePage() {
         return
       }
       try {
-        const initial = await service.connect(sessionId, {
+        const initial = await service.connectOrLocal(sessionId, {
           onSnapshot: (next) => { if (!cancelled) applySnapshot(next) },
           onStatus: setStatus,
           onPresence: setParticipants,
@@ -71,10 +71,11 @@ export function ServiceStagePage() {
         if (cancelled) return
         setSongs(loadedSongs)
         if (user?.id) {
+          // Presença é best-effort: offline o Palco abre mesmo assim.
           await service.trackPresence(sessionId, {
             musicalRole: loadedSongs[0]?.musicalRole ?? 'other',
             readiness: 'waiting',
-          })
+          }).catch(() => undefined)
         }
         const nextMusicalRole = loadedSongs[0]?.musicalRole ?? 'other'
         const roleExperience = getStageMusicalRoleExperience(nextMusicalRole)

@@ -221,7 +221,7 @@ export function ServiceDetailPage() {
           ? <label>Música<select value={itemSongId} onChange={(event) => setItemSongId(event.target.value)} required>
               <option value="">Escolha a música</option>
               <optgroup label={labels.fromOrganization}>{organizationSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
-              <optgroup label={`${labels.fromMyLibrary} (será copiada para o Ministério)`}>{personalSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
+              <optgroup label={`${labels.fromMyLibrary} (será copiada para o Ministério)`}>{personalSongs.filter((song) => !organizationSongs.some((copy) => copy.sourceSongId === song.id)).map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
             </select></label>
           : <label>Título<input value={itemTitle} onChange={(event) => setItemTitle(event.target.value)} required maxLength={120} /></label>}
         <label>Duração em minutos (opcional)<input type="number" min={1} max={600} value={itemMinutes} onChange={(event) => setItemMinutes(event.target.value)} /></label>

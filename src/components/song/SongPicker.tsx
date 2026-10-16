@@ -40,7 +40,7 @@ export function SongPicker({ songs, personalSongs, requiresOnline, excludeSongId
     return (
       <>
         {matches.length === 0
-          ? <p>{source.length === 0 ? emptyText : 'Nenhuma música encontrada para esta busca.'}</p>
+          ? <p>{source.length === 0 ? emptyText : query.trim() ? 'Nenhuma música encontrada para esta busca.' : 'Todas as músicas desta lista já foram adicionadas.'}</p>
           : <ul>
               {visible.map((song) => (
                 <li key={song.id}>
@@ -70,9 +70,8 @@ export function SongPicker({ songs, personalSongs, requiresOnline, excludeSongId
         <section aria-labelledby="song-picker-personal">
           <h4 id="song-picker-personal">{labels.fromMyLibrary}</h4>
           <button type="button" aria-expanded={personalOpen} onClick={() => setPersonalOpen(!personalOpen)}>{personalOpen ? 'Ocultar minha biblioteca' : 'Mostrar minha biblioteca'}</button>
-          {personalOpen && (online
-            ? <><p>{labels.copyNotice}</p>{renderList(personalSongs, undefined, emptyText)}</>
-            : <p role="alert">{labels.offlineCopy}</p>)}
+          {!online && <p role="alert">{labels.offlineCopy}</p>}
+          {personalOpen && online && <><p>{labels.copyNotice}</p>{renderList(personalSongs, undefined, emptyText)}</>}
         </section>
       </>}
     </section>
