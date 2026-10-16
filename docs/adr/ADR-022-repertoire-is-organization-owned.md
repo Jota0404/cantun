@@ -1,6 +1,6 @@
 # ADR-022 — Repertoire is Organization-Owned
 
-**Status:** Accepted  
+**Status:** Accepted (revisado em parte pelo [ADR-062](ADR-062-repertorio-pessoal.md))  
 **Date:** 2026-09-20
 
 ## Decision
@@ -20,3 +20,7 @@ Legacy `BandSetlist` records are mapped to the Organization created for their Ba
 Legacy `BandSetlistSong` entries are converted through the `BandSong -> Song` mapping and become `RepertoireItem` records.
 
 The migration is additive, idempotent and traceable through private mapping tables.
+
+## Nota (2026-10-15)
+
+O [ADR-062](ADR-062-repertorio-pessoal.md) revisa a propriedade: além do repertório da organização (esta decisão, que continua valendo), existe o **repertório pessoal** do usuário (sem organização), que pode ser **copiado** para a organização por Owner, Admin e Líder. O texto acima permanece como histórico.

@@ -30,7 +30,10 @@ export const PERMISSION_MATRIX = {
   'repertoire.edit_own': { scope: 'own', owner: true, admin: true, leader: true, member: 'P' },
   'repertoire.delete': { scope: 'organization', owner: true, admin: true, leader: false, member: false },
   'repertoire.delete_own': { scope: 'own', owner: true, admin: true, leader: true, member: 'P' },
+  'repertoire.import_personal': { scope: 'organization', owner: true, admin: true, leader: 'L*', member: false },
   'stage.run': { scope: 'organization', owner: true, admin: true, leader: true, member: true },
+  // FIX-01 (D4): o Líder ativo da equipe do serviço também inicia o Palco.
+  'stage.start': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   // §3.4: equipe = equipe do serviço. `service.delete` do Líder vale só em `draft` (ver `canDeleteService`).
   'service.create': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.edit': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },

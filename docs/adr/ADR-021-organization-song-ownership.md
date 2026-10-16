@@ -1,6 +1,6 @@
 # ADR-021 — Organization Song Ownership
 
-**Status:** Accepted  
+**Status:** Accepted (parcialmente revisado pelo [ADR-062](ADR-062-repertorio-pessoal.md))  
 **Date:** 2026-09-20
 
 ## Context
@@ -37,3 +37,7 @@ The existing Band/Stage APIs continue to operate during the migration. Repertoir
 ## Consequences
 
 The system gains a single source of truth for musical content while retaining organization-level ownership/context and a traceable migration path for legacy records.
+
+## Nota (2026-10-15)
+
+O [ADR-062](ADR-062-repertorio-pessoal.md) muda o que "a organização usa uma música" significa: a música da organização passa a ser uma **cópia** (`Song` com `organization_id`), e `OrganizationSong` deixa de ser o vínculo (a tabela é removida). `Song` continua sendo a única entidade musical, e o conteúdo musical continua só em `Song`. O texto acima fica como histórico.
