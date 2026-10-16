@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { Song } from '../domain/songs/song'
 import { SalmodiaDatabase } from './database'
 
 const DB_NAME = 'SalmodiaDatabase'
@@ -232,5 +233,57 @@ describe('SalmodiaDatabase version 15 (member profiles cache)', () => {
     expect(await db.memberProfiles.count()).toBe(3)
     expect((await db.memberProfiles.where('organizationId').equals('o1').toArray()).map((p) => p.displayName)).toEqual(['Ana'])
     expect((await db.memberProfiles.where('organizationId').equals('o2').toArray()).map((p) => p.userId).sort()).toEqual(['u1', 'u2'])
+  })
+})
+
+describe('SalmodiaDatabase version 16 (song copies)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('keeps existing songs as personal and indexes copies by organization', async () => {
+    const song = await seedVersion10()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(await db.songs.toArray()).toEqual([song])
+    expect(await db.songs.filter((item) => !item.organizationId).count()).toBe(1)
+    await db.songs.put({ ...(song as unknown as Song), id: 'copy-1', organizationId: 'org-1', sourceSongId: song.id })
+    expect((await db.songs.where('organizationId').equals('org-1').toArray()).map((item) => item.id)).toEqual(['copy-1'])
+  })
+})
+
+describe('SalmodiaDatabase version 17 (organizationSongs removal)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('drops the organizationSongs store and keeps songs and organizations intact', async () => {
+    const song = await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt' })
+    await legacy.table('organizationSongs').add({ id: 'link-1', organizationId: 'org-1', songId: song.id, createdAt: now, updatedAt: now })
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(Array.from(db.backendDB().objectStoreNames)).not.toContain('organizationSongs')
+    expect(db.tables.map((table) => table.name)).not.toContain('organizationSongs')
+    expect(await db.songs.toArray()).toEqual([song])
+    expect((await db.organizations.get('org-1'))?.name).toBe('Igreja')
   })
 })

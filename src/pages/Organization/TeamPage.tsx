@@ -12,6 +12,8 @@ import { hasPermission, type AccessContext } from '../../domain/access/permissio
 import { canChangeRole, canChangeStatus, canSetFunctions } from '../../domain/teams/memberRules'
 import type { Team } from '../../domain/teams/team'
 import type { MemberDisplayStatus } from '../../domain/teams/teamMembership'
+import { InlineNameForm } from '../../components/ui/InlineNameForm'
+import { labels } from '../../ui/labels'
 import { MUSICAL_FUNCTIONS, musicalFunctionLabel } from '../../components/team/musicalFunctions'
 import './OrganizationPage.css'
 import './TeamPage.css'
@@ -38,11 +40,12 @@ export function TeamPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [renaming, setRenaming] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const currentTeam = await getTeam(teamId)
-      if (!currentTeam || currentTeam.organizationId !== organizationId) { setError('Equipe não encontrada.'); return }
+      if (!currentTeam || currentTeam.organizationId !== organizationId) { setError('Banda não encontrada.'); return }
       const [context, teamMembers] = await Promise.all([
         getMyAccessContext({ organizationId, teamId }),
         listTeamMembers({ organizationId, teamId, includePendingInvites: true }),
@@ -51,7 +54,7 @@ export function TeamPage() {
       setAccess(context)
       setMembers(teamMembers)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar a equipe.')
+      setError(err instanceof Error ? err.message : labels.teamLoadError)
     } finally {
       setLoading(false)
     }
@@ -81,10 +84,11 @@ export function TeamPage() {
   const isAdmin = access.organizationRole === 'owner' || access.organizationRole === 'admin'
   const canInvite = hasPermission(access, 'team_member.add')
 
-  async function renameTeam() {
+  async function renameTeam(name: string) {
     if (!team) return
-    const name = window.prompt('Nome da equipe', team.name)?.trim()
-    if (name) await run(() => ok(() => updateTeam(team, { name })))
+    await updateTeam(team, { name })
+    setRenaming(false)
+    await load()
   }
 
   async function saveDisplayName(event: FormEvent) {
@@ -118,8 +122,8 @@ export function TeamPage() {
     setCopied(true)
   }
 
-  if (loading) return <main className="organization-page"><p>Carregando equipe…</p></main>
-  if (!team) return <main className="organization-page"><p role="alert">{error || 'Equipe não encontrada.'}</p></main>
+  if (loading) return <main className="organization-page"><p>Carregando banda…</p></main>
+  if (!team) return <main className="organization-page"><p role="alert">{error || 'Banda não encontrada.'}</p></main>
 
   const activeMembers = members.filter((member) => member.displayStatus === 'active')
   const uncovered = MUSICAL_FUNCTIONS.filter(({ value }) => !activeMembers.some((member) => member.musicalFunctions.includes(value)))
@@ -132,15 +136,16 @@ export function TeamPage() {
     <main className="organization-page">
       <section className="organization-card">
         <header>
-          <Link to={`/organizations/${organizationId}`}>← Organização</Link>
-          <span>EQUIPE</span>
+          <Link to={`/organizations/${organizationId}`}>{labels.backToOrganization}</Link>
+          <span>BANDA</span>
           <h2>{team.name}</h2>
           <p>{activeMembers.length} membro(s) ativo(s)</p>
-          {hasPermission(access, 'team.rename') && <button type="button" onClick={() => void renameTeam()}>Renomear equipe</button>}
+          {hasPermission(access, 'team.rename') && <button type="button" aria-expanded={renaming} onClick={() => setRenaming(!renaming)}>{labels.renameTeam}</button>}
+          {renaming && <InlineNameForm label={labels.teamName} submitLabel="Salvar nome" initialValue={team.name} onSubmit={renameTeam} onCancel={() => setRenaming(false)} />}
         </header>
         {error && <p role="alert" className="organization-error">{error}</p>}
         {notice && <p role="status">{notice}</p>}
-        {!hasActiveLeader && <p className="team-warning" role="note">Esta equipe está sem Líder ativo. Owner ou Admin podem promover alguém.</p>}
+        {!hasActiveLeader && <p className="team-warning" role="note">Esta banda está sem Líder ativo. Owner ou Admin podem promover alguém.</p>}
 
         <section aria-labelledby="uncovered-title" className="team-uncovered">
           <h3 id="uncovered-title">Funções sem ninguém</h3>
@@ -213,7 +218,7 @@ export function TeamPage() {
         </section>
 
         {canInvite && <section aria-labelledby="invite-title">
-          <h3 id="invite-title">Convidar para esta equipe</h3>
+          <h3 id="invite-title">Convidar para esta banda</h3>
           <form className="team-invite" onSubmit={(event) => void invite(event)}>
             {isAdmin && <label>Acesso
               <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as OrganizationInviteRole)}>
@@ -228,7 +233,7 @@ export function TeamPage() {
         </section>}
 
         <section aria-labelledby="my-name-title">
-          <h3 id="my-name-title">Seu nome na equipe</h3>
+          <h3 id="my-name-title">Seu nome na banda</h3>
           <form className="team-invite" onSubmit={(event) => void saveDisplayName(event)}>
             <label>Nome de exibição<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required maxLength={80} autoComplete="name" /></label>
             <button type="submit">Salvar nome</button>

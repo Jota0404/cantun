@@ -305,6 +305,71 @@ describe('dados sob RLS', () => {
   })
 })
 
+describe('músicas do Ministério (ADR-062)', () => {
+  test('RPC de cópia, edição da cópia por Líder/Admin sem trocar o autor, upsert negado e pull por Ministério', async () => {
+    const ip = { remoteAddress: '10.0.0.93' }
+    const join = async (email: string, displayName: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { email, password: 'senha-forte-123', displayName } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const dona = await join('dona.copia@teste.local', 'Dona')
+    const autor = await join('autor.copia@teste.local', 'Autor')
+    const lider = await join('lider.copia@teste.local', 'Lider')
+    const call = (user: { cookie: string }, name: string, payload: object) => app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+    const orgId = crypto.randomUUID(), otherOrgId = crypto.randomUUID(), teamId = crypto.randomUUID()
+    await call(dona, 'create_organization', { p_id: orgId, p_name: 'Ministério A' })
+    await call(dona, 'create_organization', { p_id: otherOrgId, p_name: 'Ministério B' })
+    await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: dona.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Banda' }] } })
+    for (const user of [autor, lider]) await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+    await pool.query('insert into public.team_memberships (team_id, user_id) values ($1, $2)', [teamId, autor.id])
+    await pool.query(`insert into public.team_memberships (team_id, user_id, role) values ($1, $2, 'leader')`, [teamId, lider.id])
+
+    const personalId = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const personal = { user_id: autor.id, id: personalId, title: 'Minha', original_key: 'C', current_key: 'C', lyrics: 'C G', created_at: now, updated_at: now }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/songs', headers: { cookie: autor.cookie }, payload: { rows: [personal] } })).statusCode, 200)
+
+    // RPC na allowlist: cria, é idempotente e devolve a linha.
+    const copyId = crypto.randomUUID()
+    const copied = await call(autor, 'copy_song_to_organization', { p_song_id: personalId, p_organization_id: orgId, p_new_id: copyId })
+    assert.equal(copied.statusCode, 200, copied.body)
+    assert.deepEqual([copied.json().id, copied.json().user_id, copied.json().organization_id, copied.json().source_song_id], [copyId, autor.id, orgId, personalId])
+    const again = await call(autor, 'copy_song_to_organization', { p_song_id: personalId, p_organization_id: orgId })
+    assert.equal(again.json().id, copyId)
+    const denied = await call(autor, 'copy_song_to_organization', { p_song_id: personalId, p_organization_id: otherOrgId })
+    assert.equal(denied.statusCode, 400)
+    assert.equal(denied.json().error, 'not authorized to copy songs to this organization')
+    assert.equal((await call(lider, 'copy_song_to_organization', { p_song_id: personalId, p_organization_id: orgId })).json().error, 'song not found or not authorized')
+
+    // Líder (não autor) edita a MESMA linha por PATCH; o autor não muda e nenhuma linha nasce.
+    const patch = await app.inject({ method: 'PATCH', url: `/sync/songs?id=${copyId}`, headers: { cookie: lider.cookie }, payload: { values: { title: 'Editada pelo Líder', updated_at: new Date().toISOString() } } })
+    assert.deepEqual(patch.json(), { count: 1 })
+    const row = (await pool.query('select user_id, title, count(*) over () as n from public.songs where id = $1', [copyId])).rows
+    assert.deepEqual(row.map((r) => [r.user_id, r.title, Number(r.n)]), [[autor.id, 'Editada pelo Líder', 1]])
+    assert.equal((await pool.query('select title from public.songs where id = $1', [personalId])).rows[0].title, 'Minha')
+    // Trocar o autor ou a organização por PATCH é negado.
+    assert.equal((await app.inject({ method: 'PATCH', url: `/sync/songs?id=${copyId}`, headers: { cookie: lider.cookie }, payload: { values: { user_id: lider.id } } })).statusCode, 403)
+    assert.equal((await app.inject({ method: 'PATCH', url: `/sync/songs?id=${copyId}`, headers: { cookie: lider.cookie }, payload: { values: { organization_id: otherOrgId } } })).statusCode, 403)
+
+    // Upsert com o user_id do editor não cria linha própria.
+    const forged = { user_id: lider.id, id: copyId, organization_id: orgId, title: 'x', original_key: 'C', current_key: 'C', lyrics: 'x', created_at: now, updated_at: now }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/songs', headers: { cookie: lider.cookie }, payload: { rows: [forged] } })).statusCode, 403)
+    const asPersonal = { ...forged, organization_id: undefined } // sem organização: tenta criar a "pessoal" com o id da cópia
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/songs', headers: { cookie: lider.cookie }, payload: { rows: [asPersonal] } })).statusCode, 409)
+    assert.equal(Number((await pool.query('select count(*) from public.songs where id = $1', [copyId])).rows[0].count), 1)
+
+    // Pull por Ministério: um GET com organization_id traz as cópias; fora do Ministério, nada.
+    const pull = await app.inject({ method: 'GET', url: `/sync/songs?organization_id=${orgId}`, headers: { cookie: lider.cookie } })
+    assert.deepEqual(pull.json().map((song: { id: string }) => song.id), [copyId])
+    assert.deepEqual((await app.inject({ method: 'GET', url: `/sync/songs?organization_id=${orgId}`, headers: { cookie: dona.cookie } })).json().map((song: { id: string }) => song.id), [copyId])
+    const outsider = await join('fora.copia@teste.local', 'Fora')
+    assert.deepEqual((await app.inject({ method: 'GET', url: `/sync/songs?organization_id=${orgId}`, headers: { cookie: outsider.cookie } })).json(), [])
+    // A pessoal do autor não aparece para o Líder.
+    assert.equal((await app.inject({ method: 'GET', url: `/sync/songs?id=${personalId}`, headers: { cookie: lider.cookie } })).json().length, 0)
+  })
+})
+
 describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }

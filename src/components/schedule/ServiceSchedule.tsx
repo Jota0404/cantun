@@ -16,6 +16,7 @@ import { musicalFunctionLabel } from '../team/musicalFunctions'
 import { ASSIGNMENT_ACTION_LABEL, ASSIGNMENT_STATUS_LABEL, AVAILABILITY_LABEL, OFFLINE_MESSAGE } from './scheduleLabels'
 import { useOnline } from './useOnline'
 import './ServiceSchedule.css'
+import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
@@ -174,7 +175,7 @@ export function ServiceSchedule({ service, access, currentUserId }: Props) {
               {picker?.positionId === position.id && (
                 <section aria-label={picker.replacing ? 'Escolher substituto' : `Convidar para ${label}`} className="service-schedule__picker">
                   <h4>{picker.replacing ? 'Escolher substituto' : `Convidar para ${label}`}</h4>
-                  {picker.suggestions.length === 0 ? <p>Ninguém disponível para sugerir nesta equipe.</p> : (
+                  {picker.suggestions.length === 0 ? <p>{labels.onlyTeamMembersHint}</p> : (
                     <ul>
                       {picker.suggestions.map((suggestion) => (
                         <li key={suggestion.userId}>

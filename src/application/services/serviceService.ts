@@ -35,7 +35,7 @@ export async function createService(
 ): Promise<ServiceResult> {
   const user = getCurrentUser()
   const errors = validateInfo(input)
-  if (!input.teamId) errors.push('Escolha a equipe do serviço.')
+  if (!input.teamId) errors.push('Escolha a banda do serviço.')
   if (!user) errors.push('Entre na sua conta para criar o serviço.')
   if (errors.length || !user) return { success: false, errors }
   const now = new Date().toISOString()

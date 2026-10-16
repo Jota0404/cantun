@@ -21,7 +21,7 @@ vi.mock('../../application/teams/musicalFunctionService', () => ({ setMyTeamMusi
 describe('OrganizationPage onboarding', () => {
   it('has no axe violations on the first onboarding step', async () => {
     const { container } = render(<MemoryRouter><OrganizationPage /></MemoryRouter>)
-    await screen.findByLabelText('Nome da organização')
+    await screen.findByLabelText('Nome do Ministério')
     expect(await axeViolations(container)).toEqual([])
   })
 
@@ -36,19 +36,19 @@ describe('OrganizationPage onboarding', () => {
       </MemoryRouter>,
     )
 
-    await user.type(await screen.findByLabelText('Nome da organização'), 'Igreja')
+    await user.type(await screen.findByLabelText('Nome do Ministério'), 'Igreja')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await act(async () => { state.listeners.forEach((listener) => listener()) })
 
-    expect(await screen.findByText('Passo 2 de 5: Equipe principal')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Nome da equipe principal'), 'Louvor')
+    expect(await screen.findByText('Passo 2 de 5: Banda principal')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nome da banda principal'), 'Louvor')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await act(async () => { state.listeners.forEach((listener) => listener()) })
     await user.click(await screen.findByRole('button', { name: 'Pular' }))
     expect(screen.getByText('Passo 4 de 5: Suas funções')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Pular' }))
     expect(screen.getByText('Passo 5 de 5: Pronto')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Abrir equipe' }))
+    await user.click(screen.getByRole('button', { name: 'Abrir banda' }))
     expect(screen.getByText('Tela da equipe')).toBeInTheDocument()
   })
 })

@@ -2,6 +2,7 @@ import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { moveItem, renumber, validateServiceItem, type ServiceItem, type ServiceItemInput } from '../../domain/services/serviceItem'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
+import { resolveOrganizationSong } from '../songs/copySongToOrganization'
 
 export type ServiceItemsResult = { success: true; items: ServiceItem[] } | { success: false; errors: string[] }
 
@@ -48,10 +49,23 @@ export async function addServiceItem(
   const errors = validateServiceItem(input)
   if (errors.length) return { success: false, errors }
   const items = await repositories.items.listByServiceId(serviceId)
+  // RN-A3: música pessoal entra como cópia do Ministério (só online).
+  let songId = input.songId
+  let songTitle: string | undefined
+  if (input.type === 'song' && input.songId) {
+    const organizationId = (await repositories.services.getById(serviceId))?.organizationId
+    const resolved = organizationId ? await resolveOrganizationSong(input.songId, organizationId) : undefined
+    if (resolved && !resolved.success) return { success: false, errors: resolved.errors }
+    if (resolved) { songId = resolved.songId; songTitle = resolved.title }
+  }
+  // RN-A8: a mesma música não aparece duas vezes na ordem; itens não musicais não contam.
+  if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === songId)) {
+    return { success: false, errors: [`${songTitle ? `"${songTitle}"` : 'Essa música'} já está na ordem.`] }
+  }
   const song = input.type === 'song'
   const item: ServiceItem = {
     id, serviceId, type: input.type, position: items.length, updatedAt: new Date().toISOString(),
-    songId: song ? input.songId : undefined,
+    songId: song ? songId : undefined,
     title: song ? undefined : input.title?.trim(),
     notes: input.notes?.trim() || undefined,
     durationMinutes: input.durationMinutes,

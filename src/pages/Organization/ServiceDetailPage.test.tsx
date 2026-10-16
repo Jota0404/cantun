@@ -20,6 +20,8 @@ const m = vi.hoisted(() => ({
   removeServiceItem: vi.fn(),
   deleteService: vi.fn(),
 }))
+vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => [] }))
+vi.mock('../../application/songs/copySongToOrganization', () => ({ OFFLINE_COPY_MESSAGE: 'Sem conexão: tente de novo quando estiver online.' }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))

@@ -26,10 +26,10 @@ describe('TeamOnboarding', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Passo 1 de 5: Organização')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Nome da organização'), 'Igreja')
+    expect(screen.getByText('Passo 1 de 5: Ministério')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nome do Ministério'), 'Igreja')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
-    await user.type(await screen.findByLabelText('Nome da equipe principal'), 'Louvor')
+    await user.type(await screen.findByLabelText('Nome da banda principal'), 'Louvor')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     expect(createTeam).toHaveBeenCalledWith('o1', 'Louvor')
     await user.click(await screen.findByRole('button', { name: 'Pular' }))
@@ -37,7 +37,7 @@ describe('TeamOnboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     expect(setMyTeamMusicalFunctions).toHaveBeenCalledWith('t1', ['vocals'])
     expect(await screen.findByText('Passo 5 de 5: Pronto')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Abrir equipe' }))
+    await user.click(screen.getByRole('button', { name: 'Abrir banda' }))
     expect(screen.getByText('Tela da equipe')).toBeInTheDocument()
   })
 })

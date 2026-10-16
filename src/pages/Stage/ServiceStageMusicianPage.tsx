@@ -12,6 +12,7 @@ import { stageConnectionLabel, type StageConnectionStatus } from './stageConnect
 import { BandStagePresencePanel } from '../../components/stage/BandStagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
+import { labels } from '../../ui/labels'
 import './ServiceStageMusicianPage.css'
 
 type ReadMode = 'scroll' | 'pages'
@@ -118,7 +119,7 @@ export function ServiceStageMusicianPage() {
 
   return (
     <main className="band-musician-stage" data-musical-role={musicalRole} style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}>
-      <header className="band-musician-stage__header"><div><Link to="/organizations">← Organizações</Link><span className="band-musician-stage__kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-musician-stage__session"><span className={`band-musician-stage__status band-musician-stage__status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{stageConnectionLabel(status)}</span><button type="button" onClick={() => void refresh()}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
+      <header className="band-musician-stage__header"><div><Link to="/organizations">{labels.backToOrganizations}</Link><span className="band-musician-stage__kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="band-musician-stage__session"><span className={`band-musician-stage__status band-musician-stage__status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{stageConnectionLabel(status)}</span><button type="button" onClick={() => void refresh()}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
       <section className="band-musician-stage__presence" aria-label="Estado da execução"><span>Função: {experience.accentLabel}</span><span>Revisão {executionState.revision}</span><span>Execução: {executionState.status === 'running' ? 'ativa' : executionState.status === 'paused' ? 'pausada' : executionState.status === 'lobby' ? 'aguardando início' : 'encerrada'}</span><span>Somente leitura</span></section>
       <BandStagePresencePanel participants={participants} />
       {executionState.mdAnnotation && <aside className="band-musician-stage__annotation"><strong>Nota do MD</strong><p>{executionState.mdAnnotation}</p></aside>}

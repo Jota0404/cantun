@@ -77,7 +77,7 @@ describe('MyServicesPage', () => {
     m.orgs = [{ id: 'o1', name: 'Igreja Esperança' }, { id: 'o2', name: 'Casa de Oração' }]
     render(<MemoryRouter><MyServicesPage /></MemoryRouter>)
     const form = await screen.findByRole('form', { name: 'Informar disponibilidade' })
-    await user.selectOptions(within(form).getByLabelText('Organização'), 'o2')
+    await user.selectOptions(within(form).getByLabelText('Ministério'), 'o2')
     await user.type(within(form).getByLabelText('Data'), '2026-10-25')
     await user.click(within(form).getByRole('button', { name: 'Salvar disponibilidade' }))
     expect(m.setMyAvailability).toHaveBeenCalledWith({ organizationId: 'o2', date: '2026-10-25', status: 'unavailable', note: undefined })

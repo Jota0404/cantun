@@ -26,11 +26,12 @@ describe('service use cases', () => {
     const result = await createService({ organizationId: 'o1', teamId: 't1', name: ' Ceia ', startsAt: now, location: ' ' }, undefined, '00000000-0000-4000-8000-000000000001')
     expect(result).toMatchObject({ success: true, service: { status: 'draft', teamId: 't1', name: 'Ceia', createdByUserId: 'u1', location: undefined } })
     await expect(createService({ organizationId: 'o1', teamId: '', name: '', startsAt: 'x' })).resolves.toEqual({
-      success: false, errors: ['Informe o nome do serviço.', 'Informe data e hora válidas.', 'Escolha a equipe do serviço.'],
+      success: false, errors: ['Informe o nome do serviço.', 'Informe data e hora válidas.', 'Escolha a banda do serviço.'],
     })
   })
 
   it('adds mixed items, moves them and renumbers on removal', async () => {
+    await db.songs.put({ id: 'song-1', title: 'Oceano', organizationId: 'o1', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
     await addServiceItem('s1', { type: 'opening', title: 'Abertura' }, undefined, '00000000-0000-4000-8000-00000000000a')
     await addServiceItem('s1', { type: 'song', songId: 'song-1' }, undefined, '00000000-0000-4000-8000-00000000000b')
     await addServiceItem('s1', { type: 'prayer', title: 'Oração' }, undefined, '00000000-0000-4000-8000-00000000000c')
@@ -90,5 +91,22 @@ describe('service use cases', () => {
     expect(deleteRows).toHaveBeenLastCalledWith('services', { id: 's1' })
     expect(await db.services.get('s1')).toBeUndefined()
     expect(await db.serviceItems.get('it')).toBeUndefined()
+  })
+  it('refuses a song already in the order (RN-A8) but allows repeated non-song items', async () => {
+    await db.songs.put({ id: 'song-1', title: 'Oceano', organizationId: 'o1', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
+    expect(await addServiceItem('s1', { type: 'song', songId: 'song-1' })).toMatchObject({ success: true })
+    expect(await addServiceItem('s1', { type: 'song', songId: 'song-1' })).toEqual({ success: false, errors: ['"Oceano" já está na ordem.'] })
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Oração' })).toMatchObject({ success: true })
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Oração' })).toMatchObject({ success: true })
+  })
+  it('adds a personal song as the organization copy and flags the copy as already in the order', async () => {
+    await db.songs.put({ id: 'mine', title: 'Aliança', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
+    rpc.mockResolvedValueOnce({ id: 'copy-1', title: 'Aliança', original_key: 'G', current_key: 'G', lyrics: '', organization_id: 'o1', source_song_id: 'mine', is_favorite: false, created_at: now, updated_at: now })
+    const added = await addServiceItem('s1', { type: 'song', songId: 'mine' })
+    expect(added.success && added.items[0].songId).toBe('copy-1')
+    expect(await addServiceItem('s1', { type: 'song', songId: 'mine' })).toEqual({ success: false, errors: ['"Aliança" já está na ordem.'] })
+    rpc.mockRejectedValueOnce(new Error('Você não tem permissão para esta ação.'))
+    await db.songs.put({ id: 'mine2', title: 'Outra', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
+    expect(await addServiceItem('s1', { type: 'song', songId: 'mine2' })).toEqual({ success: false, errors: ['Você não tem permissão para esta ação.'] })
   })
 })

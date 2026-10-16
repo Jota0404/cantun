@@ -12,23 +12,27 @@ export type SongTextParseResult =
   | { success: true; data: SongImportData }
   | { success: false; errors: string[] }
 
-const HEADER_FIELDS = {
-  'Título': 'title',
-  'Artista': 'artist',
-  'Tom': 'key',
-  'BPM': 'bpm',
-  'Notas': 'notes',
-} as const
+// RN-A4: rótulos aceitos sem diferenciar caixa nem acento.
+const HEADER_LABELS: Record<string, 'title' | 'artist' | 'key' | 'bpm' | 'notes'> = {
+  titulo: 'title', title: 'title', musica: 'title',
+  artista: 'artist', artist: 'artist',
+  tom: 'key', key: 'key',
+  bpm: 'bpm',
+  notas: 'notes', nota: 'notes', notes: 'notes', observacoes: 'notes', observacao: 'notes', obs: 'notes',
+}
 
-type HeaderField = (typeof HEADER_FIELDS)[keyof typeof HEADER_FIELDS]
+type HeaderField = (typeof HEADER_LABELS)[string]
+
+function normalizeLabel(label: string): string {
+  return label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+}
 
 function parseHeader(line: string): { field: HeaderField; value: string } | null {
   const separatorIndex = line.indexOf(':')
 
   if (separatorIndex <= 0) return null
 
-  const label = line.slice(0, separatorIndex).trim() as keyof typeof HEADER_FIELDS
-  const field = HEADER_FIELDS[label]
+  const field = HEADER_LABELS[normalizeLabel(line.slice(0, separatorIndex))]
 
   if (!field) return null
 
@@ -38,11 +42,16 @@ function parseHeader(line: string): { field: HeaderField; value: string } | null
   }
 }
 
-function isMusicalKey(value: string): value is MusicalKey {
-  return MUSICAL_KEYS.includes(value as MusicalKey)
+/** Aceita tônica em maiúscula ou minúscula (`d`, `f#`, `bb`). Tons menores (`Am`) não resolvem aqui: ficam para a revisão (Fatia C). */
+export function normalizeMusicalKey(value: string): MusicalKey | undefined {
+  const match = /^([A-Ga-g])([#♯b♭]?)$/.exec(value.trim())
+  if (!match) return undefined
+  const accidental = match[2] === '♯' ? '#' : match[2] === '♭' ? 'b' : match[2]
+  const key = `${match[1].toUpperCase()}${accidental}`
+  return MUSICAL_KEYS.includes(key as MusicalKey) ? key as MusicalKey : undefined
 }
 
-export function parseSongText(text: string): SongTextParseResult {
+function parseLines(text: string) {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
   const headers: Partial<Record<HeaderField, string>> = {}
   let index = 0
@@ -78,17 +87,31 @@ export function parseSongText(text: string): SongTextParseResult {
     index += 1
   }
 
-  const lyrics = normalizeSongLyrics(lines.slice(index).join('\n')).trim()
+  return { headers, lyrics: normalizeSongLyrics(lines.slice(index).join('\n')).trim() }
+}
+
+/** Rascunho da importação: o tom pode faltar; a tela de revisão obriga a escolher (RN-A4/A5). */
+export type SongImportDraft = Omit<SongImportData, 'originalKey' | 'currentKey'> & {
+  originalKey?: MusicalKey
+  currentKey?: MusicalKey
+  /** Texto original do tom quando não foi reconhecido (ex.: `Am`, `H`), para a revisão mostrar. */
+  rawKey?: string
+}
+
+export type SongDraftParseResult =
+  | { success: true; data: SongImportDraft }
+  | { success: false; errors: string[] }
+
+/** Importação tolerante: tom ausente ou inválido não reprova. Título, letra e BPM ainda são validados. */
+export function parseSongDraft(text: string): SongDraftParseResult {
+  const { headers, lyrics } = parseLines(text)
   const title = headers.title?.trim() ?? ''
-  const key = headers.key?.trim() ?? ''
-  const artist = headers.artist?.trim() || undefined
-  const notes = headers.notes?.trim() || undefined
+  const rawKey = headers.key?.trim() || undefined
+  const key = rawKey ? normalizeMusicalKey(rawKey) : undefined
   const bpmText = headers.bpm?.trim() ?? ''
   const errors: string[] = []
 
   if (!title) errors.push('Título é obrigatório.')
-  if (!key) errors.push('Tom é obrigatório.')
-  else if (!isMusicalKey(key)) errors.push(`Tom inválido: ${key}.`)
   if (!lyrics) errors.push('Cifra/letra é obrigatória.')
 
   let bpm: number | undefined
@@ -101,17 +124,43 @@ export function parseSongText(text: string): SongTextParseResult {
 
   if (errors.length > 0) return { success: false, errors }
 
-  const musicalKey = key as MusicalKey
   return {
     success: true,
     data: {
       title,
-      artist,
-      originalKey: musicalKey,
-      currentKey: musicalKey,
+      artist: headers.artist?.trim() || undefined,
+      originalKey: key,
+      currentKey: key,
+      rawKey: key ? undefined : rawKey,
       bpm,
       lyrics,
-      notes,
+      notes: headers.notes?.trim() || undefined,
     },
   }
+}
+
+/** Versão estrita: exige tom válido. A tela de importação nova usa `parseSongDraft`. */
+export function parseSongText(text: string): SongTextParseResult {
+  const parsed = parseSongDraft(text)
+  if (!parsed.success) {
+    // Mantém o conjunto de erros da versão estrita, incluindo o tom.
+    const extra = collectKeyError(text)
+    return { success: false, errors: extra ? insertKeyError(parsed.errors, extra) : parsed.errors }
+  }
+  const { originalKey, rawKey, ...rest } = parsed.data
+  if (!originalKey) return { success: false, errors: [rawKey ? `Tom inválido: ${rawKey}.` : 'Tom é obrigatório.'] }
+  return { success: true, data: { ...rest, originalKey, currentKey: originalKey } }
+}
+
+function collectKeyError(text: string): string | null {
+  const { headers } = parseLines(text)
+  const raw = headers.key?.trim()
+  if (!raw) return 'Tom é obrigatório.'
+  return normalizeMusicalKey(raw) ? null : `Tom inválido: ${raw}.`
+}
+
+// Ordem histórica dos erros: título, tom, letra, BPM.
+function insertKeyError(errors: string[], keyError: string): string[] {
+  const afterTitle = errors[0] === 'Título é obrigatório.' ? 1 : 0
+  return [...errors.slice(0, afterTitle), keyError, ...errors.slice(afterTitle)]
 }

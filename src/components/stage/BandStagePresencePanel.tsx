@@ -1,14 +1,15 @@
 import type { StageParticipant } from '../../domain/stage/stagePresence'
 import { getStageMusicalRoleExperience } from '../../application/stage/stageExperience'
 import './BandStagePresencePanel.css'
+import { labels } from '../../ui/labels'
 
 export function BandStagePresencePanel({ participants }: { participants: StageParticipant[] }) {
   const readyCount = participants.filter((participant) => participant.readiness === 'ready').length
 
   return (
-    <section className="band-stage-presence-panel" aria-label="Equipe conectada">
+    <section className="band-stage-presence-panel" aria-label={labels.connectedTeam}>
       <div className="band-stage-presence-panel__header">
-        <strong>Equipe conectada</strong>
+        <strong>{labels.connectedTeam}</strong>
         <span>{readyCount}/{participants.length} prontos</span>
       </div>
       <div className="band-stage-presence-panel__list">

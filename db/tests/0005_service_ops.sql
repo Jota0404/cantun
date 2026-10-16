@@ -73,12 +73,10 @@ insert into public.team_memberships (team_id, user_id, role, status) values
   ('30000000-0000-0000-0000-000000000501', '00000000-0000-0000-0000-000000000506', 'leader', 'inactive'),
   ('30000000-0000-0000-0000-000000000501', '00000000-0000-0000-0000-000000000507', 'member', 'inactive');
 
-insert into public.songs (user_id, id, title, original_key, current_key, lyrics, created_at, updated_at) values
-  ('00000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000501', 'Primeira', 'C', 'C', 'C', now(), now()),
-  ('00000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000502', 'Segunda', 'D', 'D', 'D', now(), now());
-insert into public.organization_songs (organization_id, song_id) values
-  ('10000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000501'),
-  ('10000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000502');
+-- Músicas do Ministério são cópias (organization_id), de autoria do owner.
+insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000501', '10000000-0000-0000-0000-000000000501', 'Primeira', 'C', 'C', 'C', now(), now()),
+  ('00000000-0000-0000-0000-000000000501', '40000000-0000-0000-0000-000000000502', '10000000-0000-0000-0000-000000000501', 'Segunda', 'D', 'D', 'D', now(), now());
 -- Serviço da equipe TB (draft) e um de TA já ready, criados pelo dono do schema.
 insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id, status) values
   ('60000000-0000-0000-0000-000000000502', '10000000-0000-0000-0000-000000000501', '30000000-0000-0000-0000-000000000502', 'Culto TB', now(), '00000000-0000-0000-0000-000000000501', 'draft'),

@@ -92,7 +92,9 @@ async function createLiveStage(owner: User, organizationId: string): Promise<str
         `insert into public.songs (user_id, id, title, original_key, current_key, lyrics, created_at, updated_at) values ($1, $2, 'Música', 'C', 'C', 'C', now(), now())`,
         [owner.id, songId],
       )
-      await client.query('insert into public.service_items (service_id, song_id, position) values ($1, $2, $3)', [serviceId, songId, position])
+      // Música do Ministério é uma cópia (ADR-062): o item usa a cópia.
+      const copyId = (await client.query<{ id: string }>('select id from public.copy_song_to_organization($1, $2, null)', [songId, organizationId])).rows[0].id
+      await client.query('insert into public.service_items (service_id, song_id, position) values ($1, $2, $3)', [serviceId, copyId, position])
     }
     await client.query('select public.create_target_stage_session($1, $2)', [serviceId, stageId])
     await client.query('select public.target_stage_start($1)', [stageId])

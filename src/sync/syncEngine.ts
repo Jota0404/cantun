@@ -1,5 +1,6 @@
 import type { SalmodiaDatabase } from '../db/database'
 import type { Song } from '../domain/songs/song'
+import { toSong } from '../domain/songs/songRow'
 import { selectRows, updateRows, upsertRows } from '../platform/sync'
 import { notifyRemoteDataApplied } from './remoteChanges'
 
@@ -42,19 +43,20 @@ export class SyncEngine {
     void this.sync(userId)
   }
 
-  async queueDelete(userId: string, entity: EntityName, entityId: string, updatedAt = new Date().toISOString()) {
+  /** `payload` (a música antes de apagar) diz se era uma cópia de Ministério, que se apaga por `id`. */
+  async queueDelete(userId: string, entity: EntityName, entityId: string, updatedAt = new Date().toISOString(), payload?: Entity) {
     await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, entity, entityId]).delete()
-    await this.db.syncQueue.add({ userId, entity, entityId, operation: 'delete', updatedAt, attempts: 0 })
+    await this.db.syncQueue.add({ userId, entity, entityId, operation: 'delete', payload, updatedAt, attempts: 0 })
     void this.sync(userId)
   }
 
   async bootstrap(userId: string) {
     if (!navigator.onLine) return
     // ponytail: baixa as linhas só para contar; trocar por contagem no servidor se a biblioteca crescer.
-    const remoteIsEmpty = await selectRows('songs', { user_id: userId }).then((rows) => rows.length === 0, () => false)
+    const remoteIsEmpty = await selectRows<RemoteRow>('songs', { user_id: userId }).then((rows) => rows.every((row) => row.organization_id), () => false)
     if (!remoteIsEmpty) return this.sync(userId)
 
-    const songs = await this.db.songs.toArray()
+    const songs = await this.db.songs.filter((song) => !song.organizationId).toArray()
     for (const song of songs) await this.queueUpsert(userId, 'songs', song)
     await this.sync(userId)
   }
@@ -109,13 +111,22 @@ export class SyncEngine {
 
   private async pushItem(userId: string, item: SyncQueueItem) {
     const table = tables[item.entity]
-    const [remote] = await selectRows<RemoteRow>(table, { user_id: userId, id: item.entityId })
+    const isCopy = Boolean(item.payload?.organizationId)
+    const [remote] = await selectRows<RemoteRow>(table, isCopy ? { id: item.entityId } : { user_id: userId, id: item.entityId })
 
     const remoteUpdatedAt = remote ? getRemoteUpdatedAt(remote) : undefined
     if (remoteUpdatedAt && remoteUpdatedAt >= item.updatedAt) return
 
+    // RN-A14: a cópia é atualizada por `id`, sem trocar autor, organização nem origem; nunca upsert com `user_id` = eu.
+    if (isCopy) {
+      const song = item.payload as Song
+      assertApplied(await updateRows(table, { id: item.entityId }, item.operation === 'delete' ? { deleted_at: item.updatedAt } : copyPatch(song)))
+      return
+    }
+
     if (item.operation === 'delete') {
-      await updateRows(table, { user_id: userId, id: item.entityId }, { deleted_at: item.updatedAt })
+      // Música pessoal que nunca chegou ao servidor: nada a apagar lá.
+      if (remote) assertApplied(await updateRows(table, { user_id: userId, id: item.entityId }, { deleted_at: item.updatedAt }))
       return
     }
     await upsertRows(table, [{ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }])
@@ -125,7 +136,14 @@ export class SyncEngine {
     for (const entity of Object.keys(tables) as EntityName[]) {
       const rows = await selectRows<RemoteRow>(tables[entity], { user_id: userId }).catch(() => null)
       if (!rows) continue
-      for (const row of rows) await this.applyRemote(userId, entity, row)
+      // As cópias que eu criei chegam pelo pull do Ministério (abaixo), não por aqui.
+      for (const row of rows) if (!row.organization_id) await this.applyRemote(userId, entity, row)
+    }
+    // RN-A6: uma requisição por Ministério traz as cópias de todos, respeitando a RLS.
+    for (const organization of await this.db.organizations.toArray()) {
+      const rows = await selectRows<RemoteRow>('songs', { organization_id: organization.id }).catch(() => null)
+      if (!rows) continue
+      for (const row of rows) await this.applyRemote(userId, 'songs', row)
     }
   }
 
@@ -142,7 +160,7 @@ export class SyncEngine {
       return
     }
 
-    await this.db.songs.put(fromRemoteRow(remote))
+    await this.db.songs.put(toSong(remote))
   }
 }
 
@@ -150,8 +168,14 @@ function toRemoteRow(song: Entity) {
   return { id: song.id, title: song.title, artist: song.artist ?? null, original_key: song.originalKey, current_key: song.currentKey, bpm: song.bpm ?? null, lyrics: song.lyrics, notes: song.notes ?? null, is_favorite: song.isFavorite, created_at: song.createdAt, updated_at: song.updatedAt }
 }
 
-function fromRemoteRow(row: RemoteRow): Entity {
-  return { id: row.id, title: row.title as string, artist: (row.artist as string | null) ?? undefined, originalKey: row.original_key as Song['originalKey'], currentKey: row.current_key as Song['currentKey'], bpm: (row.bpm as number | null) ?? undefined, lyrics: row.lyrics as string, notes: (row.notes as string | null) ?? undefined, isFavorite: row.is_favorite as boolean, createdAt: row.created_at as string, updatedAt: row.updated_at as string }
+/** Colunas que a RLS deixa o editor mudar numa cópia (sem `user_id`, `organization_id` nem `source_song_id`). */
+function copyPatch(song: Song) {
+  return { title: song.title, artist: song.artist ?? null, original_key: song.originalKey, current_key: song.currentKey, bpm: song.bpm ?? null, lyrics: song.lyrics, notes: song.notes ?? null, updated_at: song.updatedAt }
+}
+
+/** O /sync devolve `count: 0` sem erro quando a RLS nega; sem isto o item sairia da fila como sucesso. */
+function assertApplied(result: { count: number }) {
+  if (result.count === 0) throw new Error('O servidor não aplicou a alteração.')
 }
 
 function getUpdatedAt(entity: Entity) {

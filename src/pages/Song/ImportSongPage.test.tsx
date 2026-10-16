@@ -51,7 +51,7 @@ describe('ImportSongPage', () => {
     const file = new File(['Título: Oceano\nTom: H\n\n'], 'oceano.txt', { type: 'text/plain' })
     await user.upload(screen.getByLabelText('Arquivo .txt'), file)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Tom inválido: H.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cifra/letra é obrigatória.')
     expect(screen.queryByRole('heading', { name: 'Revisão' })).not.toBeInTheDocument()
   })
 
@@ -80,5 +80,26 @@ describe('ImportSongPage', () => {
         lyrics: '[D]Tu és...',
       }),
     ])
+  })
+
+  it('accepts a file without a key and makes the person choose it before saving', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ImportSongPage /></MemoryRouter>)
+    await user.upload(screen.getByLabelText('Arquivo .txt'), new File(['TITULO: Sem tom\n\n[G]Letra'], 'sem-tom.txt', { type: 'text/plain' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('O arquivo não informa o tom. Escolha o tom abaixo antes de salvar.')
+    expect(screen.getByLabelText('Tom original')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: /Salvar|Criar/ }))
+    expect(screen.getByLabelText('Tom original')).toBeInvalid()
+
+    await user.selectOptions(screen.getByLabelText('Tom original'), 'G')
+    expect(screen.getByLabelText('Tom atual')).toHaveValue('G')
+  })
+
+  it('warns about an unrecognized key without blocking the import', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><ImportSongPage /></MemoryRouter>)
+    await user.upload(screen.getByLabelText('Arquivo .txt'), new File(['Tom: H\nTítulo: Tom estranho\n\n[C]Letra'], 'h.txt', { type: 'text/plain' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('O tom "H" não foi reconhecido.')
   })
 })

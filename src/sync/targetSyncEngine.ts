@@ -2,7 +2,6 @@ import type { Organization } from '../domain/organizations/organization'
 import type { OrganizationMembership } from '../domain/organizations/organizationMembership'
 import type { Team } from '../domain/teams/team'
 import type { TeamMembership } from '../domain/teams/teamMembership'
-import type { OrganizationSong } from '../domain/organizations/organizationSong'
 import type { Repertoire } from '../domain/repertoires/repertoire'
 import type { RepertoireItem } from '../domain/repertoires/repertoireItem'
 import type { Service } from '../domain/services/service'
@@ -24,7 +23,6 @@ export type TargetEntityName =
   | 'organizationMemberships'
   | 'teams'
   | 'teamMemberships'
-  | 'organizationSongs'
   | 'repertoires'
   | 'repertoireItems'
   | 'services'
@@ -40,7 +38,6 @@ export type TargetEntity =
   | OrganizationMembership
   | Team
   | TeamMembership
-  | OrganizationSong
   | Repertoire
   | RepertoireItem
   | Service
@@ -56,6 +53,9 @@ export type TargetEntity =
 // Têm `unique` por conteúdo no banco, com id gerado no cliente: 409 no push = outro aparelho criou o mesmo.
 const UNIQUE_BY_CONTENT: readonly TargetEntityName[] = ['servicePositions', 'memberAvailability']
 
+// `organization_songs` saiu na 0007 (ADR-062): a música do Ministério é uma cópia em `songs`.
+const REMOVED_ENTITIES = ['organizationSongs'] as const
+
 const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates', 'assignments'] as const
 
 export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
@@ -65,7 +65,6 @@ export type TargetWritableEntity =
   | OrganizationMembership
   | Team
   | TeamMembership
-  | OrganizationSong
   | Repertoire
   | RepertoireItem
   | Service
@@ -88,7 +87,6 @@ const tables: Record<TargetEntityName, string> = {
   organizationMemberships: 'organization_memberships',
   teams: 'teams',
   teamMemberships: 'team_memberships',
-  organizationSongs: 'organization_songs',
   repertoires: 'repertoires',
   repertoireItems: 'repertoire_items',
   services: 'services',
@@ -118,10 +116,6 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
       const v = value as TeamMembership
       // Sem `role`/`status`: só mudam por RPC (N15).
       return { id: v.id, team_id: v.teamId, user_id: v.userId, created_at: v.createdAt, updated_at: v.updatedAt }
-    }
-    case 'organizationSongs': {
-      const v = value as OrganizationSong
-      return { id: v.id, organization_id: v.organizationId, song_id: v.songId, created_at: v.createdAt, updated_at: v.updatedAt }
     }
     case 'repertoires': {
       const v = value as Repertoire
@@ -157,7 +151,6 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'organizationMemberships': return { id: String(row.id), organizationId: String(row.organization_id), userId: String(row.user_id), role: row.role as OrganizationMembership['role'], createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'teams': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'teamMemberships': return { id: String(row.id), teamId: String(row.team_id), userId: String(row.user_id), role: row.role === 'leader' ? 'leader' : 'member', status: row.status === 'inactive' ? 'inactive' : 'active', createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
-    case 'organizationSongs': return { id: String(row.id), organizationId: String(row.organization_id), songId: String(row.song_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoires': return { id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdByUserId: String(row.created_by_user_id), version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoireItems': return { id: String(row.id), repertoireId: String(row.repertoire_id), songId: String(row.song_id), position: Number(row.position), updatedAt: String(row.updated_at) }
     case 'services': return { id: String(row.id), organizationId: String(row.organization_id), teamId: row.team_id ? String(row.team_id) : null, name: String(row.name), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
@@ -176,7 +169,6 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
     organizationMemberships: db.organizationMemberships,
     teams: db.teams,
     teamMemberships: db.teamMemberships,
-    organizationSongs: db.organizationSongs,
     repertoires: db.repertoires,
     repertoireItems: db.repertoireItems,
     services: db.services,
@@ -232,7 +224,7 @@ export class TargetSyncEngine {
     this.syncing = true
     try {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
-      await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES]).delete()
+      await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES, ...REMOVED_ENTITIES]).delete()
       const pending = await this.db.targetSyncQueue.orderBy('id').toArray()
       const done = new Set<number | undefined>()
       for (const item of pending) {

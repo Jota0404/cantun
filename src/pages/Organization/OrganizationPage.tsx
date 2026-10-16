@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { createTeam } from '../../application/teams/teamService'
+import { InlineNameForm } from '../../components/ui/InlineNameForm'
+import { labels } from '../../ui/labels'
 import { TeamOnboarding } from '../../components/team/TeamOnboarding'
 import { organizationRepository } from '../../db/repositories/organizationRepository'
 import { teamRepository } from '../../db/repositories/teamRepository'
@@ -14,6 +16,7 @@ export function OrganizationPage() {
   const [teams, setTeams] = useState<Record<string, Team[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [creatingTeamFor, setCreatingTeamFor] = useState<string>()
   // Decidido na primeira carga: o assistente segue aberto mesmo depois que a organização entra na lista.
   const [onboarding, setOnboarding] = useState<boolean>()
 
@@ -26,7 +29,7 @@ export function OrganizationPage() {
       setOnboarding((current) => current ?? orgs.length === 0)
       setTeams(grouped)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar as organizações.')
+      setError(err instanceof Error ? err.message : `Não foi possível carregar os ${labels.organizations}.`)
     } finally {
       setLoading(false)
     }
@@ -37,21 +40,21 @@ export function OrganizationPage() {
     return onRemoteDataApplied(() => { void load() })
   }, [load])
 
-  async function handleCreateTeam(organizationId: string) {
-    const teamName = window.prompt('Nome da equipe')
-    if (!teamName?.trim()) return
-    try { await createTeam(organizationId, teamName); await load() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível criar a equipe.') }
+  async function handleCreateTeam(organizationId: string, name: string) {
+    await createTeam(organizationId, name)
+    setCreatingTeamFor(undefined)
+    await load()
   }
 
-  if (loading) return <main className="organization-page"><p>Carregando organizações…</p></main>
+  if (loading) return <main className="organization-page"><p>Carregando {labels.organizations}…</p></main>
 
   return (
     <main className="organization-page">
       <section className="organization-card">
         <header>
           <span>CANTUM WORKSPACE</span>
-          <h2>Organizações</h2>
-          <p>A organização é o espaço principal onde equipes, repertórios e serviços são administrados.</p>
+          <h2>{labels.organizations}</h2>
+          <p>O Ministério é o espaço principal onde bandas, repertórios e serviços são administrados.</p>
         </header>
 
         {error && <p role="alert" className="organization-error">{error}</p>}
@@ -64,7 +67,9 @@ export function OrganizationPage() {
               <article key={organization.id} className="organization-item">
                 <div>
                   <h3>{organization.name}</h3>
-                  <p>{teams[organization.id]?.length ?? 0} equipe(s)</p><button type="button" onClick={() => void handleCreateTeam(organization.id)}>Criar equipe</button>
+                  <p>{teams[organization.id]?.length ?? 0} banda(s)</p>
+                  <button type="button" aria-expanded={creatingTeamFor === organization.id} aria-label={`${labels.createTeam} em ${organization.name}`} onClick={() => setCreatingTeamFor(creatingTeamFor === organization.id ? undefined : organization.id)}>{labels.createTeam}</button>
+                  {creatingTeamFor === organization.id && <InlineNameForm label={labels.teamName} submitLabel={labels.createTeam} placeholder="Ex.: Banda de domingo" onSubmit={(name) => handleCreateTeam(organization.id, name)} onCancel={() => setCreatingTeamFor(undefined)} />}
                 </div>
                 <div>
                   <Link to={teams[organization.id]?.[0] ? `/organizations/${organization.id}/teams/${teams[organization.id][0].id}` : `/organizations/${organization.id}`}>

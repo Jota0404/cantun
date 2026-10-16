@@ -9,6 +9,10 @@ export interface Song {
   bpm?: number
   lyrics: string
   notes?: string
+  /** Ausente = música pessoal; presente = cópia que pertence à organização (ADR-062). */
+  organizationId?: string
+  /** Música pessoal de origem da cópia. */
+  sourceSongId?: string
   isFavorite: boolean
   createdAt: string
   updatedAt: string

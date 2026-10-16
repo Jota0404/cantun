@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { acceptOrganizationInvite, getOrganizationInvite, type OrganizationInvitePreview } from '../../application/organizations/organizationInviteService'
 import { syncTargetDomain } from '../../sync/syncService'
 import './OrganizationPage.css'
+import { labels } from '../../ui/labels'
 
 const INVITE_STATUS_LABEL = { pending: 'pendente', accepted: 'aceito', expired: 'expirado', revoked: 'revogado' } as const
 
@@ -39,7 +40,7 @@ export function OrganizationInvitePage() {
   if (!user) return (
     <main className="organization-page">
       <section className="organization-card">
-        <h2>Convite para equipe</h2>
+        <h2>{labels.inviteTitle}</h2>
         <p>Faça login para visualizar e aceitar este convite.</p>
         <Link to={`/auth?redirect=${encodeURIComponent(`/organization/invite/${token}`)}`}>Entrar</Link>
       </section>
@@ -51,7 +52,7 @@ export function OrganizationInvitePage() {
       <section className="organization-card">
         <span>CONVITE</span>
         <h2>{invite?.teamName ?? 'Validando…'}</h2>
-        {invite && <p>Organização: <strong>{invite.organizationName}</strong></p>}
+        {invite && <p>{labels.inviteOrganizationLine}: <strong>{invite.organizationName}</strong></p>}
         {invite && <p>Você receberá o acesso <strong>{invite.role === 'admin' ? 'Administrador' : 'Membro'}</strong>.</p>}
         {invite?.inviteeEmail && <p>Destinado a <strong>{invite.inviteeEmail}</strong>.</p>}
         {invite && invite.status !== 'pending' && <p role="alert">Este convite está {INVITE_STATUS_LABEL[invite.status]}.</p>}

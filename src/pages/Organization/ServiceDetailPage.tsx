@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
+import { listOrganizationSongs } from '../../application/songs/listOrganizationSongs'
+import { OFFLINE_COPY_MESSAGE } from '../../application/songs/copySongToOrganization'
 import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { useAuth } from '../../auth/authContext'
@@ -16,6 +18,7 @@ import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
 import './OrganizationPage.css'
 import './ServiceDetailPage.css'
+import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
@@ -25,7 +28,9 @@ export function ServiceDetailPage() {
   const { user } = useAuth()
   const [service, setService] = useState<Service>()
   const [items, setItems] = useState<ServiceItem[]>([])
-  const [songs, setSongs] = useState<Song[]>([])
+  const [organizationSongs, setOrganizationSongs] = useState<Song[]>([])
+  const [personalSongs, setPersonalSongs] = useState<Song[]>([])
+  const songs = [...organizationSongs, ...personalSongs]
   const [access, setAccess] = useState<AccessContext>({ organizationRole: null })
   const [editingInfo, setEditingInfo] = useState(false)
   const [info, setInfo] = useState({ name: '', startsAt: '', location: '', notes: '' })
@@ -41,14 +46,16 @@ export function ServiceDetailPage() {
     try {
       const current = await getService(serviceId)
       if (!current) { setError('Serviço não encontrado.'); return }
-      const [serviceItems, allSongs, context] = await Promise.all([
+      const [serviceItems, personal, ministrySongs, context] = await Promise.all([
         listServiceItems(serviceId),
         listSongs(),
+        listOrganizationSongs(current.organizationId),
         getMyAccessContext({ organizationId: current.organizationId, teamId: current.teamId ?? undefined }),
       ])
       setService(current)
       setItems(serviceItems)
-      setSongs(allSongs)
+      setPersonalSongs(personal)
+      setOrganizationSongs(ministrySongs)
       setAccess(context)
       setError('')
     } catch (err) {
@@ -112,6 +119,11 @@ export function ServiceDetailPage() {
     }
     const errors = validateServiceItem(input)
     if (errors.length) { setError(errors.join(' ')); return }
+    if (input.type === 'song' && personalSongs.some((song) => song.id === input.songId) && !navigator.onLine) { setError(OFFLINE_COPY_MESSAGE); return }
+    if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === input.songId)) {
+      setError(`"${songs.find((song) => song.id === input.songId)?.title ?? 'Esta música'}" já está na ordem.`)
+      return
+    }
     if (await run(() => addServiceItem(serviceId, input))) { setItemSongId(''); setItemTitle(''); setItemMinutes(''); setItemNotes('') }
   }
 
@@ -141,7 +153,7 @@ export function ServiceDetailPage() {
 
   return <main className="organization-page"><section className="organization-card">
     <header>
-      <Link to={`/organizations/${service.organizationId}`}>← Organização</Link>
+      <Link to={`/organizations/${service.organizationId}`}>{labels.backToOrganization}</Link>
       <span>SERVIÇO</span>
       <h2>{service.name}</h2>
       <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>
@@ -208,7 +220,8 @@ export function ServiceDetailPage() {
         {itemType === 'song'
           ? <label>Música<select value={itemSongId} onChange={(event) => setItemSongId(event.target.value)} required>
               <option value="">Escolha a música</option>
-              {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+              <optgroup label={labels.fromOrganization}>{organizationSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
+              <optgroup label={`${labels.fromMyLibrary} (será copiada para o Ministério)`}>{personalSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
             </select></label>
           : <label>Título<input value={itemTitle} onChange={(event) => setItemTitle(event.target.value)} required maxLength={120} /></label>}
         <label>Duração em minutos (opcional)<input type="number" min={1} max={600} value={itemMinutes} onChange={(event) => setItemMinutes(event.target.value)} /></label>

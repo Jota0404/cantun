@@ -2,6 +2,30 @@ import type { Repertoire } from '../../domain/repertoires/repertoire'
 import type { RepertoireItem } from '../../domain/repertoires/repertoireItem'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
 import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
+import { songRepository } from '../../db/repositories/songRepository'
+import { resolveOrganizationSong } from '../songs/copySongToOrganization'
+import type { Organization } from '../../domain/organizations/organization'
+import type { Song } from '../../domain/songs/song'
+import { listMyOrganizations } from '../organizations/organizationService'
+
+/** Repertórios agrupados por organização (Dexie, offline). */
+export async function listRepertoireGroups(): Promise<Array<{ organization: Organization; repertoires: Repertoire[] }>> {
+  const organizations = await listMyOrganizations()
+  return Promise.all(organizations.map(async (organization) => ({ organization, repertoires: await repertoireRepository.listByOrganizationId(organization.id) })))
+}
+
+export interface RepertoireDetail {
+  repertoire: Repertoire
+  items: Array<RepertoireItem & { song?: Song }>
+}
+
+/** Repertório com as músicas resolvidas, na ordem (Dexie, offline). */
+export async function getRepertoireDetail(repertoireId: string): Promise<RepertoireDetail | undefined> {
+  const repertoire = await repertoireRepository.getById(repertoireId)
+  if (!repertoire) return undefined
+  const items = await repertoireItemRepository.listByRepertoireId(repertoireId)
+  return { repertoire, items: await Promise.all(items.map(async (item) => ({ ...item, song: await songRepository.getById(item.songId) }))) }
+}
 
 export async function createRepertoire(input: Omit<Repertoire, 'id' | 'createdAt' | 'updatedAt'>, id = crypto.randomUUID()): Promise<Repertoire> {
   const now = new Date().toISOString()
@@ -10,9 +34,15 @@ export async function createRepertoire(input: Omit<Repertoire, 'id' | 'createdAt
   return value
 }
 
+/** RN-A7/A3: a música precisa existir neste aparelho, ser do Ministério (ou pessoal, copiada) e não estar repetida. Lança `Error` com a razão em pt-BR. */
 export async function addSongToRepertoire(repertoireId: string, songId: string, id = crypto.randomUUID()): Promise<RepertoireItem> {
-  const existing = await repertoireItemRepository.findByRepertoireAndSong(repertoireId, songId)
-  if (existing) return existing
+  const repertoire = await repertoireRepository.getById(repertoireId)
+  if (!repertoire) throw new Error('Repertório não encontrado.')
+  // RN-A3: música pessoal entra como cópia do Ministério (só online); a do Ministério entra direto.
+  const resolved = await resolveOrganizationSong(songId, repertoire.organizationId)
+  if (!resolved.success) throw new Error(resolved.errors.join(' '))
+  songId = resolved.songId
+  if (await repertoireItemRepository.findByRepertoireAndSong(repertoireId, songId)) throw new Error(`"${resolved.title}" já está neste repertório.`)
   const items = await repertoireItemRepository.listByRepertoireId(repertoireId)
   const value: RepertoireItem = { id, repertoireId, songId, position: items.length, updatedAt: new Date().toISOString() }
   await repertoireItemRepository.create(value)

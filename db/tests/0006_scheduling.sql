@@ -76,9 +76,8 @@ insert into public.team_memberships (team_id, user_id, role, status) values
   ('30000000-0000-0000-0000-000000000601', '00000000-0000-0000-0000-000000000607', 'leader', 'inactive'),
   ('30000000-0000-0000-0000-000000000601', '00000000-0000-0000-0000-000000000608', 'member', 'inactive');
 
-insert into public.songs (user_id, id, title, original_key, current_key, lyrics, created_at, updated_at)
-  values ('00000000-0000-0000-0000-000000000601', '40000000-0000-0000-0000-000000000601', 'Primeira', 'C', 'C', 'C', now(), now());
-insert into public.organization_songs (organization_id, song_id) values ('10000000-0000-0000-0000-000000000601', '40000000-0000-0000-0000-000000000601');
+insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at)
+  values ('00000000-0000-0000-0000-000000000601', '40000000-0000-0000-0000-000000000601', '10000000-0000-0000-0000-000000000601', 'Primeira', 'C', 'C', 'C', now(), now());
 -- 0601 S_A ready (TA) · 0602 S_B ready (TB) · 0603 S_F final (TA) · 0604 S_D draft (TA) · 0605 S_C (TA, para cancelar)
 insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id, status)
 select ('6000000' || n)::uuid, '10000000-0000-0000-0000-000000000601', t, nome, now() + interval '3 days',
