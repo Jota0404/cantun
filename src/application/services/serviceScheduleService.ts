@@ -2,6 +2,7 @@ import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { moveItem, renumber, validateServiceItem, type ServiceItem, type ServiceItemInput } from '../../domain/services/serviceItem'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
+import { songRepository } from '../../db/repositories/songRepository'
 
 export type ServiceItemsResult = { success: true; items: ServiceItem[] } | { success: false; errors: string[] }
 
@@ -48,6 +49,11 @@ export async function addServiceItem(
   const errors = validateServiceItem(input)
   if (errors.length) return { success: false, errors }
   const items = await repositories.items.listByServiceId(serviceId)
+  // RN-A8: a mesma música não aparece duas vezes na ordem; itens não musicais não contam.
+  if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === input.songId)) {
+    const title = (await songRepository.getById(input.songId as string))?.title
+    return { success: false, errors: [`${title ? `"${title}"` : 'Essa música'} já está na ordem.`] }
+  }
   const song = input.type === 'song'
   const item: ServiceItem = {
     id, serviceId, type: input.type, position: items.length, updatedAt: new Date().toISOString(),

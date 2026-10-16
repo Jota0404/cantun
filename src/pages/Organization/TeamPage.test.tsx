@@ -85,7 +85,7 @@ describe('TeamPage', () => {
     expect(screen.getByRole('button', { name: 'Editar funções de Eu' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar funções de Ana' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Inativar|Promover/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Convidar para esta equipe' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Convidar para esta banda' })).not.toBeInTheDocument()
   })
 
   it('leader manages members but not roles; inactive member is not editable', async () => {

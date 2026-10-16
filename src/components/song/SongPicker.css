@@ -1,0 +1,5 @@
+.song-picker { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px dashed var(--color-border-control); border-radius: var(--radius-md); }
+.song-picker label { display: grid; gap: var(--space-1); font-weight: 700; }
+.song-picker ul { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.song-picker li { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; justify-content: space-between; }
+.song-picker__error { margin: 0; color: var(--color-danger); }

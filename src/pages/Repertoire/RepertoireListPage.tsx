@@ -7,6 +7,7 @@ import { organizationRepository } from '../../db/repositories/organizationReposi
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
+import { labels } from '../../ui/labels'
 import './RepertoirePage.css'
 
 export function RepertoireListPage() {
@@ -16,12 +17,12 @@ export function RepertoireListPage() {
   const [repertoires, setRepertoires] = useState<Array<Repertoire & { organizationName: string }>>([])
   const [organizationId, setOrganizationId] = useState('')
   const [name, setName] = useState('')
+  // Só a primeira carga mostra "Carregando": a recarga ao vivo atualiza a lista no lugar e preserva o formulário (RN-A12).
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const orgs = await organizationRepository.list()
       const rows = (await Promise.all(orgs.map(async (org) => {
@@ -68,28 +69,28 @@ export function RepertoireListPage() {
   return (
     <main className="repertoire-page">
       <header className="repertoire-page__header">
-        <div><h2>Repertórios</h2><p>Coleções reutilizáveis de músicas pertencentes a uma organização.</p></div>
+        <div><h2>Repertórios</h2><p>{labels.repertoireOwnerHint}</p></div>
       </header>
       {error && <p className="repertoire-error" role="alert">{error}</p>}
       {organizations.length === 0 ? (
-        <div className="repertoire-empty"><p>Nenhuma organização disponível.</p><button type="button" onClick={() => navigate('/organizations')}>Abrir organizações</button></div>
+        <div className="repertoire-empty"><p>Você ainda não participa de um Ministério.</p><button type="button" onClick={() => navigate('/organizations')}>Abrir {labels.organizations}</button></div>
       ) : (
         <>
           <section className="repertoire-create">
-            <label htmlFor="target-repertoire-org">Organização</label>
+            <label htmlFor="target-repertoire-org">{labels.organization}</label>
             <select id="target-repertoire-org" value={organizationId} onChange={(event) => setOrganizationId(event.target.value)}>
               {organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
             </select>
             <label htmlFor="target-repertoire-name">Novo repertório</label>
-            <div className="repertoire-create__row">
+            <form className="repertoire-create__row" onSubmit={(event) => { event.preventDefault(); void handleCreate() }}>
               <input id="target-repertoire-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex.: Culto de domingo" maxLength={120} />
-              <button type="button" disabled={submitting || !name.trim()} onClick={() => void handleCreate()}>{submitting ? 'Criando…' : 'Criar repertório'}</button>
-            </div>
+              <button type="submit" disabled={submitting || !name.trim()}>{submitting ? 'Criando…' : 'Criar repertório'}</button>
+            </form>
           </section>
           {repertoires.length === 0 ? <div className="repertoire-empty"><p>Nenhum repertório cadastrado.</p></div> : (
             <div className="repertoire-list">{repertoires.map((rep) => (
               <article className="repertoire-card" key={rep.id}>
-                <div><h3>{rep.name}</h3><p>{rep.organizationName} · {rep.version}ª versão</p></div>
+                <div><h3>{rep.name}</h3><p>{rep.organizationName}</p></div>
                 <button type="button" onClick={() => navigate(`/repertoires/${rep.id}`)}>Abrir repertório</button>
               </article>
             ))}</div>

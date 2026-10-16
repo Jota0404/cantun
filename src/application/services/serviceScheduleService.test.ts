@@ -91,4 +91,11 @@ describe('service use cases', () => {
     expect(await db.services.get('s1')).toBeUndefined()
     expect(await db.serviceItems.get('it')).toBeUndefined()
   })
+  it('refuses a song already in the order (RN-A8) but allows repeated non-song items', async () => {
+    await db.songs.put({ id: 'song-1', title: 'Oceano', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
+    expect(await addServiceItem('s1', { type: 'song', songId: 'song-1' })).toMatchObject({ success: true })
+    expect(await addServiceItem('s1', { type: 'song', songId: 'song-1' })).toEqual({ success: false, errors: ['"Oceano" já está na ordem.'] })
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Oração' })).toMatchObject({ success: true })
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Oração' })).toMatchObject({ success: true })
+  })
 })

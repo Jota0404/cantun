@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSongText } from './parseSongText'
+import { normalizeMusicalKey, parseSongDraft, parseSongText } from './parseSongText'
 
 describe('parseSongText', () => {
   it('parses the official txt format', () => {
@@ -87,5 +87,36 @@ describe('parseSongText', () => {
       success: false,
       errors: ['BPM deve ser um número inteiro entre 1 e 999.'],
     })
+  })
+})
+
+describe('parseSongDraft (RN-A4/A5)', () => {
+  it('accepts labels in any case and accent, and aliases', () => {
+    for (const header of ['Tom: D', 'tom: d', 'TOM: D', 'Key: d']) {
+      const result = parseSongDraft(`Titulo: Oceano\n${header}\n\n[D]Tu és...`)
+      expect(result).toMatchObject({ success: true, data: { title: 'Oceano', originalKey: 'D', currentKey: 'D' } })
+    }
+    const result = parseSongDraft('TÍTULO: Oceano\nArtist: Hillsong\nBPM: 72\nObservações: abertura\n\n[D]Tu és...')
+    expect(result).toMatchObject({ success: true, data: { title: 'Oceano', artist: 'Hillsong', bpm: 72, notes: 'abertura', originalKey: undefined } })
+  })
+
+  it('normalizes the key value case and accidentals', () => {
+    expect(['d', 'f#', 'bb', 'Bb', 'B', 'b', 'c♯', 'e♭'].map((value) => normalizeMusicalKey(value))).toEqual(['D', 'F#', 'Bb', 'Bb', 'B', 'B', 'C#', 'Eb'])
+    expect(['Am', 'f#m', 'H', '', 'E#', 'x'].map((value) => normalizeMusicalKey(value))).toEqual([undefined, undefined, undefined, undefined, undefined, undefined])
+  })
+
+  it('returns a partial draft when the key is missing, invalid or minor, instead of failing', () => {
+    expect(parseSongDraft('Título: Oceano\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: undefined } })
+    expect(parseSongDraft('Título: Oceano\nTom: H\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: 'H' } })
+    expect(parseSongDraft('Título: Oceano\nTom: f#m\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: 'f#m' } })
+  })
+
+  it('still rejects missing title, lyrics or a bad bpm', () => {
+    expect(parseSongDraft('Título: \nTom: D\n\n')).toEqual({ success: false, errors: ['Título é obrigatório.', 'Cifra/letra é obrigatória.'] })
+  })
+
+  it('strict parseSongText accepts lowercase keys and keeps rejecting a missing one', () => {
+    expect(parseSongText('Título: A\ntom: bb\n\n[Bb]x')).toMatchObject({ success: true, data: { originalKey: 'Bb' } })
+    expect(parseSongText('Título: A\nTom: Am\n\n[Am]x')).toEqual({ success: false, errors: ['Tom inválido: Am.'] })
   })
 })
