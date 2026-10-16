@@ -12,9 +12,9 @@ export async function queueLocalUpsert(userId: string | null, entity: EntityName
   await syncEngine.queueUpsert(userId, entity, payload)
 }
 
-export async function queueLocalDelete(userId: string | null, entity: EntityName, entityId: string, updatedAt?: string) {
+export async function queueLocalDelete(userId: string | null, entity: EntityName, entityId: string, updatedAt?: string, payload?: Parameters<SyncEngine['queueUpsert']>[2]) {
   if (!userId || !syncEngine) return
-  await syncEngine.queueDelete(userId, entity, entityId, updatedAt)
+  await syncEngine.queueDelete(userId, entity, entityId, updatedAt, payload)
 }
 
 export async function queueTargetUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity) {

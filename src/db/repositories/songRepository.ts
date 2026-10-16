@@ -28,9 +28,25 @@ export class SongRepository {
     return song ? normalizeSong(song) : undefined
   }
 
+  /** Biblioteca pessoal: sem as cópias dos Ministérios. */
   async list(): Promise<Song[]> {
-    const songs = await this.db.songs.toArray()
+    const songs = await this.db.songs.filter((song) => !song.organizationId).toArray()
     return songs.map(normalizeSong)
+  }
+
+  /** Cópias que pertencem à organização (Dexie, offline). */
+  async listByOrganization(organizationId: string): Promise<Song[]> {
+    return (await this.db.songs.where('organizationId').equals(organizationId).toArray()).map(normalizeSong)
+  }
+
+  /** Cópia já existente de uma música pessoal em uma organização. */
+  async findCopy(organizationId: string, sourceSongId: string): Promise<Song | undefined> {
+    return this.db.songs.where('organizationId').equals(organizationId).filter((song) => song.sourceSongId === sourceSongId).first()
+  }
+
+  /** Só Dexie, sem fila: a cópia nasce no servidor pela RPC. */
+  async putLocal(song: Song): Promise<void> {
+    await this.db.songs.put(normalizeSong(song))
   }
 
   async update(song: Song): Promise<void> {
@@ -40,8 +56,9 @@ export class SongRepository {
   }
 
   async remove(id: string): Promise<void> {
+    const song = await this.db.songs.get(id)
     await this.db.songs.delete(id)
-    await queueLocalDelete(getCurrentUser()?.id ?? null, 'songs', id)
+    await queueLocalDelete(getCurrentUser()?.id ?? null, 'songs', id, undefined, song)
   }
 
   private async enqueueUpsert(song: Song) {

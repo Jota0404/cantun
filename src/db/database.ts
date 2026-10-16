@@ -225,6 +225,10 @@ export class SalmodiaDatabase extends Dexie {
     this.version(15).stores({
       memberProfiles: '[organizationId+userId], organizationId',
     })
+    // FIX-01 (ADR-062): cópias de músicas por organização; `organizationId` ausente = música pessoal.
+    this.version(16).stores({
+      songs: 'id, updatedAt, organizationId',
+    })
   }
 }
 
