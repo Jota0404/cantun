@@ -88,6 +88,15 @@ Modelos: agentes em Sonnet. Haiku só por tarefa pequena: rechecagem do `reviewe
 
 Fluxo de uma fatia: `planner` → `backend-engineer` → `core-engineer` → `ui-engineer` → lead roda `/ponytail:ponytail-review` no diff e o dono aplica os cortes → `reviewer` → `qa` → lead (gate + PR). Bug: `qa` reproduz → engenheiro da camada corrige com teste → `reviewer` → lead.
 
+**Modo econômico (decisão do Jota, 2026-10-16):** o fluxo acima é o máximo; fatia pequena usa o mínimo.
+- Chat novo por fatia para cada agente; chat de coordenação novo por bloco, com passagem curta. Nunca reaproveitar chats longos.
+- Lead em Sonnet. Opus só se o Jota pedir, para decisão difícil.
+- Fatia pequena = 1 engenheiro de ponta a ponta (o da camada principal). `planner` só com decisão de produto/ADR; doc trivial o lead faz direto.
+- `reviewer` 1 vez por fatia. O lead reconfere correções lendo o diff; novo `reviewer` só se a correção mexer em auth/RLS/migration.
+- `qa` 1 vez por bloco, lendo o texto da página (`get_page_text`/`read_page`); screenshot só em falha visual. A jornada musical continua obrigatória.
+- Haiku para rechecagens e retoques de doc.
+- Uma mensagem por fatia a cada agente, com tudo; resposta em uma linha.
+
 - Cada agente trabalha só dentro do escopo atribuído e não altera arquivos ou áreas de outro agente sem coordenação explícita.
 - Antes de iniciar trabalho paralelo, o lead identifica os arquivos compartilhados (ex.: `src/db/database.ts`, `eslint.config.js`, `package.json`, `package-lock.json`, `docs/adr/README.md`) e evita edições concorrentes no mesmo arquivo: um único agente é dono de cada um.
 - O agente coordenador (lead) integra os resultados, resolve conflitos e executa o gate final. Agentes auxiliares não declaram a tarefa concluída.
