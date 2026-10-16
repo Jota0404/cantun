@@ -259,3 +259,31 @@ describe('SalmodiaDatabase version 16 (song copies)', () => {
     expect((await db.songs.where('organizationId').equals('org-1').toArray()).map((item) => item.id)).toEqual(['copy-1'])
   })
 })
+
+describe('SalmodiaDatabase version 17 (organizationSongs removal)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('drops the organizationSongs store and keeps songs and organizations intact', async () => {
+    const song = await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ organizationSongs: 'id, organizationId, songId, [organizationId+songId], updatedAt' })
+    await legacy.table('organizationSongs').add({ id: 'link-1', organizationId: 'org-1', songId: song.id, createdAt: now, updatedAt: now })
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect(Array.from(db.backendDB().objectStoreNames)).not.toContain('organizationSongs')
+    expect(db.tables.map((table) => table.name)).not.toContain('organizationSongs')
+    expect(await db.songs.toArray()).toEqual([song])
+    expect((await db.organizations.get('org-1'))?.name).toBe('Igreja')
+  })
+})

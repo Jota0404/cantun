@@ -4,7 +4,6 @@ import type { Organization } from '../domain/organizations/organization'
 import type { OrganizationMembership } from '../domain/organizations/organizationMembership'
 import type { Team } from '../domain/teams/team'
 import type { TeamMembership } from '../domain/teams/teamMembership'
-import type { OrganizationSong } from '../domain/organizations/organizationSong'
 import type { Repertoire } from '../domain/repertoires/repertoire'
 import type { RepertoireItem } from '../domain/repertoires/repertoireItem'
 import type { Service } from '../domain/services/service'
@@ -25,7 +24,6 @@ export class SalmodiaDatabase extends Dexie {
   organizationMemberships!: Table<OrganizationMembership, string>
   teams!: Table<Team, string>
   teamMemberships!: Table<TeamMembership, string>
-  organizationSongs!: Table<OrganizationSong, string>
   repertoires!: Table<Repertoire, string>
   repertoireItems!: Table<RepertoireItem, string>
   services!: Table<Service, string>
@@ -228,6 +226,10 @@ export class SalmodiaDatabase extends Dexie {
     // FIX-01 (ADR-062): cópias de músicas por organização; `organizationId` ausente = música pessoal.
     this.version(16).stores({
       songs: 'id, updatedAt, organizationId',
+    })
+    // FIX-01 (ADR-062): `organization_songs` saiu; a música do Ministério é uma cópia em `songs`. A v18 é da Fatia C.
+    this.version(17).stores({
+      organizationSongs: null,
     })
   }
 }
