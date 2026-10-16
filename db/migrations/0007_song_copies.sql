@@ -203,11 +203,10 @@ alter table public.service_items add constraint service_items_song_id_fkey
 --    As músicas pessoais ficam; as organizações passam a ter cópias só pelo fluxo novo.
 -- ===========================================================================
 
+-- Sem a guarda do operador: é manutenção de schema (apagar o item também zera o ponteiro do Palco por FK).
+alter table public.stage_session_states disable trigger stage_session_states_operator_guard;
 delete from public.repertoire_items;
 delete from public.service_items where song_id is not null;
-
--- Sem a guarda do operador: é manutenção de schema.
-alter table public.stage_session_states disable trigger stage_session_states_operator_guard;
 update public.stage_session_states
 set current_song_id = null, prepared_song_id = null, revision = revision + 1
 where current_song_id is not null or prepared_song_id is not null;
