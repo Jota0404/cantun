@@ -37,6 +37,12 @@ export const labels = {
   organizationName: 'Nome do Ministério',
   noOrganizationYet: 'Você ainda não participa de nenhum Ministério.',
 
+  fromOrganization: 'Do Ministério',
+  fromMyLibrary: 'Da minha biblioteca',
+  copyNotice: 'A banda recebe uma cópia da música: editar a cópia não muda a sua biblioteca pessoal.',
+  offlineCopy: 'Sem conexão: tente de novo quando estiver online.',
+  addFromMyLibrary: 'Adicionar da minha biblioteca',
+
   repertoireOwnerHint: 'Coleções reutilizáveis de músicas do seu Ministério.',
   linkSongToOrganization: 'Vincular ao Ministério',
   songLinked: 'Vinculada ao Ministério',

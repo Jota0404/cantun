@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
+import { listOrganizationSongs } from '../../application/songs/listOrganizationSongs'
 import { addSongToRepertoire, deleteRepertoire, getRepertoireDetail, duplicateRepertoire, removeSongFromRepertoire, renameRepertoire, reorderRepertoire } from '../../application/repertoires/repertoireService'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
 import type { Song } from '../../domain/songs/song'
@@ -18,6 +19,7 @@ export function RepertoireDetailPage() {
   const [repertoire, setRepertoire] = useState<Repertoire>()
   const [items, setItems] = useState<RepertoireDetailItem[]>([])
   const [songs, setSongs] = useState<Song[]>([])
+  const [personalSongs, setPersonalSongs] = useState<Song[]>([])
   const [error, setError] = useState('')
   const [panel, setPanel] = useState<'rename' | 'add'>()
 
@@ -25,7 +27,8 @@ export function RepertoireDetailPage() {
     try {
       const detail = await getRepertoireDetail(repertoireId)
       if (!detail) { setError('Repertório não encontrado.'); return }
-      setRepertoire(detail.repertoire); setItems(detail.items); setSongs(await listSongs())
+      setRepertoire(detail.repertoire); setItems(detail.items)
+      setSongs(await listOrganizationSongs(detail.repertoire.organizationId)); setPersonalSongs(await listSongs())
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o repertório.') }
   }, [repertoireId])
 
@@ -58,10 +61,10 @@ export function RepertoireDetailPage() {
     </header>
     {error && <p className="repertoire-error" role="alert">{error}</p>}
     {panel === 'rename' && <InlineNameForm label="Novo nome do repertório" submitLabel="Salvar nome" initialValue={repertoire.name} onSubmit={rename} onCancel={() => setPanel(undefined)} />}
-    {panel === 'add' && <SongPicker songs={songs} excludeSongIds={new Set(items.map((item) => item.songId))} label="Buscar música para adicionar" onPick={addSong} />}
+    {panel === 'add' && <SongPicker songs={songs} personalSongs={personalSongs} excludeSongIds={new Set(items.map((item) => item.songId))} label="Buscar música para adicionar" onPick={addSong} />}
     <div className="repertoire-list">
       {items.map((item) => <article className="repertoire-card" key={item.id}>
-        <div><span className="repertoire-card__position">{item.position + 1}</span><div><h4>{songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'}</h4>{songs.find((song) => song.id === item.songId)?.artist && <p>{songs.find((song) => song.id === item.songId)?.artist}</p>}</div></div>
+        <div><span className="repertoire-card__position">{item.position + 1}</span><div><h4>{item.song?.title ?? 'Música indisponível'}</h4>{item.song?.artist && <p>{item.song.artist}</p>}</div></div>
         <div><button type="button" onClick={() => void move(item.id, -1)} disabled={item.position === 0}>↑</button><button type="button" onClick={() => void move(item.id, 1)} disabled={item.position === items.length - 1}>↓</button><button type="button" onClick={() => void removeSong(item.id)}>Remover</button><button type="button" onClick={() => navigate(`/songs/${item.songId}`)}>Abrir música</button></div>
       </article>)}
     </div>

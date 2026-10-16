@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
 const songs = Array.from({ length: 12 }, (_, index) => ({ id: `s${index + 1}`, title: `Música ${index + 1}`, artist: index === 7 ? 'Hillsong' : undefined }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => songs }))
+vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => [{ id: 'm1', title: 'Cópia do Ministério' }] }))
 vi.mock('../../application/repertoires/repertoireService', () => ({
   getRepertoireDetail: async () => ({ repertoire: { id: 'r1', organizationId: 'o1', name: 'Culto', version: 1 }, items: m.items }),
   addSongToRepertoire: m.addSongToRepertoire, renameRepertoire: m.renameRepertoire,
@@ -27,18 +28,33 @@ function setup() {
 describe('RepertoireDetailPage', () => {
   beforeEach(() => { m.addSongToRepertoire.mockClear(); m.renameRepertoire.mockClear() })
 
-  it('adds a song by searching, with no ID and no window.prompt', async () => {
+  it('shows the Ministério and personal sections; personal needs a connection and explains the copy', async () => {
     const user = userEvent.setup()
     const prompt = vi.spyOn(window, 'prompt')
     const { container } = setup()
     await user.click(await screen.findByRole('button', { name: 'Adicionar música' }))
-    expect(screen.queryByRole('button', { name: 'Adicionar Música 1' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /^Adicionar Música/ }).length).toBeGreaterThan(5)
+    expect(screen.getByRole('heading', { name: 'Do Ministério' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Adicionar Cópia do Ministério' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adicionar Música 8' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mostrar minha biblioteca' }))
+    expect(screen.getByText(/editar a cópia não muda a sua biblioteca pessoal/)).toBeInTheDocument()
     await user.type(screen.getByLabelText('Buscar música para adicionar'), 'hillsong')
     await user.click(screen.getByRole('button', { name: 'Adicionar Música 8' }))
     expect(m.addSongToRepertoire).toHaveBeenCalledWith('r1', 's8')
     expect(prompt).not.toHaveBeenCalled()
     expect(await axeViolations(container)).toEqual([])
+  })
+
+  it('warns about no connection as soon as the personal section opens, and adds nothing', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    setup()
+    await user.click(await screen.findByRole('button', { name: 'Adicionar música' }))
+    await user.click(screen.getByRole('button', { name: 'Mostrar minha biblioteca' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão: tente de novo quando estiver online.')
+    expect(screen.queryByRole('button', { name: 'Adicionar Música 8' })).not.toBeInTheDocument()
+    expect(m.addSongToRepertoire).not.toHaveBeenCalled()
   })
 
   it('renames through an inline form', async () => {

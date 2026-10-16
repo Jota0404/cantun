@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
+import { listOrganizationSongs } from '../../application/songs/listOrganizationSongs'
+import { OFFLINE_COPY_MESSAGE } from '../../application/songs/copySongToOrganization'
 import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { useAuth } from '../../auth/authContext'
@@ -26,7 +28,9 @@ export function ServiceDetailPage() {
   const { user } = useAuth()
   const [service, setService] = useState<Service>()
   const [items, setItems] = useState<ServiceItem[]>([])
-  const [songs, setSongs] = useState<Song[]>([])
+  const [organizationSongs, setOrganizationSongs] = useState<Song[]>([])
+  const [personalSongs, setPersonalSongs] = useState<Song[]>([])
+  const songs = [...organizationSongs, ...personalSongs]
   const [access, setAccess] = useState<AccessContext>({ organizationRole: null })
   const [editingInfo, setEditingInfo] = useState(false)
   const [info, setInfo] = useState({ name: '', startsAt: '', location: '', notes: '' })
@@ -42,14 +46,16 @@ export function ServiceDetailPage() {
     try {
       const current = await getService(serviceId)
       if (!current) { setError('Serviço não encontrado.'); return }
-      const [serviceItems, allSongs, context] = await Promise.all([
+      const [serviceItems, personal, ministrySongs, context] = await Promise.all([
         listServiceItems(serviceId),
         listSongs(),
+        listOrganizationSongs(current.organizationId),
         getMyAccessContext({ organizationId: current.organizationId, teamId: current.teamId ?? undefined }),
       ])
       setService(current)
       setItems(serviceItems)
-      setSongs(allSongs)
+      setPersonalSongs(personal)
+      setOrganizationSongs(ministrySongs)
       setAccess(context)
       setError('')
     } catch (err) {
@@ -113,6 +119,7 @@ export function ServiceDetailPage() {
     }
     const errors = validateServiceItem(input)
     if (errors.length) { setError(errors.join(' ')); return }
+    if (input.type === 'song' && personalSongs.some((song) => song.id === input.songId) && !navigator.onLine) { setError(OFFLINE_COPY_MESSAGE); return }
     if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === input.songId)) {
       setError(`"${songs.find((song) => song.id === input.songId)?.title ?? 'Esta música'}" já está na ordem.`)
       return
@@ -213,7 +220,8 @@ export function ServiceDetailPage() {
         {itemType === 'song'
           ? <label>Música<select value={itemSongId} onChange={(event) => setItemSongId(event.target.value)} required>
               <option value="">Escolha a música</option>
-              {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+              <optgroup label={labels.fromOrganization}>{organizationSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
+              <optgroup label={`${labels.fromMyLibrary} (será copiada para o Ministério)`}>{personalSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
             </select></label>
           : <label>Título<input value={itemTitle} onChange={(event) => setItemTitle(event.target.value)} required maxLength={120} /></label>}
         <label>Duração em minutos (opcional)<input type="number" min={1} max={600} value={itemMinutes} onChange={(event) => setItemMinutes(event.target.value)} /></label>
