@@ -34,7 +34,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   'cannot replace a member with the same member': 'Escolha outra pessoa para substituir.',
   'position quantity is below active assignments': 'A quantidade não pode ficar abaixo das pessoas já escaladas.',
   'position function cannot change with assignments': 'A função não muda enquanto houver pessoas escaladas.',
-  'not authorized to create stage sessions': 'Só Owner e Admin podem iniciar o Modo Palco.',
+  'not authorized to create stage sessions': 'Só Owner, Admin e o Líder da banda do serviço podem iniciar o Modo Palco.',
   'display name must have 1 to 80 characters': 'Informe um nome de 1 a 80 caracteres.',
   'invalid invite expiration': 'Validade do convite inválida.',
   'invalid invite role': 'Papel do convite inválido.',

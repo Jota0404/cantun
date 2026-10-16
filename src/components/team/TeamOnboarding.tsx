@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createOrganization } from '../../application/organizations/organizationService'
-import { createTeam } from '../../application/teams/teamService'
+import { confirmTeamOnServer, createTeam } from '../../application/teams/teamService'
 import { buildOrganizationInviteUrl, createOrganizationInvite } from '../../application/organizations/organizationInviteService'
 import { setMyTeamMusicalFunctions } from '../../application/teams/musicalFunctionService'
 import { MUSICAL_FUNCTIONS } from './musicalFunctions'
@@ -33,7 +33,13 @@ export function TeamOnboarding({ onFinished }: { onFinished?: () => void }) {
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (step === 0) void attempt(async () => { setOrganizationId((await createOrganization(value.trim())).id); next() })
-    if (step === 1) void attempt(async () => { setTeamId((await createTeam(organizationId, value.trim())).id); next() })
+    if (step === 1) void attempt(async () => {
+      // A banda é criada uma vez (local); "tentar de novo" só repete a confirmação do servidor.
+      let id = teamId
+      if (!id) { id = (await createTeam(organizationId, value.trim())).id; setTeamId(id) }
+      await confirmTeamOnServer(id)
+      next()
+    })
     if (step === 2) void attempt(async () => { setInviteUrl(buildOrganizationInviteUrl((await createOrganizationInvite(organizationId, teamId, 'member', value)).token)) })
     if (step === 3) void attempt(async () => { await setMyTeamMusicalFunctions(teamId, functions); next() })
   }
@@ -66,7 +72,7 @@ export function TeamOnboarding({ onFinished }: { onFinished?: () => void }) {
         {step === 4 && <p role="status">{labels.teamReady}</p>}
         {error && <p role="alert" className="organization-error">{error}</p>}
         <div className="team-onboarding__actions">
-          {step < 4 && <button type="submit" disabled={busy}>{step === 2 ? 'Gerar convite' : 'Continuar'}</button>}
+          {step < 4 && <button type="submit" disabled={busy}>{step === 2 ? 'Gerar convite' : error && step < 2 ? 'Tentar de novo' : 'Continuar'}</button>}
           {(step === 2 || step === 3) && <button type="button" onClick={next}>{step === 2 && inviteUrl ? 'Continuar' : 'Pular'}</button>}
           {step === 4 && <button type="button" onClick={finish}>{labels.openTeam}</button>}
         </div>

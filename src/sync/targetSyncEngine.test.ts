@@ -4,6 +4,7 @@ import { SalmodiaDatabase } from '../db/database'
 import type { TargetSyncQueueItem } from './targetSyncEngine'
 import { TargetSyncEngine } from './targetSyncEngine'
 import { onRemoteDataApplied } from './remoteChanges'
+import { ApiError } from '../platform/http'
 
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 vi.mock('../platform/sync', () => remote)
@@ -197,5 +198,68 @@ describe('TargetSyncEngine scheduling (VS-03)', () => {
     remote.upsertRows.mockRejectedValueOnce(new ApiError(500, 'erro')).mockRejectedValueOnce(new ApiError(409, 'conflito'))
     await new TargetSyncEngine(db).sync()
     expect((await db.targetSyncQueue.toArray()).map((i) => [i.entity, i.attempts])).toEqual([['servicePositions', 1], ['teams', 1]])
+  })
+})
+
+describe('TargetSyncEngine reliability (FIX-01 B)', () => {
+  const item = (id: string, repertoireId: string, position: number) => ({ id, repertoireId, songId: `song-${id}`, position, updatedAt: now })
+  const queueItems = (engine: TargetSyncEngine, ...items: ReturnType<typeof item>[]) =>
+    db.targetSyncQueue.bulkAdd(items.map((payload) => ({ entity: 'repertoireItems', entityId: payload.id, operation: 'upsert', payload, updatedAt: now, attempts: 0 }) as TargetSyncQueueItem)).then(() => engine)
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.repertoireItems.clear()])
+  })
+
+  it('sends the items of one repertoire in a single request', async () => {
+    const engine = await queueItems(new TargetSyncEngine(db), item('a', 'rep-1', 1), item('b', 'rep-1', 0), item('c', 'rep-2', 0))
+    await engine.sync()
+
+    const calls = remote.upsertRows.mock.calls.filter(([table]) => table === 'repertoire_items')
+    expect(calls).toHaveLength(2)
+    expect(calls[0][1]).toHaveLength(2)
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('stops retrying a permanent 403, counts it and keeps retrying network errors', async () => {
+    remote.upsertRows.mockRejectedValue(new ApiError(403, 'forbidden'))
+    const engine = await queueItems(new TargetSyncEngine(db), item('a', 'rep-1', 0))
+    await engine.sync()
+    expect(await engine.getStatus()).toEqual({ pending: 0, failed: [{ id: expect.any(Number), entity: 'repertoireItems', reason: 'forbidden' }] })
+
+    remote.upsertRows.mockClear()
+    await engine.sync()
+    expect(remote.upsertRows).not.toHaveBeenCalled()
+
+    await db.targetSyncQueue.clear()
+    remote.upsertRows.mockRejectedValue(new ApiError(503, 'unavailable'))
+    await queueItems(engine, item('b', 'rep-1', 0))
+    await engine.sync()
+    expect(await engine.getStatus()).toEqual({ pending: 1, failed: [] })
+    expect((await db.targetSyncQueue.toArray())[0]).toMatchObject({ attempts: 1 })
+  })
+
+  it('treats 429 as transient', async () => {
+    remote.upsertRows.mockRejectedValue(new ApiError(429, 'slow down'))
+    const engine = await queueItems(new TargetSyncEngine(db), item('a', 'rep-1', 0))
+    await engine.sync()
+    expect((await engine.getStatus()).failed).toEqual([])
+  })
+
+  it('discards rejected changes locally and leaves the rest of the queue alone', async () => {
+    await db.repertoireItems.bulkAdd([item('a', 'rep-1', 0), item('b', 'rep-1', 1)])
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'repertoireItems', entityId: 'a', operation: 'upsert', payload: item('a', 'rep-1', 0), updatedAt: now, attempts: 1, status: 'failed', lastError: 'forbidden' },
+      { entity: 'repertoireItems', entityId: 'b', operation: 'upsert', payload: item('b', 'rep-1', 1), updatedAt: now, attempts: 0 },
+    ] as TargetSyncQueueItem[])
+    const engine = new TargetSyncEngine(db)
+
+    await engine.discardFailed()
+
+    expect(await db.repertoireItems.get('a')).toBeUndefined()
+    expect(await db.repertoireItems.get('b')).toBeDefined()
+    expect((await engine.getStatus()).failed).toEqual([])
   })
 })

@@ -80,7 +80,24 @@ export interface TargetSyncQueueItem {
   payload?: TargetWritableEntity
   updatedAt: string
   attempts: number
+  /** `failed`: recusado pelo servidor (4xx permanente); não é mais retentado até ser descartado. */
+  status?: 'failed'
+  lastError?: string
 }
+
+export interface SyncStatus {
+  pending: number
+  failed: Array<{ id: number; entity: TargetWritableEntityName; reason: string }>
+}
+
+// Erro permanente: o servidor entendeu e recusou (403, 409…); repetir não muda nada. 408 e 429 são transitórios.
+function isPermanent(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429
+}
+
+const BATCHED_ENTITIES = ['serviceItems', 'repertoireItems'] as const
+const batchKey = (item: TargetSyncQueueItem) =>
+  item.entity === 'serviceItems' ? (item.payload as ServiceItem).serviceId : (item.payload as RepertoireItem).repertoireId
 
 const tables: Record<TargetEntityName, string> = {
   organizations: 'organizations',
@@ -202,6 +219,32 @@ export class TargetSyncEngine {
     void this.sync()
   }
 
+  private failure(item: TargetSyncQueueItem, error: unknown): Partial<TargetSyncQueueItem> {
+    const attempts = item.attempts + 1
+    return isPermanent(error) ? { attempts, status: 'failed', lastError: error.message } : { attempts }
+  }
+
+  /** `true` quando a entidade não tem mais alteração na fila: o servidor aceitou o que o aparelho enviou. */
+  async isSent(entity: TargetWritableEntityName, entityId: string): Promise<boolean> {
+    return (await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).count()) === 0
+  }
+
+  async getStatus(): Promise<SyncStatus> {
+    const items = await this.db.targetSyncQueue.toArray()
+    const failed = items.filter((i) => i.status === 'failed' && i.id !== undefined)
+    return { pending: items.length - failed.length, failed: failed.map((i) => ({ id: i.id!, entity: i.entity, reason: i.lastError ?? '' })) }
+  }
+
+  /** Descarta as alterações recusadas: some da fila e do aparelho; o próximo pull traz a versão do servidor. */
+  async discardFailed(): Promise<void> {
+    const failed = await this.db.targetSyncQueue.filter((i) => i.status === 'failed').toArray()
+    for (const item of failed) {
+      if (item.operation === 'upsert') await localTable(this.db, item.entity).delete(item.entityId)
+      if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
+    }
+    void this.sync()
+  }
+
   async createOrganization(value: Organization): Promise<void> {
     await rpc('create_organization', { p_id: value.id, p_name: value.name })
     await this.db.organizations.put(value)
@@ -225,20 +268,22 @@ export class TargetSyncEngine {
     try {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
       await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES, ...REMOVED_ENTITIES]).delete()
-      const pending = await this.db.targetSyncQueue.orderBy('id').toArray()
+      const pending = (await this.db.targetSyncQueue.orderBy('id').toArray()).filter((p) => p.status !== 'failed')
       const done = new Set<number | undefined>()
       for (const item of pending) {
         if (done.has(item.id)) continue
-        // Itens de um serviço sobem num só lote (uma transação no servidor; unique de posição deferida).
-        if (item.entity === 'serviceItems' && item.operation === 'upsert') {
-          const serviceId = (item.payload as ServiceItem).serviceId
-          const batch = pending.filter((p) => !done.has(p.id) && p.entity === 'serviceItems' && p.operation === 'upsert' && (p.payload as ServiceItem).serviceId === serviceId)
+        // Itens do mesmo serviço (ou repertório) sobem num só lote (uma transação no servidor; unique de posição deferida).
+        if ((BATCHED_ENTITIES as readonly string[]).includes(item.entity) && item.operation === 'upsert') {
+          const key = batchKey(item)
+          const batch = pending.filter((p) => !done.has(p.id) && p.entity === item.entity && p.operation === 'upsert' && batchKey(p) === key)
           for (const p of batch) done.add(p.id)
           try {
-            await upsertRows(tables.serviceItems, batch.map((p) => toRemoteRow('serviceItems', p.payload!)))
+            await upsertRows(tables[item.entity], batch.map((p) => toRemoteRow(item.entity, p.payload!)))
             await this.db.targetSyncQueue.bulkDelete(batch.flatMap((p) => p.id === undefined ? [] : [p.id]))
-          } catch {
-            for (const p of batch) if (p.id !== undefined) await this.db.targetSyncQueue.update(p.id, { attempts: p.attempts + 1 })
+          } catch (error) {
+            // 4xx permanente recusa o lote inteiro (uma transação): não dá para separar itens da mesma ordem
+            // sem quebrar a unique de posição. O servidor vence (ADR-026); o usuário descarta e o pull restaura.
+            for (const p of batch) if (p.id !== undefined) await this.db.targetSyncQueue.update(p.id, this.failure(p, error))
           }
           continue
         }
@@ -267,7 +312,7 @@ export class TargetSyncEngine {
             await localTable(this.db, item.entity).delete(item.entityId)
             continue
           }
-          await this.db.targetSyncQueue.update(item.id, { attempts: item.attempts + 1 })
+          await this.db.targetSyncQueue.update(item.id, this.failure(item, error))
         }
       }
 
@@ -305,12 +350,15 @@ export class TargetSyncEngine {
     } finally {
       this.syncing = false
     }
-    const remaining = await this.db.targetSyncQueue.count()
-    if (remaining > 0 && this.retryTimer === undefined && navigator.onLine) {
+    // Só o que ainda pode dar certo: itens `failed` esperam o usuário descartar.
+    const retryable = await this.db.targetSyncQueue.filter((i) => i.status !== 'failed').toArray()
+    if (retryable.length > 0 && this.retryTimer === undefined && navigator.onLine) {
+      // Recuo exponencial pelo maior `attempts` da fila (10 s, 20 s… no máximo 300 s).
+      const attempts = Math.max(...retryable.map((i) => i.attempts))
       this.retryTimer = window.setTimeout(() => {
         this.retryTimer = undefined
         void this.sync()
-      }, 10000)
+      }, Math.min(10000 * 2 ** Math.min(attempts, 5), 300000))
     }
   }
 }
