@@ -14,7 +14,7 @@ vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (list
 vi.mock('../../application/organizations/organizationService', () => ({
   createOrganization: async (name: string) => { state.orgs = [{ id: 'o1', name }]; return { id: 'o1' } },
 }))
-vi.mock('../../application/teams/teamService', () => ({ createTeam: async () => ({ id: 't1' }) }))
+vi.mock('../../application/teams/teamService', () => ({ createTeam: async () => ({ id: 't1' }), confirmTeamOnServer: async () => undefined }))
 vi.mock('../../application/organizations/organizationInviteService', () => ({ createOrganizationInvite: vi.fn(), buildOrganizationInviteUrl: vi.fn() }))
 vi.mock('../../application/teams/musicalFunctionService', () => ({ setMyTeamMusicalFunctions: async () => [] }))
 

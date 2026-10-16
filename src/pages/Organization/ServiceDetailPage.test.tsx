@@ -100,13 +100,12 @@ describe('ServiceDetailPage', () => {
     expect(screen.getByRole('region', { name: 'Ensaio' })).toBeInTheDocument()
   })
 
-  it('leader deletes drafts after confirming; stage start is role-gated', async () => {
+  it('leader deletes drafts after confirming', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     m.deleteService.mockResolvedValue({ success: true })
     renderWith({}, leader)
     const remove = await screen.findByRole('button', { name: 'Excluir serviço' })
-    expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
     await user.click(remove)
     expect(m.deleteService).toHaveBeenCalledWith('sv1')
   })
@@ -120,6 +119,17 @@ describe('ServiceDetailPage', () => {
   it('final service hides stage start and roster, owner still deletes', async () => {
     renderWith({ status: 'completed' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
+  })
+
+  it('stage start (D4): the team leader sees it', async () => {
+    renderWith({ status: 'ready' }, leader)
+    expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+  })
+
+  it('stage start (D4): a member does not', async () => {
+    renderWith({ status: 'ready' }, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
+    await screen.findByText('Pronto')
     expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
   })
 

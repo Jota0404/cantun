@@ -18,6 +18,7 @@ import { VerifyEmailPage } from './pages/Auth/VerifyEmailPage'
 import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/Auth/ResetPasswordPage'
 import { EmailVerificationNotice } from './components/auth/EmailVerificationNotice'
+import { SyncStatusNotice } from './components/sync/SyncStatusNotice'
 import { OrganizationPage } from './pages/Organization/OrganizationPage'
 import { OrganizationDetailPage } from './pages/Organization/OrganizationDetailPage'
 import { TeamPage } from './pages/Organization/TeamPage'
@@ -77,6 +78,7 @@ function App() {
         </header>
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">{labels.organizations}</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
         <EmailVerificationNotice />
+        {user && <SyncStatusNotice />}
       </>}
       <div id="conteudo" tabIndex={-1} className="app-content">
       <Routes>

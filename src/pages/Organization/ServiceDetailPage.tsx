@@ -191,7 +191,7 @@ export function ServiceDetailPage() {
     <section aria-labelledby="service-order-title">
       <header className="service-actions">
         <h3 id="service-order-title">Ordem do serviço</h3>
-        {isOrgAdmin && !final && <button type="button" onClick={() => void startStage()} disabled={!items.some((item) => item.type === 'song')}>Iniciar palco</button>}
+        {hasPermission(access, 'stage.start') && !final && <button type="button" onClick={() => void startStage()} disabled={!items.some((item) => item.type === 'song')}>Iniciar palco</button>}
       </header>
       {items.length === 0 ? <p>Nenhum item na ordem.</p> : (
         <ol className="service-order">

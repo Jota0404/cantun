@@ -2,6 +2,7 @@ import type { Team } from '../../domain/teams/team'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
 import { teamRepository, teamMembershipRepository } from '../../db/repositories/teamRepository'
 import { getCurrentUser } from '../../platform/auth'
+import { syncTargetDomain, targetSyncEngine } from '../../sync/syncService'
 
 export async function createTeam(organizationId: string, name: string, id = crypto.randomUUID()): Promise<Team> {
   const now = new Date().toISOString()
@@ -36,4 +37,18 @@ export async function addTeamMember(teamId: string, userId: string, id = crypto.
   const membership: TeamMembership = { id, teamId, userId, role: 'member', status: 'active', createdAt: now, updatedAt: now }
   await teamMembershipRepository.create(membership)
   return membership
+}
+
+const CONFIRM_ATTEMPTS = 3
+const CONFIRM_WAIT_MS = 700
+
+/** Espera o servidor aceitar a banda (e criar o vínculo de Líder, que chega no pull). Lança se não confirmar. */
+export async function confirmTeamOnServer(teamId: string): Promise<void> {
+  if (!targetSyncEngine) return
+  for (let attempt = 0; attempt < CONFIRM_ATTEMPTS; attempt++) {
+    await syncTargetDomain()
+    if (await targetSyncEngine.isSent('teams', teamId)) return
+    await new Promise((resolve) => setTimeout(resolve, CONFIRM_WAIT_MS))
+  }
+  throw new Error('Não foi possível confirmar com o servidor. Verifique a conexão e tente de novo.')
 }
