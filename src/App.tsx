@@ -25,15 +25,9 @@ import { OrganizationInvitePage } from './pages/Organization/OrganizationInviteP
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
 import { PendingLocalChangesError } from './auth/localSession'
+import { SkipLink } from './components/ui/SkipLink'
+import { applyTheme, getInitialTheme, saveTheme, type Theme } from './theme'
 import './App.css'
-
-type Theme = 'light' | 'dark'
-
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light'
-  const saved = window.localStorage.getItem('cantum-theme')
-  return saved === 'dark' ? 'dark' : 'light'
-}
 
 function App() {
   const location = useLocation()
@@ -66,10 +60,7 @@ function App() {
     return () => window.removeEventListener('online', handleOnline)
   }, [user])
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    window.localStorage.setItem('cantum-theme', theme)
-  }, [theme])
+  useEffect(() => { applyTheme(theme) }, [theme])
 
   if (loading) return <div className="shell"><main aria-live="polite"><p>Carregando sessão…</p></main></div>
 
@@ -77,14 +68,16 @@ function App() {
 
   return (
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
+      <SkipLink />
       {!isStageMode && !isAuthRoute && !isInviteRoute && <>
         <header className="app-header">
           <div><p className="app-header__eyebrow">MUSIC WORKSPACE</p><h1><Link to="/">CANTUM</Link></h1></div>
-          <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
+          <div>{user ? <button type="button" onClick={() => void handleSignOut()}>Sair</button> : <button type="button" onClick={() => navigate('/auth')}>Entrar</button>}<button type="button" className="app-header__theme" onClick={() => { const next = theme === 'light' ? 'dark' : 'light'; saveTheme(next); setTheme(next) }} aria-label={`Ativar modo ${theme === 'light' ? 'escuro' : 'claro'}`}>{theme === 'light' ? 'Modo escuro' : 'Modo claro'}</button></div>
         </header>
         <nav aria-label="Navegação principal"><Link to="/songs">Biblioteca</Link><Link to="/songs/new">Nova música</Link><Link to="/songs/import">Importar música</Link><Link to="/repertoires">Repertórios</Link><Link to="/organizations">Organizações</Link><Link to="/meus-servicos">Meus serviços</Link></nav>
         <EmailVerificationNotice />
       </>}
+      <div id="conteudo" tabIndex={-1} className="app-content">
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
         <Route path="/auth/verify-email" element={<VerifyEmailPage />} /><Route path="/auth/forgot-password" element={<ForgotPasswordPage />} /><Route path="/auth/reset-password" element={<ResetPasswordPage />} />
@@ -94,6 +87,7 @@ function App() {
         <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/meus-servicos" element={<MyServicesPage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
     </div>
   )
 }

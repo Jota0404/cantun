@@ -40,8 +40,8 @@
   margin: 0 0 20px;
   padding: 10px 12px;
   border-radius: 6px;
-  color: #c0392b;
-  background: #fcebea;
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
 }
 
 .import-song-page__preview {

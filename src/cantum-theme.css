@@ -10,13 +10,13 @@
   margin-bottom: 28px;
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .song-library-page > button:first-child:hover:not(:disabled) {
   border-color: var(--color-primary-strong);
   background: var(--color-primary-strong);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .song-library-page__search-label {
@@ -111,14 +111,14 @@
 .song-form button[type='submit'] {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .song-detail__actions button:first-child:hover:not(:disabled),
 .song-form button[type='submit']:hover:not(:disabled) {
   border-color: var(--color-primary-strong);
   background: var(--color-primary-strong);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .song-detail__delete {
@@ -155,7 +155,7 @@
 
 .song-list__favorite {
   color: var(--color-primary);
-  background: rgb(13 148 136 / .09);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .repertoire-card__position {
@@ -256,7 +256,7 @@
 [data-theme='dark'] .song-form button[type='submit'] {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 @media (max-width: 640px) {

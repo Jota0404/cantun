@@ -75,13 +75,13 @@
   min-height: 44px;
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .song-form button[type='submit']:hover:not(:disabled) {
   border-color: var(--color-primary-strong);
   background: var(--color-primary-strong);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 @media (max-width: 640px) {
