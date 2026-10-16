@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
-import { createRepertoire } from '../../application/repertoires/repertoireService'
+import { createRepertoire, listRepertoireGroups } from '../../application/repertoires/repertoireService'
 import { useAuth } from '../../auth/authContext'
-import { organizationRepository } from '../../db/repositories/organizationRepository'
-import { repertoireRepository } from '../../db/repositories/repertoireRepository'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
 import { labels } from '../../ui/labels'
@@ -24,11 +22,9 @@ export function RepertoireListPage() {
 
   const load = useCallback(async () => {
     try {
-      const orgs = await organizationRepository.list()
-      const rows = (await Promise.all(orgs.map(async (org) => {
-        const items = await repertoireRepository.listByOrganizationId(org.id)
-        return items.map((item) => ({ ...item, organizationName: org.name }))
-      }))).flat()
+      const groups = await listRepertoireGroups()
+      const orgs = groups.map((group) => group.organization)
+      const rows = groups.flatMap((group) => group.repertoires.map((item) => ({ ...item, organizationName: group.organization.name })))
       setOrganizations(orgs)
       setRepertoires(rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
       if (!organizationId && orgs[0]) setOrganizationId(orgs[0].id)

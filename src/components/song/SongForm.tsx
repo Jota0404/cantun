@@ -33,11 +33,12 @@ const initialState: FormState = {
 
 type SongFormProps = {
   song?: Song
-  initialValues?: CreateSongInput
+  /** Rascunho da importação: o tom pode faltar e a pessoa escolhe antes de salvar. */
+  initialValues?: Omit<CreateSongInput, 'originalKey' | 'currentKey'> & { originalKey?: MusicalKey; currentKey?: MusicalKey }
   onSuccess?: (song: Song) => void
 }
 
-function formStateFromSong(song?: Song, initialValues?: CreateSongInput): FormState {
+function formStateFromSong(song?: Song, initialValues?: SongFormProps['initialValues']): FormState {
   if (song) {
     return {
       title: song.title,
@@ -54,8 +55,8 @@ function formStateFromSong(song?: Song, initialValues?: CreateSongInput): FormSt
     return {
       title: initialValues.title,
       artist: initialValues.artist ?? '',
-      originalKey: initialValues.originalKey,
-      currentKey: initialValues.currentKey,
+      originalKey: initialValues.originalKey ?? '',
+      currentKey: initialValues.currentKey ?? initialValues.originalKey ?? '',
       bpm: initialValues.bpm?.toString() ?? '',
       lyrics: initialValues.lyrics,
       notes: initialValues.notes ?? '',
@@ -153,7 +154,7 @@ export function SongForm({ song, initialValues, onSuccess }: SongFormProps) {
       <div className="song-form__row">
         <div className="song-form__field">
           <label htmlFor={originalKeyId}>Tom original</label>
-          <select id={originalKeyId} value={form.originalKey} onChange={(event) => updateField('originalKey', event.target.value as MusicalKey | '')} aria-invalid={Boolean(errors.originalKey)} aria-describedby={errors.originalKey ? `${originalKeyId}-error` : undefined}>
+          <select id={originalKeyId} value={form.originalKey} onChange={(event) => { const key = event.target.value as MusicalKey | ''; updateField('originalKey', key); if (!song && !form.currentKey) updateField('currentKey', key) }} aria-invalid={Boolean(errors.originalKey)} aria-describedby={errors.originalKey ? `${originalKeyId}-error` : undefined}>
             <option value="">Selecione</option>
             {MUSICAL_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
           </select>

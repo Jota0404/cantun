@@ -112,6 +112,10 @@ export function ServiceDetailPage() {
     }
     const errors = validateServiceItem(input)
     if (errors.length) { setError(errors.join(' ')); return }
+    if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === input.songId)) {
+      setError(`"${songs.find((song) => song.id === input.songId)?.title ?? 'Esta música'}" já está na ordem.`)
+      return
+    }
     if (await run(() => addServiceItem(serviceId, input))) { setItemSongId(''); setItemTitle(''); setItemMinutes(''); setItemNotes('') }
   }
 

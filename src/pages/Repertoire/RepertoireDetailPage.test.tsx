@@ -14,9 +14,8 @@ const m = vi.hoisted(() => ({
 const songs = Array.from({ length: 12 }, (_, index) => ({ id: `s${index + 1}`, title: `Música ${index + 1}`, artist: index === 7 ? 'Hillsong' : undefined }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => songs }))
-vi.mock('../../db/repositories/repertoireRepository', () => ({ repertoireRepository: { getById: async () => ({ id: 'r1', organizationId: 'o1', name: 'Culto', version: 1 }) } }))
-vi.mock('../../db/repositories/repertoireItemRepository', () => ({ repertoireItemRepository: { listByRepertoireId: async () => m.items } }))
 vi.mock('../../application/repertoires/repertoireService', () => ({
+  getRepertoireDetail: async () => ({ repertoire: { id: 'r1', organizationId: 'o1', name: 'Culto', version: 1 }, items: m.items }),
   addSongToRepertoire: m.addSongToRepertoire, renameRepertoire: m.renameRepertoire,
   deleteRepertoire: vi.fn(), duplicateRepertoire: vi.fn(), removeSongFromRepertoire: vi.fn(), reorderRepertoire: vi.fn(),
 }))

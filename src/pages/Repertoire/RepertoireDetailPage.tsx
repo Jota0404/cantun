@@ -1,34 +1,31 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
-import { repertoireRepository } from '../../db/repositories/repertoireRepository'
-import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
-// TODO(core): trocar repertoireRepository/repertoireItemRepository por getRepertoireDetail quando existir.
 import { listSongs } from '../../application/songs/listSongs'
-import { addSongToRepertoire, deleteRepertoire, duplicateRepertoire, removeSongFromRepertoire, renameRepertoire, reorderRepertoire } from '../../application/repertoires/repertoireService'
+import { addSongToRepertoire, deleteRepertoire, getRepertoireDetail, duplicateRepertoire, removeSongFromRepertoire, renameRepertoire, reorderRepertoire } from '../../application/repertoires/repertoireService'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
-import type { RepertoireItem } from '../../domain/repertoires/repertoireItem'
 import type { Song } from '../../domain/songs/song'
 import { SongPicker } from '../../components/song/SongPicker'
 import { InlineNameForm } from '../../components/ui/InlineNameForm'
 import { labels } from '../../ui/labels'
 import './RepertoirePage.css'
 
+type RepertoireDetailItem = Awaited<ReturnType<typeof getRepertoireDetail>> extends infer D ? (D extends { items: Array<infer I> } ? I : never) : never
+
 export function RepertoireDetailPage() {
   const { repertoireId = '' } = useParams()
   const navigate = useNavigate()
   const [repertoire, setRepertoire] = useState<Repertoire>()
-  const [items, setItems] = useState<RepertoireItem[]>([])
+  const [items, setItems] = useState<RepertoireDetailItem[]>([])
   const [songs, setSongs] = useState<Song[]>([])
   const [error, setError] = useState('')
   const [panel, setPanel] = useState<'rename' | 'add'>()
 
   const load = useCallback(async () => {
     try {
-      const current = await repertoireRepository.getById(repertoireId)
-      if (!current) { setError('Repertório não encontrado.'); return }
-      const [entries, allSongs] = await Promise.all([repertoireItemRepository.listByRepertoireId(repertoireId), listSongs()])
-      setRepertoire(current); setItems(entries); setSongs(allSongs)
+      const detail = await getRepertoireDetail(repertoireId)
+      if (!detail) { setError('Repertório não encontrado.'); return }
+      setRepertoire(detail.repertoire); setItems(detail.items); setSongs(await listSongs())
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o repertório.') }
   }, [repertoireId])
 

@@ -2,12 +2,12 @@ import { useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SongForm } from '../../components/song/SongForm'
-import { parseSongText } from '../../domain/songs/parseSongText'
-import type { CreateSongInput } from '../../application/songs/createSong'
+import { parseSongDraft, type SongImportDraft } from '../../domain/songs/parseSongText'
+import { readTextFile } from '../../domain/songs/decodeTextFile'
 import './ImportSongPage.css'
 
 export function ImportSongPage() {
-  const [songData, setSongData] = useState<CreateSongInput | null>(null)
+  const [songData, setSongData] = useState<SongImportDraft | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const navigate = useNavigate()
 
@@ -24,8 +24,8 @@ export function ImportSongPage() {
     }
 
     try {
-      const text = await file.text()
-      const result = parseSongText(text)
+      const text = await readTextFile(file)
+      const result = parseSongDraft(text)
 
       if (!result.success) {
         setFileError(result.errors.join(' '))
@@ -65,6 +65,11 @@ export function ImportSongPage() {
         <div className="import-song-page__preview">
           <h3>Revisão</h3>
           <p>Confira e edite os dados antes de salvar.</p>
+          {!songData.originalKey && (
+            <p role="status">
+              {songData.rawKey ? `O tom "${songData.rawKey}" não foi reconhecido.` : 'O arquivo não informa o tom.'} Escolha o tom abaixo antes de salvar.
+            </p>
+          )}
           <SongForm initialValues={songData} onSuccess={() => navigate('/songs')} />
         </div>
       )}

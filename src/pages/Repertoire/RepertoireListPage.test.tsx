@@ -9,9 +9,10 @@ import { RepertoireListPage } from './RepertoireListPage'
 const listeners = vi.hoisted(() => [] as Array<() => void>)
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (listener: () => void) => { listeners.push(listener); return () => undefined } }))
-vi.mock('../../application/repertoires/repertoireService', () => ({ createRepertoire: vi.fn() }))
-vi.mock('../../db/repositories/organizationRepository', () => ({ organizationRepository: { list: async () => [{ id: 'o1', name: 'Igreja' }] } }))
-vi.mock('../../db/repositories/repertoireRepository', () => ({ repertoireRepository: { listByOrganizationId: async () => [{ id: 'r1', name: 'Culto', version: 3, updatedAt: '2026-10-01T00:00:00Z' }] } }))
+vi.mock('../../application/repertoires/repertoireService', () => ({
+  createRepertoire: vi.fn(),
+  listRepertoireGroups: async () => [{ organization: { id: 'o1', name: 'Igreja' }, repertoires: [{ id: 'r1', name: 'Culto', version: 3, updatedAt: '2026-10-01T00:00:00Z' }] }],
+}))
 
 describe('RepertoireListPage', () => {
   it('keeps the typed name and the form mounted when live data arrives', async () => {
