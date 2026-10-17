@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import './ConfirmModal.css'
 
 type ConfirmModalProps = {
@@ -7,6 +7,8 @@ type ConfirmModalProps = {
   message: string
   confirmLabel?: string
   cancelLabel?: string
+  confirmDisabled?: boolean
+  children?: ReactNode
   onConfirm: () => void
   onCancel: () => void
 }
@@ -17,6 +19,8 @@ export function ConfirmModal({
   message,
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
+  confirmDisabled = false,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -41,9 +45,10 @@ export function ConfirmModal({
       <section className="confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         <h2 id="confirm-modal-title">{title}</h2>
         <p>{message}</p>
+        {children}
         <div className="confirm-modal__actions">
           <button ref={cancelButtonRef} type="button" onClick={onCancel}>{cancelLabel}</button>
-          <button className="confirm-modal__confirm" type="button" onClick={onConfirm}>{confirmLabel}</button>
+          <button className="confirm-modal__confirm" type="button" disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </section>
     </div>

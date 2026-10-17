@@ -6,6 +6,7 @@ import { isPlatformConfigured } from '../platform/http'
 import { realtime } from '../platform/realtime'
 import { syncEngine, syncTargetDomain } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
+import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -91,6 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, options)
       currentUserId.current = null
       setUser(null)
+    },
+    deleteAccount: async () => {
+      const result = await deleteMyAccount()
+      if (!result.success) return result
+      // A sessão já foi encerrada pelo servidor: falha no logout remoto não impede a limpeza local.
+      await signOutWithLocalCleanup({
+        db,
+        flushPendingChanges: async () => undefined,
+        signOutRemote: () => platformAuth.signOut().catch(() => undefined),
+      }, { discardPendingChanges: true })
+      currentUserId.current = null
+      setUser(null)
+      return result
     },
     refresh,
     verifyEmail: async (token) => {
