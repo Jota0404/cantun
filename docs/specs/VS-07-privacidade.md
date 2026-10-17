@@ -26,7 +26,7 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - RN-03 Excluir conta (ADR-063): bloqueia se for o único Owner de uma organização; conteúdo da organização (cópias de música, repertórios, serviços) é **reatribuído ao usuário anônimo**, não apagado; conteúdo pessoal, vínculos, atribuições, sessões e tokens são apagados.
 - RN-04 Exclusão exige confirmação digitada e sessão recente; encerra todas as sessões; no cliente apaga o banco Dexie do usuário (ADR-048) e a fila de sync.
 - RN-05 Estado do Palco ativo: se o excluído é o MD, o MD é liberado (`md_user_id` nulo, já `set null`); a sessão não é apagada.
-- RN-06 Atribuições futuras do excluído são removidas e o serviço fica com vaga aberta (`replacement_needed` conforme ADR-053); histórico passado fica anônimo.
+- RN-06 Todas as atribuições do excluído (futuras e passadas) são apagadas em cascata (D3, apagar na hora); a vaga (`service_position`) fica aberta e o histórico passado deixa de listar a pessoa. Não há `replacement_needed` nem aviso ao Líder (decisão do lead, 2026-10-17); avisar o Líder quando a vaga abrir por exclusão de conta é follow-up (B4/B6).
 - RN-07 `team_member.remove`: Owner/Admin e Líder ativo da equipe (não removem Líder; o Líder só remove `member`); apaga vínculo e atribuições futuras, mantém autoria e conta. Registra evento.
 - RN-08 Exportação inclui só dados do próprio titular; sem tokens, hashes nem dados de terceiros (nomes de outros membros fora). Cópias de música, repertórios e serviços de **autoria do titular dentro de um Ministério** ficam fora do export: o conteúdo pertence à organização (ADR-062); o export traz as músicas e os repertórios pessoais, vínculos, atribuições e disponibilidade (decisão do lead, 2026-10-17).
 - RN-09 `admin_events` registra: remoção de membro, mudança de papel, exclusão de conta, exportação. Campos sem conteúdo (sem e-mail, título, letra); append-only; leitura só Owner/Admin da organização; na exclusão o titular vira nulo.
@@ -38,7 +38,7 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - [ ] Cadastro sem aceite é recusado no servidor (não só na UI); com aceite grava `user_consents` com a versão vigente.
 - [ ] Subir a versão da política força novo aceite no próximo login.
 - [ ] `/privacidade` e `/termos` abrem deslogados e offline após o primeiro acesso (PWA).
-- [ ] Excluir conta: `app.users` do titular, `sessions`, `email_tokens`, vínculos, atribuições e músicas/repertórios pessoais deixam de existir (teste SQL).
+- [ ] Excluir conta: `app.users` do titular, `sessions`, `email_tokens`, vínculos, atribuições (futuras e passadas, a vaga fica aberta) e músicas/repertórios pessoais deixam de existir (teste SQL).
 - [ ] Após a exclusão, cópias de música do Ministério continuam existindo, com autoria "Ex-membro", e outros membros as leem.
 - [ ] Único Owner não consegue excluir a conta (erro claro, nada alterado).
 - [ ] Exclusão do MD durante Palco ativo não derruba o Stage dos demais.
