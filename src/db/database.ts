@@ -227,9 +227,13 @@ export class SalmodiaDatabase extends Dexie {
     this.version(16).stores({
       songs: 'id, updatedAt, organizationId',
     })
-    // FIX-01 (ADR-062): `organization_songs` saiu; a música do Ministério é uma cópia em `songs`. A v18 é da Fatia C.
+    // FIX-01 (ADR-062): `organization_songs` saiu; a música do Ministério é uma cópia em `songs`.
     this.version(17).stores({
       organizationSongs: null,
+    })
+    // FIX-01 / C (ADR-062): repertório pessoal (`organizationId` ausente) é listado pelo dono.
+    this.version(18).stores({
+      repertoires: 'id, organizationId, createdByUserId, updatedAt',
     })
   }
 }

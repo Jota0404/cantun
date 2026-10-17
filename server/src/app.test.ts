@@ -342,6 +342,19 @@ describe('músicas do Ministério (ADR-062)', () => {
     assert.equal(denied.json().error, 'not authorized to copy songs to this organization')
     assert.equal((await call(lider, 'copy_song_to_organization', { p_song_id: personalId, p_organization_id: orgId })).json().error, 'song not found or not authorized')
 
+    // Repertório pessoal (organization_id nulo) sobe por /sync e a importação está na allowlist do /rpc.
+    const personalRepId = crypto.randomUUID(), leaderRepId = crypto.randomUUID()
+    const rep = (id: string, userId: string) => ({ id, organization_id: null, name: 'Pessoal', created_by_user_id: userId, version: 1, created_at: now, updated_at: now })
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/repertoires', headers: { cookie: autor.cookie }, payload: { rows: [rep(personalRepId, autor.id)] } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/repertoires', headers: { cookie: lider.cookie }, payload: { rows: [rep(leaderRepId, lider.id)] } })).statusCode, 200)
+    const memberImport = await call(autor, 'import_personal_repertoire', { p_repertoire_id: personalRepId, p_organization_id: orgId })
+    assert.equal(memberImport.statusCode, 400)
+    assert.equal(memberImport.json().error, 'not authorized to import repertoires into this organization')
+    const imported = await call(lider, 'import_personal_repertoire', { p_repertoire_id: leaderRepId, p_organization_id: orgId, p_new_id: crypto.randomUUID() })
+    assert.equal(imported.statusCode, 200, imported.body)
+    assert.deepEqual([imported.json().repertoire.organization_id, imported.json().copied, imported.json().reused], [orgId, 0, 0])
+    assert.equal((await call(lider, 'import_personal_repertoire', { p_repertoire_id: personalRepId, p_organization_id: orgId })).json().error, 'repertoire not found or not authorized')
+
     // Líder (não autor) edita a MESMA linha por PATCH; o autor não muda e nenhuma linha nasce.
     const patch = await app.inject({ method: 'PATCH', url: `/sync/songs?id=${copyId}`, headers: { cookie: lider.cookie }, payload: { values: { title: 'Editada pelo Líder', updated_at: new Date().toISOString() } } })
     assert.deepEqual(patch.json(), { count: 1 })

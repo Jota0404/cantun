@@ -42,12 +42,12 @@ function parseHeader(line: string): { field: HeaderField; value: string } | null
   }
 }
 
-/** Aceita tônica em maiúscula ou minúscula (`d`, `f#`, `bb`). Tons menores (`Am`) não resolvem aqui: ficam para a revisão (Fatia C). */
+/** Aceita tônica em maiúscula ou minúscula (`d`, `f#`, `bb`) e o sufixo `m` de tom menor (`Am`, `f#m`). */
 export function normalizeMusicalKey(value: string): MusicalKey | undefined {
-  const match = /^([A-Ga-g])([#♯b♭]?)$/.exec(value.trim())
+  const match = /^([A-Ga-g])([#♯b♭]?)(m?)$/.exec(value.trim())
   if (!match) return undefined
   const accidental = match[2] === '♯' ? '#' : match[2] === '♭' ? 'b' : match[2]
-  const key = `${match[1].toUpperCase()}${accidental}`
+  const key = `${match[1].toUpperCase()}${accidental}${match[3]}`
   return MUSICAL_KEYS.includes(key as MusicalKey) ? key as MusicalKey : undefined
 }
 

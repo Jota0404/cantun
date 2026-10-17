@@ -6,7 +6,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { OrganizationDetailPage } from './OrganizationDetailPage'
 
-const m = vi.hoisted(() => ({ personal: [] as unknown[], org: undefined as unknown, listeners: [] as Array<() => void> }))
+const m = vi.hoisted(() => ({ personal: [] as unknown[], org: undefined as unknown, listeners: [] as Array<() => void>, role: null as string | null }))
+vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => ({ organizationRole: m.role }) }))
+vi.mock('../../components/repertoire/ImportPersonalRepertoire', () => ({ ImportPersonalRepertoire: () => <p>Lista de importação</p> }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (listener: () => void) => { m.listeners.push(listener); return () => undefined } }))
 vi.mock('../../db/repositories/organizationRepository', () => ({ organizationRepository: { getById: async () => m.org } }))
@@ -61,5 +63,21 @@ describe('OrganizationDetailPage', () => {
     await user.click(screen.getByRole('button', { name: 'Adicionar da minha biblioteca' }))
     await user.click(screen.getByRole('button', { name: 'Adicionar Oceano' }))
     expect(copySongToOrganization).toHaveBeenCalledWith('p1', 'o1')
+  })
+
+  it('offers the personal repertoire import only to those allowed (RN-C2)', async () => {
+    const user = userEvent.setup()
+    m.org = { id: 'o1', name: 'Igreja Esperança', createdAt: '', updatedAt: '' }
+    const page = <MemoryRouter initialEntries={['/organizations/o1']}><Routes><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /></Routes></MemoryRouter>
+    m.role = 'member'
+    const { unmount } = render(page)
+    await screen.findByText('Igreja Esperança')
+    expect(screen.queryByRole('button', { name: 'Importar repertório pessoal' })).not.toBeInTheDocument()
+    unmount()
+
+    m.role = 'admin'
+    render(page)
+    await user.click(await screen.findByRole('button', { name: 'Importar repertório pessoal' }))
+    expect(screen.getByText('Lista de importação')).toBeInTheDocument()
   })
 })

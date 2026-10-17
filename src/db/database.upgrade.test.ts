@@ -287,3 +287,33 @@ describe('SalmodiaDatabase version 17 (organizationSongs removal)', () => {
     expect((await db.organizations.get('org-1'))?.name).toBe('Igreja')
   })
 })
+
+describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
+  let db: SalmodiaDatabase
+
+  beforeEach(async () => {
+    await Dexie.delete(DB_NAME)
+  })
+
+  afterEach(() => {
+    db?.close()
+  })
+
+  it('keeps organization repertoires and lists personal ones (no organization) by owner', async () => {
+    await seedVersion10()
+    const legacy = new Dexie(DB_NAME)
+    legacy.version(10).stores({ repertoires: 'id, organizationId, updatedAt' })
+    const base = { name: 'R', version: 1, createdAt: now, updatedAt: now }
+    await legacy.table('repertoires').add({ ...base, id: 'r1', organizationId: 'org-1', createdByUserId: 'u1' })
+    legacy.close()
+
+    db = new SalmodiaDatabase()
+    await db.open()
+
+    expect((await db.repertoires.toArray()).map((r) => r.id)).toEqual(['r1'])
+    await db.repertoires.bulkPut([{ ...base, id: 'p1', createdByUserId: 'u1' }, { ...base, id: 'p2', createdByUserId: 'u2' }])
+    const mine = await db.repertoires.where('createdByUserId').equals('u1').toArray()
+    expect(mine.filter((r) => !r.organizationId).map((r) => r.id)).toEqual(['p1'])
+    expect((await db.repertoires.where('organizationId').equals('org-1').toArray()).map((r) => r.id)).toEqual(['r1'])
+  })
+})

@@ -13,6 +13,8 @@ export class RepertoireItemRepository {
   async listByRepertoireId(repertoireId: string): Promise<RepertoireItem[]> { return this.db.repertoireItems.where('repertoireId').equals(repertoireId).sortBy('position') }
   async listBySongId(songId: string): Promise<RepertoireItem[]> { return this.db.repertoireItems.where('songId').equals(songId).toArray() }
   async findByRepertoireAndSong(repertoireId: string, songId: string): Promise<RepertoireItem | undefined> { return this.db.repertoireItems.where('[repertoireId+songId]').equals([repertoireId, songId]).first() }
+  /** Grava o que o servidor já confirmou (importação): sem fila de sync. */
+  async putLocal(values: RepertoireItem[]): Promise<void> { await this.db.repertoireItems.bulkPut(values) }
   async update(value: RepertoireItem): Promise<void> { await this.db.repertoireItems.put(value); await queueTargetUpsert('repertoireItems', value) }
   async remove(id: string): Promise<void> { await this.db.repertoireItems.delete(id); await queueTargetDelete('repertoireItems', id) }
 }

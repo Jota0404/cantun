@@ -1,6 +1,6 @@
-import type { MusicalKey } from './musicalKey'
+import type { MajorKey, MusicalKey } from './musicalKey'
 
-const KEY_TO_PITCH: Record<MusicalKey, number> = {
+const KEY_TO_PITCH: Record<MajorKey, number> = {
   C: 0,
   'C#': 1,
   Db: 1,
@@ -20,11 +20,11 @@ const KEY_TO_PITCH: Record<MusicalKey, number> = {
   B: 11,
 }
 
-const SHARP_KEYS: readonly MusicalKey[] = [
+const SHARP_KEYS: readonly MajorKey[] = [
   'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
 ]
 
-const FLAT_KEYS: readonly MusicalKey[] = [
+const FLAT_KEYS: readonly MajorKey[] = [
   'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
 ]
 
@@ -35,29 +35,35 @@ function normalizePitch(pitch: number): number {
   return ((pitch % 12) + 12) % 12
 }
 
-function keySpelling(key: MusicalKey): readonly MusicalKey[] {
-  return key.includes('b') ? FLAT_KEYS : SHARP_KEYS
+/** Tônica sem o sufixo de modo: `F#m` → `F#`. */
+function keyRoot(key: MusicalKey): MajorKey {
+  return (key.endsWith('m') ? key.slice(0, -1) : key) as MajorKey
+}
+
+function keySpelling(key: MusicalKey): readonly MajorKey[] {
+  return keyRoot(key).includes('b') ? FLAT_KEYS : SHARP_KEYS
 }
 
 export function getKeyPitch(key: MusicalKey): number {
-  return KEY_TO_PITCH[key]
+  return KEY_TO_PITCH[keyRoot(key)]
 }
 
 export function getSemitoneDistance(from: MusicalKey, to: MusicalKey): number {
-  return normalizePitch(KEY_TO_PITCH[to] - KEY_TO_PITCH[from])
+  return normalizePitch(getKeyPitch(to) - getKeyPitch(from))
 }
 
+/** Preserva o modo (maior/menor) e a grafia da tônica (ADR-007). */
 export function transposeKey(key: MusicalKey, semitones: number): MusicalKey {
-  const keys = keySpelling(key)
-  return keys[normalizePitch(KEY_TO_PITCH[key] + semitones)]
+  const root = keySpelling(key)[normalizePitch(getKeyPitch(key) + semitones)]
+  return (key.endsWith('m') ? `${root}m` : root) as MusicalKey
 }
 
 function transposeChordRoot(
   root: string,
   semitones: number,
-  spelling: readonly MusicalKey[],
+  spelling: readonly MajorKey[],
 ): string {
-  const rootPitch = KEY_TO_PITCH[root as MusicalKey]
+  const rootPitch = KEY_TO_PITCH[root as MajorKey]
   if (rootPitch === undefined) return root
   return spelling[normalizePitch(rootPitch + semitones)]
 }

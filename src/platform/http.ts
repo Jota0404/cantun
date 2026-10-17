@@ -35,6 +35,8 @@ const SERVER_MESSAGES: Record<string, string> = {
   'position quantity is below active assignments': 'A quantidade não pode ficar abaixo das pessoas já escaladas.',
   'position function cannot change with assignments': 'A função não muda enquanto houver pessoas escaladas.',
   'not authorized to create stage sessions': 'Só Owner, Admin e o Líder da banda do serviço podem iniciar o Modo Palco.',
+  'repertoire not found or not authorized': 'Repertório pessoal não encontrado.',
+  'not authorized to import repertoires into this organization': 'Só quem administra o Ministério ou lidera uma banda importa repertórios.',
   'display name must have 1 to 80 characters': 'Informe um nome de 1 a 80 caracteres.',
   'invalid invite expiration': 'Validade do convite inválida.',
   'invalid invite role': 'Papel do convite inválido.',

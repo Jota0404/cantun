@@ -263,3 +263,27 @@ describe('TargetSyncEngine reliability (FIX-01 B)', () => {
     expect((await engine.getStatus()).failed).toEqual([])
   })
 })
+
+describe('TargetSyncEngine personal repertoires (FIX-01 C)', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.repertoires.clear()])
+  })
+
+  it('pushes a personal repertoire with a null organization and pulls it back without one', async () => {
+    const value = { id: 'p1', name: 'Meu', createdByUserId: 'u1', version: 1, createdAt: now, updatedAt: now }
+    await db.targetSyncQueue.add({ entity: 'repertoires', entityId: 'p1', operation: 'upsert', payload: value, updatedAt: now, attempts: 0 } as TargetSyncQueueItem)
+    remote.selectRows.mockImplementation(async (table: string) => table === 'repertoires'
+      ? [{ id: 'p2', organization_id: null, name: 'Outro aparelho', created_by_user_id: 'u1', version: 1, created_at: now, updated_at: now }]
+      : [])
+
+    await new TargetSyncEngine(db).sync()
+
+    expect(remote.upsertRows).toHaveBeenCalledWith('repertoires', [expect.objectContaining({ id: 'p1', organization_id: null, created_by_user_id: 'u1' })])
+    const pulled = await db.repertoires.get('p2')
+    expect(pulled?.name).toBe('Outro aparelho')
+    expect(pulled?.organizationId).toBeUndefined()
+  })
+})

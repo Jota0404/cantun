@@ -12,6 +12,13 @@ export class RepertoireRepository {
   async getById(id: string): Promise<Repertoire | undefined> { return this.db.repertoires.get(id) }
   async list(): Promise<Repertoire[]> { return this.db.repertoires.orderBy('updatedAt').reverse().toArray() }
   async listByOrganizationId(organizationId: string): Promise<Repertoire[]> { return this.db.repertoires.where('organizationId').equals(organizationId).sortBy('updatedAt') }
+  /** Repertórios pessoais do usuário (sem organização), do mais recente para o mais antigo. */
+  async listPersonal(userId: string): Promise<Repertoire[]> {
+    const rows = await this.db.repertoires.where('createdByUserId').equals(userId).filter((r) => !r.organizationId).toArray()
+    return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+  /** Grava o que o servidor já confirmou (importação): sem fila de sync. */
+  async putLocal(value: Repertoire): Promise<void> { await this.db.repertoires.put(value) }
   async update(value: Repertoire): Promise<void> { await this.db.repertoires.put(value); await queueTargetUpsert('repertoires', value) }
   async remove(id: string): Promise<void> { await this.db.repertoires.delete(id); await queueTargetDelete('repertoires', id) }
 }
