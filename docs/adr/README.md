@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Atualizado em 2026-10-15. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-17. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -65,6 +65,7 @@
 | [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
 | [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
 | [ADR-062](ADR-062-repertorio-pessoal.md) | Repertório pessoal e importação para a organização (revisa o ADR-022) | Accepted |
+| [ADR-063](ADR-063-saida-do-titular-e-anonimizacao.md) | Saída do titular: exclusão de conta, anonimização de autoria e exportação | Accepted |
 
 ## Números reservados
 
@@ -74,4 +75,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 |---|---|---|
 | 056 | Materiais e storage | B6 |
 
-Próximo número livre: **ADR-063** (056 está reservado).
+Próximo número livre: **ADR-064** (056 está reservado).
