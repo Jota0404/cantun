@@ -1,5 +1,6 @@
 import type { AssignmentAction } from '../../domain/services/assignmentLifecycle'
 import type { AssignmentStatus } from '../../domain/services/assignment'
+import type { BadgeTone } from '../ui/Badge'
 import type { AvailabilityStatus } from '../../domain/services/memberAvailability'
 
 export const ASSIGNMENT_STATUS_LABEL: Record<AssignmentStatus, string> = {
@@ -8,6 +9,14 @@ export const ASSIGNMENT_STATUS_LABEL: Record<AssignmentStatus, string> = {
   declined: 'Recusou',
   replacement_needed: 'Pediu substituição',
   cancelled: 'Cancelado',
+}
+
+export const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, BadgeTone> = {
+  invited: 'attention',
+  confirmed: 'success',
+  declined: 'danger',
+  replacement_needed: 'attention',
+  cancelled: 'neutral',
 }
 
 export const ASSIGNMENT_ACTION_LABEL: Record<AssignmentAction, string> = {

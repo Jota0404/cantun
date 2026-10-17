@@ -30,7 +30,6 @@ import { TeamsPage } from './pages/Navigation/TeamsPage'
 import { MorePage } from './pages/Navigation/MorePage'
 import { SkipLink } from './components/ui/SkipLink'
 import './App.css'
-import { labels } from './ui/labels'
 
 function App() {
   const location = useLocation()
