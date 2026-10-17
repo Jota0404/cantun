@@ -28,7 +28,7 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - RN-05 Estado do Palco ativo: se o excluído é o MD, o MD é liberado (`md_user_id` nulo, já `set null`); a sessão não é apagada.
 - RN-06 Atribuições futuras do excluído são removidas e o serviço fica com vaga aberta (`replacement_needed` conforme ADR-053); histórico passado fica anônimo.
 - RN-07 `team_member.remove`: Owner/Admin e Líder ativo da equipe (não removem Líder; o Líder só remove `member`); apaga vínculo e atribuições futuras, mantém autoria e conta. Registra evento.
-- RN-08 Exportação inclui só dados do próprio titular; sem tokens, hashes nem dados de terceiros (nomes de outros membros fora).
+- RN-08 Exportação inclui só dados do próprio titular; sem tokens, hashes nem dados de terceiros (nomes de outros membros fora). Cópias de música, repertórios e serviços de **autoria do titular dentro de um Ministério** ficam fora do export: o conteúdo pertence à organização (ADR-062); o export traz as músicas e os repertórios pessoais, vínculos, atribuições e disponibilidade (decisão do lead, 2026-10-17).
 - RN-09 `admin_events` registra: remoção de membro, mudança de papel, exclusão de conta, exportação. Campos sem conteúdo (sem e-mail, título, letra); append-only; leitura só Owner/Admin da organização; na exclusão o titular vira nulo.
 - RN-10 Menores: ver decisão D1. Qualquer que seja a opção, o cadastro coleta o mínimo (e-mail e nome) e não expõe e-mail de menor a quem não é Líder/Admin.
 - RN-11 Logs do servidor não gravam corpo de requisição de música/repertório/e-mail (NFR-008).
