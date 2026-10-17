@@ -37,6 +37,8 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 | `organization.edit` (renomear) | organização | ✅ | ✅ | ❌ | ❌ | Decisão 1. Hoje só o Owner atualiza. |
 | `organization.delete` | organização | ✅ | ❌ | ❌ | ❌ | Só o Owner exclui. |
 
+**Vínculo de organização (`organization_memberships`, issue #99, `0014_org_membership_writes.sql`).** Não há escrita direta: `cantum_user` só tem SELECT e a policy `ALL` de Owner e Admin caiu. O vínculo nasce e muda só por função `security definer`: `create_organization` (Owner), `accept_organization_invite` (member ou admin do convite), `update_organization_member_role` (só `admin` ou `member`; nunca vira nem deixa de ser `owner`; Owner e Admin), `remove_organization_member` (nunca remove o Owner; Owner e Admin) e `delete_my_account` (bloqueia o único Owner, D4). Logo a organização nunca fica sem Owner, e nenhum papel vira `owner` fora de uma troca de Owner (seção 6). O cliente só lê o vínculo (sync pull). Os cascades de organização e usuário rodam como dono da tabela.
+
 ### 3.2 Equipes e pessoas
 
 | Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
@@ -145,6 +147,7 @@ Cada caso vira teste de RLS/RPC no harness (`feat/team-roles-schema`) e teste de
 | N16 | Cliente insere vínculo com `role = 'leader'` ou `status` diferente de `active` (para si ou para outro) | negado pelo trigger de guarda |
 | N17 | Cliente cria a equipe e tenta inserir o próprio vínculo `leader` por escrita direta | negado; o Líder criador só existe porque o trigger em `teams` o cria no servidor |
 | N18 | `update team_memberships set role/status` direto por Owner, Admin ou Líder | negado; o mesmo efeito por RPC é permitido conforme a matriz |
+| N19 | `update`/`insert`/`delete` direto em `organization_memberships` por Admin (promover a si ou a outro a `owner`, rebaixar ou apagar o Owner), Owner, membro ou forasteiro | negado por privilégio (issue #99); Admin também não altera nem remove o Owner por RPC |
 
 Casos positivos de contraste (mesmos testes): Owner, Admin, Líder da própria equipe e Membro no próprio recurso conseguem a ação correspondente.
 
