@@ -117,6 +117,11 @@ describe('autenticação', () => {
     assert.equal(request.statusCode, 204)
     const silent = await app.inject({ method: 'POST', url: '/auth/password-reset/request', payload: { email: 'naoexiste@teste.local' } })
     assert.equal(silent.statusCode, 204)
+    const mailsBefore = mails.length
+    const placeholder = await app.inject({ method: 'POST', url: '/auth/password-reset/request', payload: { email: 'deleted@invalid' } })
+    // Só formato: `deleted@invalid` já leva 400 na validação. A proteção do sentinela é o check do banco (db/tests/0013).
+    assert.equal(placeholder.statusCode, 400)
+    assert.equal(mails.length, mailsBefore, 'sentinela não recebe e-mail de redefinição')
 
     const confirm = await app.inject({ method: 'POST', url: '/auth/password-reset/confirm', payload: { token: tokenFrom(mails.at(-1)), password: 'senha-nova-123' } })
     assert.equal(confirm.statusCode, 204)

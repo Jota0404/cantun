@@ -223,8 +223,8 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     schema: { body: { type: 'object', required: ['email'], additionalProperties: false, properties: { email: emailSchema } } },
   }, async (request, reply) => {
     const email = request.body.email.trim().toLowerCase()
-    const { rows } = await pool.query<{ id: string }>('select id from app.users where email = $1', [email])
-    // Mesma resposta exista ou não a conta (sem enumeração de e-mails).
+    const { rows } = await pool.query<{ id: string }>('select id from app.users where email = $1 and id <> app.deleted_user_id()', [email])
+    // Mesma resposta exista ou não a conta (sem enumeração de e-mails); o sentinela "Ex-membro" nunca recebe e-mail.
     if (rows[0]) await sendEmailToken(rows[0].id, email, 'reset_password')
     return reply.code(204).send()
   })
