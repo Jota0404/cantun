@@ -119,6 +119,13 @@ describe('TeamPage', () => {
     expect(service.setMemberFunctions).toHaveBeenCalledWith({ membershipId: 'm2', musicalFunctions: ['drums', 'keys'] })
   })
 
+  it('leader does not see remove for an organization admin', async () => {
+    service.listTeamMembers.mockResolvedValue([members[0], { ...members[1], organizationRole: 'admin' }])
+    renderAs(leader)
+    await screen.findByText('Ana')
+    expect(screen.queryByRole('button', { name: 'Remover Ana da banda' })).not.toBeInTheDocument()
+  })
+
   it('leader removes a member after confirming; cancel does nothing; no button for self', async () => {
     const user = userEvent.setup()
     service.removeMember.mockResolvedValue({ success: true })

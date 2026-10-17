@@ -198,7 +198,7 @@ export function TeamPage() {
                       {target && canChangeRole(access, target, 'member') && <button type="button" onClick={() => void run(() => demoteToMember(membershipId))}>Rebaixar a Membro {member.displayName}</button>}
                       {target && canChangeStatus(access, target, 'inactive') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'inactive' }))}>Inativar {member.displayName}</button>}
                       {target && canChangeStatus(access, target, 'active') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'active' }))}>Reativar {member.displayName}</button>}
-                      {target && canRemoveMember(access, target, user?.id ?? '') && <button type="button" aria-label={`Remover ${member.displayName} da banda`} onClick={() => setRemoving({ membershipId, name: member.displayName })}>Remover da banda</button>}
+                      {target && canRemoveMember(access, { ...target, organizationRole: member.organizationRole }, user?.id ?? '') && <button type="button" aria-label={`Remover ${member.displayName} da banda`} onClick={() => setRemoving({ membershipId, name: member.displayName })}>Remover da banda</button>}
                       {target && canSetFunctions(access, target, user?.id ?? '') && (
                         <button type="button" aria-expanded={editingFunctions === key} onClick={() => setEditingFunctions(editingFunctions === key ? undefined : key)}>Editar funções de {member.displayName}</button>
                       )}

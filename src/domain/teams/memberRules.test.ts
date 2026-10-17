@@ -39,6 +39,9 @@ describe('member rules', () => {
     expect(canRemoveMember(admin, activeLeader, 'me')).toBe(true)
     expect(canRemoveMember(admin, { ...activeMember, userId: 'me' }, 'me')).toBe(false)
     expect(canRemoveMember(member, activeMember, 'me')).toBe(false)
+    expect(canRemoveMember(leader, { ...activeMember, organizationRole: 'admin' }, 'me')).toBe(false)
+    expect(canRemoveMember(admin, { ...activeMember, organizationRole: 'owner' }, 'me')).toBe(false)
+    expect(canRemoveMember({ organizationRole: 'owner' }, { ...activeMember, organizationRole: 'admin' }, 'me')).toBe(true)
   })
 
   it('display name is 1–80 characters after trim (RN-15)', () => {

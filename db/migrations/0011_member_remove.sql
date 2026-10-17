@@ -9,10 +9,13 @@ create table public.admin_events (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   actor_user_id uuid references app.users(id) on delete set null,
   target_user_id uuid references app.users(id) on delete set null,
+  -- Ações novas (fatias 5 e 7) exigem `alter table ... drop/add constraint` deste check.
   action text not null check (action in ('team_member.remove')),
   created_at timestamptz not null default now()
 );
 create index admin_events_organization_idx on public.admin_events (organization_id, created_at desc);
+create index admin_events_actor_idx on public.admin_events (actor_user_id) where actor_user_id is not null;
+create index admin_events_target_idx on public.admin_events (target_user_id) where target_user_id is not null;
 alter table public.admin_events enable row level security;
 create policy admin_events_select on public.admin_events for select to cantum_user
   using (app.has_permission(organization_id, null, 'organization.edit'));
@@ -113,6 +116,11 @@ begin
 end;
 $$;
 
+-- Remover vínculo só pela RPC (grava admin_events e apaga escalas futuras). Os cascades de
+-- teams/organizações/usuário rodam como dono da tabela e não dependem deste grant.
+drop policy team_memberships_delete on public.team_memberships;
+revoke delete on public.team_memberships from cantum_user;
+
 create function public.team_member_remove(p_team_membership_id uuid) returns void
   language plpgsql security definer
   set search_path = ''
@@ -137,9 +145,10 @@ begin
   select om.role into v_target_org_role from public.organization_memberships om
   where om.organization_id = v_organization_id and om.user_id = v_target.user_id;
 
-  -- Remover a si mesmo é sair da conta (B8 fatia 5); Líder só remove member; Admin não remove Owner.
+  -- Remover a si mesmo é sair da conta (B8 fatia 5); Líder só remove member que não seja Owner/Admin
+  -- da organização; Admin não remove Owner.
   if v_target.user_id = v_user_id
-     or (v_target.role = 'leader' and v_actor_role not in ('owner', 'admin'))
+     or (v_actor_role not in ('owner', 'admin') and (v_target.role = 'leader' or v_target_org_role in ('owner', 'admin')))
      or (v_target_org_role = 'owner' and v_actor_role <> 'owner') then
     raise exception 'not authorized to remove team member';
   end if;

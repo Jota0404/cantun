@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../platform/auth'
 import { teamRepository } from '../../db/repositories/teamRepository'
 import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
 import type { AccessContext } from '../../domain/access/permissions'
+import type { OrganizationAccessRole } from '../../domain/organizations/organizationMembership'
 import { listOrganizationInvites } from '../organizations/organizationInviteService'
 
 // Papel, status e funções só mudam por RPC (o banco autoriza, RN-12). Sem fila offline:
@@ -108,6 +109,8 @@ export interface TeamMemberView {
   /** Convite pendente; ausente em vínculo. */
   inviteId?: string
   userId?: string
+  /** Papel do alvo na organização (só UX: o Líder não remove Owner/Admin). */
+  organizationRole?: OrganizationAccessRole
   displayName: string
   role: TeamRole
   displayStatus: MemberDisplayStatus
@@ -169,9 +172,11 @@ export async function listTeamMembers(
     getMemberDisplayNames(input.organizationId),
   ])
   const functionsByMembership = await loadFunctions(memberships.map((membership) => membership.id))
+  const orgRoles = new Map((await organizationMembershipRepository.listByOrganizationId(input.organizationId)).map((m) => [m.userId, m.role]))
   const members: TeamMemberView[] = memberships.map((membership) => ({
     membershipId: membership.id,
     userId: membership.userId,
+    organizationRole: orgRoles.get(membership.userId),
     displayName: names[membership.userId] ?? 'Participante',
     role: membership.role,
     displayStatus: membership.status,

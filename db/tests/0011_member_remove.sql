@@ -59,6 +59,7 @@ insert into public.team_memberships (id, team_id, user_id, role, status) values
   ('31000000-0000-0000-0000-000000000b06', '30000000-0000-0000-0000-000000000b11', '00000000-0000-0000-0000-0000000b1106', 'member', 'active'),
   ('31000000-0000-0000-0000-000000000b07', '30000000-0000-0000-0000-000000000b12', '00000000-0000-0000-0000-0000000b1107', 'leader', 'active'),
   ('31000000-0000-0000-0000-000000000b08', '30000000-0000-0000-0000-000000000b11', '00000000-0000-0000-0000-0000000b1108', 'leader', 'inactive'),
+  ('31000000-0000-0000-0000-000000000b02', '30000000-0000-0000-0000-000000000b11', '00000000-0000-0000-0000-0000000b1102', 'member', 'active'),
   ('31000000-0000-0000-0000-000000000b15', '30000000-0000-0000-0000-000000000b12', '00000000-0000-0000-0000-0000000b1105', 'member', 'active');
 
 -- Autoria (cópia do Ministério) e atribuições: 05 tem uma futura e uma passada em TA, e uma futura em TB.
@@ -86,6 +87,7 @@ select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-00
 select pg_temp.as_user('00000000-0000-0000-0000-0000000b1103'); -- Líder de TA
 select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b04')$q$, 'N6 Líder remove Líder');
 select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b03')$q$, 'Líder remove a si mesmo');
+select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b02')$q$, 'Líder remove Admin da organização');
 select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b15')$q$, 'N4 Líder remove membro de outra equipe');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000b1107'); -- Líder de TB
 select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b05')$q$, 'N4 Líder de TB remove membro de TA');
@@ -97,7 +99,16 @@ select pg_temp.as_user(null);
 select pg_temp.denied($q$select public.team_member_remove('31000000-0000-0000-0000-000000000b05')$q$, 'anônimo remove');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000b1102'); -- Admin
 select pg_temp.denied($q$select public.team_member_remove((select id from public.team_memberships where user_id = '00000000-0000-0000-0000-0000000b1101' and team_id = '30000000-0000-0000-0000-000000000b11'))$q$, 'N6 Admin remove Owner');
-select pg_temp.ok((select count(*) = 7 from public.team_memberships where team_id in ('30000000-0000-0000-0000-000000000b11', '30000000-0000-0000-0000-000000000b12') and user_id <> '00000000-0000-0000-0000-0000000b1101'), 'negativos não alteraram vínculos');
+select pg_temp.ok((select count(*) = 8 from public.team_memberships where team_id in ('30000000-0000-0000-0000-000000000b11', '30000000-0000-0000-0000-000000000b12') and user_id <> '00000000-0000-0000-0000-0000000b1101'), 'negativos não alteraram vínculos');
+
+-- Delete direto de vínculo não existe mais (nem Owner, Admin ou Líder)
+select pg_temp.as_user('00000000-0000-0000-0000-0000000b1101');
+select pg_temp.denied($q$delete from public.team_memberships where id = '31000000-0000-0000-0000-000000000b06'$q$, 'Owner deleta vínculo direto');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000b1102');
+select pg_temp.denied($q$delete from public.team_memberships where id = '31000000-0000-0000-0000-000000000b06'$q$, 'Admin deleta vínculo direto');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000b1103');
+select pg_temp.denied($q$delete from public.team_memberships where id = '31000000-0000-0000-0000-000000000b06'$q$, 'Líder deleta vínculo direto');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000b1102');
 
 -- N9: sem escrita direta em admin_events
 select pg_temp.denied($q$insert into public.admin_events (organization_id, action) values ('10000000-0000-0000-0000-000000000b11', 'team_member.remove')$q$, 'N9 insert direto');
