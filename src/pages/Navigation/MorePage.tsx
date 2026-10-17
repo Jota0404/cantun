@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
+import { exportMyData } from '../../application/privacy/exportMyData'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
 import './NavigationPages.css'
 
@@ -34,6 +35,21 @@ export function MorePage() {
     }
   }
 
+  async function handleExport() {
+    setError('')
+    const result = await exportMyData()
+    if (!result.success) {
+      setError(result.errors[0])
+      return
+    }
+    const url = URL.createObjectURL(new Blob([result.json], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = result.filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   function toggleTheme() {
     const next: Theme = theme === 'light' ? 'dark' : 'light'
     saveTheme(next)
@@ -50,6 +66,10 @@ export function MorePage() {
         <h3 id="settings-title">Configurações</h3>
         <button type="button" onClick={toggleTheme}>{theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}</button>
         <p>Tema atual: {theme === 'light' ? 'claro' : 'escuro'}.</p>
+      </section>
+      <section aria-labelledby="privacy-title">
+        <h3 id="privacy-title">Privacidade</h3>
+        <button type="button" onClick={() => void handleExport()}>Exportar meus dados</button>
       </section>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>
