@@ -9,7 +9,7 @@ import { TeamsPage } from './TeamsPage'
 const m = vi.hoisted(() => ({ orgs: [] as unknown[] }))
 vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => m.orgs }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
-vi.mock('../../db/repositories/teamRepository', () => ({ teamRepository: { listByOrganizationId: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] } }))
+vi.mock('../../application/teams/teamService', () => ({ listTeams: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] }))
 vi.mock('../../components/team/TeamOnboarding', () => ({ TeamOnboarding: () => <p>Vamos preparar sua banda</p> }))
 
 describe('TeamsPage', () => {

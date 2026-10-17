@@ -7,7 +7,7 @@ const DESTINATIONS = [
   { to: '/', label: 'Início', match: (path: string) => path === '/' },
   { to: '/servicos', label: 'Serviços', match: (path: string) => path.startsWith('/servicos') || path.startsWith('/meus-servicos') || path.startsWith('/services/') },
   { to: '/songs', label: 'Músicas', match: (path: string) => path.startsWith('/songs') },
-  { to: '/bandas', label: labels.teams, match: (path: string) => path.startsWith('/bandas') || path.startsWith('/equipe') || path.startsWith('/organizations') },
+  { to: '/bandas', label: labels.teams, match: (path: string) => path.startsWith('/bandas') || path.startsWith('/organizations') },
   { to: '/mais', label: 'Mais', match: (path: string) => path.startsWith('/mais') || path.startsWith('/repertoires') },
 ]
 

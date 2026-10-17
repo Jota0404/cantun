@@ -8,7 +8,7 @@ import { ServicesPage } from './ServicesPage'
 
 const m = vi.hoisted(() => ({ orgs: [{ id: 'o1', name: 'Igreja' }] as unknown[], allowed: true }))
 vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => m.orgs }))
-vi.mock('../../db/repositories/teamRepository', () => ({ teamRepository: { listByOrganizationId: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] } }))
+vi.mock('../../application/teams/teamService', () => ({ listTeams: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] }))
 vi.mock('../../application/teams/teamMemberService', () => ({
   getMyAccessContext: async () => (m.allowed ? { organizationRole: 'owner' } : { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' }),
 }))

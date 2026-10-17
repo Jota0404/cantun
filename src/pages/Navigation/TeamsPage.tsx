@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listMyOrganizations } from '../../application/organizations/organizationService'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
-import { teamRepository } from '../../db/repositories/teamRepository'
+import { listTeams } from '../../application/teams/teamService'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Team } from '../../domain/teams/team'
 import { TeamOnboarding } from '../../components/team/TeamOnboarding'
@@ -20,7 +20,7 @@ export function TeamsPage() {
     let cancelled = false
     async function load() {
       const [principal] = await listMyOrganizations()
-      const organizationTeams = principal ? await teamRepository.listByOrganizationId(principal.id) : []
+      const organizationTeams = principal ? await listTeams(principal.id) : []
       if (cancelled) return
       setOrganization(principal)
       setTeams(organizationTeams)

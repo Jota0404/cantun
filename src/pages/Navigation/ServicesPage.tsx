@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { listMyOrganizations } from '../../application/organizations/organizationService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
-import { teamRepository } from '../../db/repositories/teamRepository'
+import { listTeams } from '../../application/teams/teamService'
 import { hasPermission } from '../../domain/access/permissions'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Team } from '../../domain/teams/team'
@@ -22,7 +22,7 @@ export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
     let cancelled = false
     async function load() {
       const [principal] = await listMyOrganizations()
-      const organizationTeams = principal ? await teamRepository.listByOrganizationId(principal.id) : []
+      const organizationTeams = principal ? await listTeams(principal.id) : []
       const contexts = principal ? await Promise.all(organizationTeams.map((team) => getMyAccessContext({ organizationId: principal.id, teamId: team.id }))) : []
       if (cancelled) return
       setOrganization(principal)
