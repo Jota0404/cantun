@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../platform/auth'
 import { teamRepository } from '../../db/repositories/teamRepository'
 import { organizationMembershipRepository } from '../../db/repositories/organizationRepository'
 import type { AccessContext } from '../../domain/access/permissions'
+import type { OrganizationAccessRole } from '../../domain/organizations/organizationMembership'
 import { listOrganizationInvites } from '../organizations/organizationInviteService'
 
 // Papel, status e funções só mudam por RPC (o banco autoriza, RN-12). Sem fila offline:
@@ -60,6 +61,20 @@ export async function setMemberStatus(
   return changeMembership(input.membershipId, 'set_team_member_status', { p_status: input.status }, { status: input.status }, repository)
 }
 
+/** Remove o vínculo (e as atribuições futuras, no banco). Só online; o Dexie local é limpo depois do aceite. */
+export async function removeMember(
+  membershipId: string,
+  repository = teamMembershipRepository,
+): Promise<{ success: true } | { success: false; errors: string[] }> {
+  try {
+    await rpc('team_member_remove', { p_team_membership_id: membershipId })
+    await repository.removeLocal(membershipId)
+    return { success: true }
+  } catch (error) {
+    return { success: false, errors: [errorMessage(error, 'Não foi possível remover o membro.')] }
+  }
+}
+
 export async function setMemberFunctions(input: {
   membershipId: string
   musicalFunctions: string[]
@@ -94,6 +109,8 @@ export interface TeamMemberView {
   /** Convite pendente; ausente em vínculo. */
   inviteId?: string
   userId?: string
+  /** Papel do alvo na organização (só UX: o Líder não remove Owner/Admin). */
+  organizationRole?: OrganizationAccessRole
   displayName: string
   role: TeamRole
   displayStatus: MemberDisplayStatus
@@ -155,9 +172,11 @@ export async function listTeamMembers(
     getMemberDisplayNames(input.organizationId),
   ])
   const functionsByMembership = await loadFunctions(memberships.map((membership) => membership.id))
+  const orgRoles = new Map((await organizationMembershipRepository.listByOrganizationId(input.organizationId)).map((m) => [m.userId, m.role]))
   const members: TeamMemberView[] = memberships.map((membership) => ({
     membershipId: membership.id,
     userId: membership.userId,
+    organizationRole: orgRoles.get(membership.userId),
     displayName: names[membership.userId] ?? 'Participante',
     role: membership.role,
     displayStatus: membership.status,

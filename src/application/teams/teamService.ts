@@ -33,7 +33,7 @@ export async function updateTeam(team: Team, patch: Pick<Partial<Team>, 'name'>)
 
 export async function removeTeam(teamId: string) {
   const members = await teamMembershipRepository.listByTeamId(teamId)
-  for (const member of members) await teamMembershipRepository.remove(member.id)
+  for (const member of members) await teamMembershipRepository.removeLocal(member.id) // o servidor apaga os vínculos em cascata com a equipe
   await teamRepository.remove(teamId)
 }
 

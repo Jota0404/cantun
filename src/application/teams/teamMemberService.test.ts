@@ -13,7 +13,7 @@ vi.mock('../organizations/organizationInviteService', () => ({ listOrganizationI
 import { SalmodiaDatabase } from '../../db/database'
 import { TeamMembershipRepository } from '../../db/repositories/teamRepository'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
-import { getMemberDisplayNames, getMyAccessContext, demoteToMember, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName } from './teamMemberService'
+import { getMemberDisplayNames, getMyAccessContext, demoteToMember, listTeamMembers, promoteToLeader, removeMember, setMemberFunctions, setMemberStatus, setMyDisplayName } from './teamMemberService'
 
 const db = new SalmodiaDatabase()
 const repository = new TeamMembershipRepository(db)
@@ -42,6 +42,18 @@ describe('team member use cases', () => {
     rpc.mockRejectedValueOnce(new Error('permission denied'))
     await expect(setMemberStatus({ membershipId: 'tm-1', status: 'inactive' }, repository)).resolves.toEqual({ success: false, errors: ['permission denied'] })
     expect((await db.teamMemberships.get('tm-1'))?.status).toBe('active')
+  })
+
+  it('removes the membership through the RPC, locally without queueing; keeps it when denied', async () => {
+    rpc.mockRejectedValueOnce(new Error('not authorized to remove team member'))
+    await expect(removeMember('tm-1', repository)).resolves.toEqual({ success: false, errors: ['not authorized to remove team member'] })
+    expect(await db.teamMemberships.get('tm-1')).toBeDefined()
+
+    rpc.mockResolvedValueOnce(null)
+    await expect(removeMember('tm-1', repository)).resolves.toEqual({ success: true })
+    expect(rpc).toHaveBeenLastCalledWith('team_member_remove', { p_team_membership_id: 'tm-1' })
+    expect(await db.teamMemberships.get('tm-1')).toBeUndefined()
+    expect(await db.targetSyncQueue.count()).toBe(0)
   })
 
   it('validates input before calling the server', async () => {

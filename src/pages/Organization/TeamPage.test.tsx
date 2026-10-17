@@ -14,6 +14,7 @@ const service = vi.hoisted(() => ({
   promoteToLeader: vi.fn(),
   demoteToMember: vi.fn(),
   setMemberStatus: vi.fn(),
+  removeMember: vi.fn(),
   setMemberFunctions: vi.fn(),
   setMyDisplayName: vi.fn(),
 }))
@@ -84,7 +85,7 @@ describe('TeamPage', () => {
     await screen.findByText('Ana')
     expect(screen.getByRole('button', { name: 'Editar funções de Eu' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar funções de Ana' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Inativar|Promover/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Inativar|Promover|Remover/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Convidar para esta banda' })).not.toBeInTheDocument()
   })
 
@@ -116,5 +117,26 @@ describe('TeamPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Editar funções de Ana' }))
     await user.click(within(screen.getByRole('group', { name: 'Funções de Ana' })).getByLabelText('Teclado'))
     expect(service.setMemberFunctions).toHaveBeenCalledWith({ membershipId: 'm2', musicalFunctions: ['drums', 'keys'] })
+  })
+
+  it('leader does not see remove for an organization admin', async () => {
+    service.listTeamMembers.mockResolvedValue([members[0], { ...members[1], organizationRole: 'admin' }])
+    renderAs(leader)
+    await screen.findByText('Ana')
+    expect(screen.queryByRole('button', { name: 'Remover Ana da banda' })).not.toBeInTheDocument()
+  })
+
+  it('leader removes a member after confirming; cancel does nothing; no button for self', async () => {
+    const user = userEvent.setup()
+    service.removeMember.mockResolvedValue({ success: true })
+    renderAs(leader)
+    expect(screen.queryByRole('button', { name: 'Remover Eu da banda' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Remover Ana da banda' }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(service.removeMember).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Remover Ana da banda' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Remover da banda?' })).getByRole('button', { name: 'Remover da banda' }))
+    expect(service.removeMember).toHaveBeenCalledWith('m2')
+    expect(service.listTeamMembers).toHaveBeenCalledTimes(2)
   })
 })
