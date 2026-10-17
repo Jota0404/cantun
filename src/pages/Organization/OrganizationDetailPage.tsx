@@ -9,6 +9,9 @@ import { listOrganizationSongs } from '../../application/songs/listOrganizationS
 import { copySongToOrganization } from '../../application/songs/copySongToOrganization'
 import { SongPicker } from '../../components/song/SongPicker'
 import { createRepertoire } from '../../application/repertoires/repertoireService'
+import { ImportPersonalRepertoire } from '../../components/repertoire/ImportPersonalRepertoire'
+import { getMyAccessContext } from '../../application/teams/teamMemberService'
+import { hasPermission } from '../../domain/access/permissions'
 import { InlineNameForm } from '../../components/ui/InlineNameForm'
 import { labels } from '../../ui/labels'
 import { ServicesPanel } from '../../components/service/ServicesPanel'
@@ -30,7 +33,8 @@ export function OrganizationDetailPage() {
   const [repertoires, setRepertoires] = useState<Repertoire[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [notFound, setNotFound] = useState(false)
-  const [creating, setCreating] = useState<'team' | 'repertoire'>()
+  const [creating, setCreating] = useState<'team' | 'repertoire' | 'import'>()
+  const [canImport, setCanImport] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -38,11 +42,12 @@ export function OrganizationDetailPage() {
       const org = await organizationRepository.getById(organizationId)
       // Sem a organização local (ainda não sincronizada ou sem acesso): só vira "não encontrada" se nunca carregou.
       if (!org) { setNotFound(true); return }
-      const [personal, ministrySongs, reps, currentTeams] = await Promise.all([
+      const [personal, ministrySongs, reps, currentTeams, access] = await Promise.all([
         listSongs(),
         listOrganizationSongs(organizationId),
         repertoireRepository.listByOrganizationId(organizationId),
         teamRepository.listByOrganizationId(organizationId),
+        getMyAccessContext({ organizationId }),
       ])
       setOrganization(org)
       setNotFound(false)
@@ -50,6 +55,7 @@ export function OrganizationDetailPage() {
       setPersonalSongs(personal)
       setOrganizationSongs(ministrySongs)
       setRepertoires(reps)
+      setCanImport(hasPermission(access, 'repertoire.import_personal'))
       // Mantém a referência quando nada mudou: a recarga ao vivo não deve recarregar o painel de serviços.
       setTeams((current) => JSON.stringify(current) === JSON.stringify(currentTeams) ? current : currentTeams)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o Ministério.') }
@@ -98,8 +104,9 @@ export function OrganizationDetailPage() {
       {addingSong && <SongPicker songs={personalSongs} requiresOnline excludeSongIds={new Set(organizationSongs.flatMap((song) => song.sourceSongId ? [song.sourceSongId] : []))} label="Buscar na minha biblioteca" onPick={copyToOrganization} />}
     </section>
 
-    <section><header><h3>Repertórios</h3><button type="button" aria-expanded={creating === 'repertoire'} onClick={() => setCreating(creating === 'repertoire' ? undefined : 'repertoire')}>Novo repertório</button></header>
+    <section><header><h3>Repertórios</h3><button type="button" aria-expanded={creating === 'repertoire'} onClick={() => setCreating(creating === 'repertoire' ? undefined : 'repertoire')}>Novo repertório</button>{canImport && <button type="button" aria-expanded={creating === 'import'} onClick={() => setCreating(creating === 'import' ? undefined : 'import')}>{labels.importPersonalRepertoire}</button>}</header>
       {creating === 'repertoire' && <InlineNameForm label="Nome do repertório" submitLabel="Criar repertório" placeholder="Ex.: Culto de domingo" onSubmit={createRep} onCancel={() => setCreating(undefined)} />}
+      {creating === 'import' && user && <ImportPersonalRepertoire organizationId={organizationId} userId={user.id} onImported={load} />}
       <div className="organization-list">{repertoires.map((rep) => <article className="organization-item" key={rep.id}><div><strong>{rep.name}</strong><Link to={`/organizations/${organizationId}/repertoires/${rep.id}`} aria-label={`Abrir repertório ${rep.name}`}>Abrir e adicionar músicas</Link></div></article>)}</div>
       {repertoires.length === 0 && <p>Nenhum repertório ainda. Crie um e adicione músicas buscando pelo nome.</p>}
     </section>

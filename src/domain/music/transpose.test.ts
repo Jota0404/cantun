@@ -18,6 +18,22 @@ describe('transpose', () => {
     expect(transposeKey('Bb', -1)).toBe('A')
   })
 
+  it('keeps the mode and follows the tonic spelling for minor keys', () => {
+    expect(transposeKey('Am', 2)).toBe('Bm')
+    expect(transposeKey('Am', 1)).toBe('A#m')
+    expect(transposeKey('Bbm', 1)).toBe('Bm')
+    expect(transposeKey('Bbm', 3)).toBe('Dbm')
+    expect(transposeKey('F#m', -2)).toBe('Em')
+    expect(transposeKey('Em', 0)).toBe('Em')
+    for (const key of ['Am', 'F#m', 'Bbm'] as const) expect(transposeKey(transposeKey(key, 5), 7)).toBe(key)
+  })
+
+  it('measures the distance between minor keys and mixes with major', () => {
+    expect(getSemitoneDistance('Am', 'Cm')).toBe(3)
+    expect(getSemitoneDistance('F#m', 'Bbm')).toBe(4)
+    expect(getSemitoneDistance('Am', 'A')).toBe(0)
+  })
+
   it('transposes every chord-quality token accepted by the parser', () => {
     const cases = [
       ['C', 'D'], ['Cm', 'Dm'], ['Cmin', 'Dmin'], ['Cmaj', 'Dmaj'],

@@ -7,6 +7,9 @@ import { resolveOrganizationSong } from '../songs/copySongToOrganization'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Song } from '../../domain/songs/song'
 import { listMyOrganizations } from '../organizations/organizationService'
+import { toSong } from '../../domain/songs/songRow'
+import { rpc } from '../../platform/rpc'
+import { OFFLINE_COPY_MESSAGE } from '../songs/copySongToOrganization'
 
 /** Repertórios agrupados por organização (Dexie, offline). */
 export async function listRepertoireGroups(): Promise<Array<{ organization: Organization; repertoires: Repertoire[] }>> {
@@ -38,11 +41,21 @@ export async function createRepertoire(input: Omit<Repertoire, 'id' | 'createdAt
 export async function addSongToRepertoire(repertoireId: string, songId: string, id = crypto.randomUUID()): Promise<RepertoireItem> {
   const repertoire = await repertoireRepository.getById(repertoireId)
   if (!repertoire) throw new Error('Repertório não encontrado.')
-  // RN-A3: música pessoal entra como cópia do Ministério (só online); a do Ministério entra direto.
-  const resolved = await resolveOrganizationSong(songId, repertoire.organizationId)
-  if (!resolved.success) throw new Error(resolved.errors.join(' '))
-  songId = resolved.songId
-  if (await repertoireItemRepository.findByRepertoireAndSong(repertoireId, songId)) throw new Error(`"${resolved.title}" já está neste repertório.`)
+  let title: string
+  if (repertoire.organizationId) {
+    // RN-A3: música pessoal entra como cópia do Ministério (só online); a do Ministério entra direto.
+    const resolved = await resolveOrganizationSong(songId, repertoire.organizationId)
+    if (!resolved.success) throw new Error(resolved.errors.join(' '))
+    songId = resolved.songId
+    title = resolved.title
+  } else {
+    // RN-C1/P1: repertório pessoal só usa a biblioteca do dono, offline.
+    const song = await songRepository.getById(songId)
+    if (!song) throw new Error('Essa música não está disponível neste aparelho. Sincronize e tente de novo.')
+    if (song.organizationId) throw new Error(`"${song.title}" é do Ministério: repertório pessoal usa só a sua biblioteca.`)
+    title = song.title
+  }
+  if (await repertoireItemRepository.findByRepertoireAndSong(repertoireId, songId)) throw new Error(`"${title}" já está neste repertório.`)
   const items = await repertoireItemRepository.listByRepertoireId(repertoireId)
   const value: RepertoireItem = { id, repertoireId, songId, position: items.length, updatedAt: new Date().toISOString() }
   await repertoireItemRepository.create(value)
@@ -107,4 +120,54 @@ export async function duplicateRepertoire(repertoireId: string, name?: string): 
     await repertoireItemRepository.create({ ...item, id: crypto.randomUUID(), repertoireId: copy.id })
   }
   return copy
+}
+
+export interface PersonalRepertoireSummary {
+  repertoire: Repertoire
+  /** Até 3 títulos, na ordem do repertório. */
+  songTitles: string[]
+  /** Músicas além das listadas em `songTitles`. */
+  moreCount: number
+}
+
+/** RN-C1/C2: repertórios pessoais do usuário com um resumo das músicas (Dexie, offline). */
+export async function listPersonalRepertoires(userId: string): Promise<PersonalRepertoireSummary[]> {
+  const repertoires = await repertoireRepository.listPersonal(userId)
+  return Promise.all(repertoires.map(async (repertoire) => {
+    const titles = (await getRepertoireDetail(repertoire.id))?.items.flatMap((item) => item.song ? [item.song.title] : []) ?? []
+    return { repertoire, songTitles: titles.slice(0, 3), moreCount: Math.max(0, titles.length - 3) }
+  }))
+}
+
+export type ImportRepertoireResult =
+  | { success: true; repertoire: Repertoire; copied: number; reused: number }
+  | { success: false; errors: string[] }
+
+/**
+ * RN-C2: copia um repertório pessoal para o Ministério (RPC, só online). O servidor cria o repertório, as cópias
+ * das músicas (reaproveitando as existentes) e os itens na mesma ordem; o aparelho só grava o que ele devolveu.
+ */
+export async function importPersonalRepertoire(repertoireId: string, organizationId: string): Promise<ImportRepertoireResult> {
+  const source = await repertoireRepository.getById(repertoireId)
+  if (!source || source.organizationId) return { success: false, errors: ['Repertório pessoal não encontrado.'] }
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return { success: false, errors: [OFFLINE_COPY_MESSAGE] }
+  try {
+    const data = await rpc<Record<string, unknown> | null>('import_personal_repertoire', {
+      p_repertoire_id: repertoireId, p_organization_id: organizationId, p_new_id: crypto.randomUUID(),
+    })
+    if (!data) return { success: false, errors: ['Não foi possível importar o repertório.'] }
+    const row = data.repertoire as Record<string, unknown>
+    const repertoire: Repertoire = {
+      id: String(row.id), organizationId: String(row.organization_id), name: String(row.name), createdByUserId: String(row.created_by_user_id),
+      version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    }
+    for (const song of data.songs as Record<string, unknown>[]) await songRepository.putLocal(toSong(song))
+    await repertoireRepository.putLocal(repertoire)
+    await repertoireItemRepository.putLocal((data.items as Record<string, unknown>[]).map((item) => ({
+      id: String(item.id), repertoireId: String(item.repertoire_id), songId: String(item.song_id), position: Number(item.position), updatedAt: String(item.updated_at),
+    })))
+    return { success: true, repertoire, copied: Number(data.copied), reused: Number(data.reused) }
+  } catch (error) {
+    return { success: false, errors: [error instanceof Error && error.message ? error.message : 'Não foi possível importar o repertório.'] }
+  }
 }

@@ -2,7 +2,9 @@ import type { SalmodiaDatabase } from '../db/database'
 import type { Song } from '../domain/songs/song'
 import { toSong } from '../domain/songs/songRow'
 import { selectRows, updateRows, upsertRows } from '../platform/sync'
+import { ApiError } from '../platform/http'
 import { notifyRemoteDataApplied } from './remoteChanges'
+import { isPermanent, type SyncStatus } from './targetSyncEngine'
 
 type EntityName = 'songs'
 type Entity = Song
@@ -16,6 +18,9 @@ interface SyncQueueItem {
   payload?: Entity
   updatedAt: string
   attempts: number
+  /** `failed`: recusado em definitivo pelo servidor; não é reenviado até o usuário descartar (como na fila de alvos). */
+  status?: 'failed'
+  lastError?: string
 }
 
 interface RemoteRow {
@@ -75,7 +80,7 @@ export class SyncEngine {
       this.syncing = false
     }
 
-    const remaining = await this.db.syncQueue.where('userId').equals(userId).count()
+    const remaining = (await this.db.syncQueue.where('userId').equals(userId).toArray()).filter((i) => i.status !== 'failed').length
     if (remaining > 0) {
       this.scheduleRetry(userId)
     } else {
@@ -98,14 +103,31 @@ export class SyncEngine {
   }
 
   private async pushPending(userId: string) {
-    const pending = await this.db.syncQueue.where('userId').equals(userId).sortBy('id')
+    const pending = (await this.db.syncQueue.where('userId').equals(userId).sortBy('id')).filter((i) => i.status !== 'failed')
     for (const item of pending) {
       try {
         await this.pushItem(userId, item)
         if (item.id !== undefined) await this.db.syncQueue.delete(item.id)
-      } catch {
-        if (item.id !== undefined) await this.db.syncQueue.update(item.id, { attempts: item.attempts + 1 })
+      } catch (error) {
+        if (item.id === undefined) continue
+        const attempts = item.attempts + 1
+        await this.db.syncQueue.update(item.id, isPermanent(error) ? { attempts, status: 'failed', lastError: error.message } : { attempts })
       }
+    }
+  }
+
+  async getStatus(): Promise<SyncStatus> {
+    const items = await this.db.syncQueue.toArray()
+    const failed = items.filter((i) => i.status === 'failed' && i.id !== undefined)
+    return { pending: items.length - failed.length, failed: failed.map((i) => ({ id: i.id!, entity: i.entity, reason: i.lastError ?? '' })) }
+  }
+
+  /** Descarta as músicas recusadas: somem da fila e do aparelho; o próximo pull traz a versão do servidor. */
+  async discardFailed(): Promise<void> {
+    const failed = await this.db.syncQueue.filter((i) => i.status === 'failed').toArray()
+    for (const item of failed) {
+      if (item.operation === 'upsert') await this.db.songs.delete(item.entityId)
+      if (item.id !== undefined) await this.db.syncQueue.delete(item.id)
     }
   }
 
@@ -175,7 +197,7 @@ function copyPatch(song: Song) {
 
 /** O /sync devolve `count: 0` sem erro quando a RLS nega; sem isto o item sairia da fila como sucesso. */
 function assertApplied(result: { count: number }) {
-  if (result.count === 0) throw new Error('O servidor não aplicou a alteração.')
+  if (result.count === 0) throw new ApiError(403, 'O servidor não aplicou a alteração.')
 }
 
 function getUpdatedAt(entity: Entity) {

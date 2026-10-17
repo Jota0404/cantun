@@ -28,7 +28,8 @@ export function RepertoireDetailPage() {
       const detail = await getRepertoireDetail(repertoireId)
       if (!detail) { setError('Repertório não encontrado.'); return }
       setRepertoire(detail.repertoire); setItems(detail.items)
-      setSongs(await listOrganizationSongs(detail.repertoire.organizationId)); setPersonalSongs(await listSongs())
+      const { organizationId } = detail.repertoire
+      setSongs(organizationId ? await listOrganizationSongs(organizationId) : []); setPersonalSongs(await listSongs())
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível carregar o repertório.') }
   }, [repertoireId])
 
@@ -56,12 +57,12 @@ export function RepertoireDetailPage() {
 
   return <main className="repertoire-page">
     <header className="repertoire-page__header">
-      <div><Link to={`/organizations/${repertoire.organizationId}`}>{labels.backToOrganization}</Link><h2>{repertoire.name}</h2><p>{items.length} música(s)</p></div>
+      <div><Link to={repertoire.organizationId ? `/organizations/${repertoire.organizationId}` : '/repertoires'}>{repertoire.organizationId ? labels.backToOrganization : labels.personalRepertoireBack}</Link><h2>{repertoire.name}</h2><p>{items.length} música(s)</p></div>
       <div><button type="button" aria-expanded={panel === 'add'} onClick={() => setPanel(panel === 'add' ? undefined : 'add')}>Adicionar música</button><button type="button" aria-expanded={panel === 'rename'} onClick={() => setPanel(panel === 'rename' ? undefined : 'rename')}>Renomear</button><button type="button" onClick={duplicate}>Duplicar</button><button type="button" onClick={remove}>Excluir</button></div>
     </header>
     {error && <p className="repertoire-error" role="alert">{error}</p>}
     {panel === 'rename' && <InlineNameForm label="Novo nome do repertório" submitLabel="Salvar nome" initialValue={repertoire.name} onSubmit={rename} onCancel={() => setPanel(undefined)} />}
-    {panel === 'add' && <SongPicker songs={songs} personalSongs={personalSongs} excludeSongIds={new Set(items.map((item) => item.songId))} label="Buscar música para adicionar" onPick={addSong} />}
+    {panel === 'add' && <SongPicker songs={repertoire.organizationId ? songs : personalSongs} personalSongs={repertoire.organizationId ? personalSongs : undefined} excludeSongIds={new Set(items.map((item) => item.songId))} label="Buscar música para adicionar" onPick={addSong} />}
     <div className="repertoire-list">
       {items.map((item) => <article className="repertoire-card" key={item.id}>
         <div><span className="repertoire-card__position">{item.position + 1}</span><div><h4>{item.song?.title ?? 'Música indisponível'}</h4>{item.song?.artist && <p>{item.song.artist}</p>}</div></div>

@@ -4,7 +4,7 @@ import { createSong } from '../../application/songs/createSong'
 import type { CreateSongInput } from '../../application/songs/createSong'
 import { updateSong } from '../../application/songs/updateSong'
 import type { Song } from '../../domain/songs/song'
-import { MUSICAL_KEYS } from '../../domain/music/musicalKey'
+import { MAJOR_KEYS, MINOR_KEYS } from '../../domain/music/musicalKey'
 import type { MusicalKey } from '../../domain/music/musicalKey'
 import type { SongValidationField } from '../../domain/songs/validateSong'
 import './SongForm.css'
@@ -156,7 +156,8 @@ export function SongForm({ song, initialValues, onSuccess }: SongFormProps) {
           <label htmlFor={originalKeyId}>Tom original</label>
           <select id={originalKeyId} value={form.originalKey} onChange={(event) => { const key = event.target.value as MusicalKey | ''; updateField('originalKey', key); if (!song && !form.currentKey) updateField('currentKey', key) }} aria-invalid={Boolean(errors.originalKey)} aria-describedby={errors.originalKey ? `${originalKeyId}-error` : undefined}>
             <option value="">Selecione</option>
-            {MUSICAL_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
+            <optgroup label="Maiores">{MAJOR_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}</optgroup>
+            <optgroup label="Menores">{MINOR_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}</optgroup>
           </select>
           {errors.originalKey && <span id={`${originalKeyId}-error`} className="song-form__error">{errors.originalKey}</span>}
         </div>
@@ -165,7 +166,8 @@ export function SongForm({ song, initialValues, onSuccess }: SongFormProps) {
           <label htmlFor={currentKeyId}>Tom atual</label>
           <select id={currentKeyId} value={form.currentKey} onChange={(event) => updateField('currentKey', event.target.value as MusicalKey | '')} aria-invalid={Boolean(errors.currentKey)} aria-describedby={errors.currentKey ? `${currentKeyId}-error` : undefined}>
             <option value="">Selecione</option>
-            {MUSICAL_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
+            <optgroup label="Maiores">{MAJOR_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}</optgroup>
+            <optgroup label="Menores">{MINOR_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}</optgroup>
           </select>
           {errors.currentKey && <span id={`${currentKeyId}-error`} className="song-form__error">{errors.currentKey}</span>}
         </div>

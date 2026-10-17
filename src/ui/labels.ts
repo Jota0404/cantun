@@ -43,7 +43,14 @@ export const labels = {
   offlineCopy: 'Sem conexão: tente de novo quando estiver online.',
   addFromMyLibrary: 'Adicionar da minha biblioteca',
 
-  repertoireOwnerHint: 'Coleções reutilizáveis de músicas do seu Ministério.',
+  repertoireOwnerHint: 'Coleções reutilizáveis de músicas. Os seus ficam só com você, em todos os aparelhos; importe para o Ministério quando quiser.',
+  personalRepertoires: 'Meus repertórios',
+  noPersonalRepertoires: 'Você ainda não tem repertórios. Crie um e adicione músicas da sua biblioteca.',
+  organizationRepertoires: 'Repertórios dos Ministérios',
+  personalRepertoireBack: '← Repertórios',
+  importPersonalRepertoire: 'Importar repertório pessoal',
+  importPersonalHint: 'Cria uma cópia no Ministério, com a mesma ordem. As músicas viram cópias do Ministério e nada fica ligado ao original.',
+  noPersonalToImport: 'Você não tem repertórios pessoais para importar.',
   linkSongToOrganization: 'Vincular ao Ministério',
   songLinked: 'Vinculada ao Ministério',
 } as const

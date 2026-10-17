@@ -102,13 +102,14 @@ describe('parseSongDraft (RN-A4/A5)', () => {
 
   it('normalizes the key value case and accidentals', () => {
     expect(['d', 'f#', 'bb', 'Bb', 'B', 'b', 'c♯', 'e♭'].map((value) => normalizeMusicalKey(value))).toEqual(['D', 'F#', 'Bb', 'Bb', 'B', 'B', 'C#', 'Eb'])
-    expect(['Am', 'f#m', 'H', '', 'E#', 'x'].map((value) => normalizeMusicalKey(value))).toEqual([undefined, undefined, undefined, undefined, undefined, undefined])
+    expect(['Am', 'am', 'f#m', 'Bbm', 'e♭m'].map((value) => normalizeMusicalKey(value))).toEqual(['Am', 'Am', 'F#m', 'Bbm', 'Ebm'])
+    expect(['H', '', 'E#', 'x', 'AM', 'Amm'].map((value) => normalizeMusicalKey(value))).toEqual([undefined, undefined, undefined, undefined, undefined, undefined])
   })
 
-  it('returns a partial draft when the key is missing, invalid or minor, instead of failing', () => {
+  it('returns a partial draft when the key is missing or invalid, instead of failing', () => {
     expect(parseSongDraft('Título: Oceano\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: undefined } })
     expect(parseSongDraft('Título: Oceano\nTom: H\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: 'H' } })
-    expect(parseSongDraft('Título: Oceano\nTom: f#m\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: undefined, rawKey: 'f#m' } })
+    expect(parseSongDraft('Título: Oceano\nTom: f#m\n\n[D]Tu és...')).toMatchObject({ success: true, data: { originalKey: 'F#m', currentKey: 'F#m', rawKey: undefined } })
   })
 
   it('still rejects missing title, lyrics or a bad bpm', () => {
@@ -117,6 +118,7 @@ describe('parseSongDraft (RN-A4/A5)', () => {
 
   it('strict parseSongText accepts lowercase keys and keeps rejecting a missing one', () => {
     expect(parseSongText('Título: A\ntom: bb\n\n[Bb]x')).toMatchObject({ success: true, data: { originalKey: 'Bb' } })
-    expect(parseSongText('Título: A\nTom: Am\n\n[Am]x')).toEqual({ success: false, errors: ['Tom inválido: Am.'] })
+    expect(parseSongText('Título: A\nTom: Am\n\n[Am]x')).toMatchObject({ success: true, data: { originalKey: 'Am' } })
+    expect(parseSongText('Título: A\nTom: H\n\n[Am]x')).toEqual({ success: false, errors: ['Tom inválido: H.'] })
   })
 })

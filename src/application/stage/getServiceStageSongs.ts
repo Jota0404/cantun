@@ -1,4 +1,4 @@
-import type { MusicalKey } from '../../domain/music/musicalKey'
+import { MUSICAL_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { songRepository } from '../../db/repositories/songRepository'
@@ -33,11 +33,10 @@ type Row = {
   musical_role: string | null
 }
 
-const KEYS: MusicalKey[] = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B']
 
 function key(value: unknown, fallback: MusicalKey = 'C'): MusicalKey {
   const candidate = String(value ?? fallback)
-  return KEYS.includes(candidate as MusicalKey) ? candidate as MusicalKey : fallback
+  return MUSICAL_KEYS.includes(candidate as MusicalKey) ? candidate as MusicalKey : fallback
 }
 
 async function getLocalServiceStageSongs(stageSessionId: string): Promise<ServiceStageSong[]> {
