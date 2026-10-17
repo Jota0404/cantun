@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
+import { exportMyData } from '../../application/privacy/exportMyData'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
 import './NavigationPages.css'
 
@@ -11,6 +12,8 @@ export function MorePage() {
   const { signOut } = useAuth()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState(false)
 
   async function handleSignOut() {
     setError('')
@@ -34,6 +37,24 @@ export function MorePage() {
     }
   }
 
+  async function handleExport() {
+    setError('')
+    setExported(false)
+    setExporting(true)
+    const result = await exportMyData().finally(() => setExporting(false))
+    if (!result.success) {
+      setError(result.offline ? result.errors[0] : 'Não foi possível exportar seus dados. Tente novamente.')
+      return
+    }
+    const url = URL.createObjectURL(new Blob([result.json], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = result.filename
+    link.click()
+    URL.revokeObjectURL(url)
+    setExported(true)
+  }
+
   function toggleTheme() {
     const next: Theme = theme === 'light' ? 'dark' : 'light'
     saveTheme(next)
@@ -50,6 +71,11 @@ export function MorePage() {
         <h3 id="settings-title">Configurações</h3>
         <button type="button" onClick={toggleTheme}>{theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}</button>
         <p>Tema atual: {theme === 'light' ? 'claro' : 'escuro'}.</p>
+      </section>
+      <section aria-labelledby="privacy-title">
+        <h3 id="privacy-title">Privacidade</h3>
+        <button type="button" disabled={exporting} onClick={() => void handleExport()}>{exporting ? 'Exportando…' : 'Exportar meus dados'}</button>
+        {exported && <p role="status">Arquivo gerado. Confira seus downloads.</p>}
       </section>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>

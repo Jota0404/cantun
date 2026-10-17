@@ -69,6 +69,8 @@ Legenda: ✅ permitido · ❌ negado · **L** = permitido ao Líder **ativo da e
 | `stage.run` | organização | ✅ | ✅ | ✅ | ✅ | Executar o Modo Palco. A autorização do operador (MD) do Stage não muda neste bloco. |
 | `stage.start` | equipe | ✅ | ✅ | **L** | ❌ | Iniciar o Palco do serviço (`create_target_stage_session`). Decisão D4 do Jota, 2026-10-15: antes só Owner e Admin; agora também o **Líder ativo da equipe do serviço**. O Membro executa o Palco, mas não o inicia. |
 
+**Capacidade do próprio titular (fora da matriz):** `export_my_data` — qualquer usuário autenticado exporta em JSON só os próprios dados (perfil, vínculos, músicas e repertórios pessoais, escalas, disponibilidade). Sem parâmetro: usa `app.current_user_id()`; anônimo negado. Fora do export: senha, sessões, tokens, dados de outras pessoas e cópias do Ministério (conteúdo da organização). Só online (RPC).
+
 **Repertório pessoal** (ADR-062): não passa por `app.has_permission`. Vale `created_by_user_id = app.current_user_id()` e `organization_id` nulo: só o dono lê, edita e exclui, em qualquer papel (Owner e Admin da organização não o veem). Os itens só aceitam músicas da biblioteca do dono.
 
 ### 3.4 Serviço (B3 — ADR-052 `Accepted`)
