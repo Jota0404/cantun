@@ -12,8 +12,9 @@ import { availableAssignmentActions, type AssignmentAction } from '../../domain/
 import { MUSICAL_FUNCTIONS } from '../../domain/services/servicePosition'
 import type { Service } from '../../domain/services/service'
 import { isFinalStatus } from '../../domain/services/serviceLifecycle'
+import { Badge } from '../ui/Badge'
 import { musicalFunctionLabel } from '../team/musicalFunctions'
-import { ASSIGNMENT_ACTION_LABEL, ASSIGNMENT_STATUS_LABEL, AVAILABILITY_LABEL, OFFLINE_MESSAGE } from './scheduleLabels'
+import { ASSIGNMENT_ACTION_LABEL, ASSIGNMENT_STATUS_LABEL, ASSIGNMENT_STATUS_TONE, AVAILABILITY_LABEL, OFFLINE_MESSAGE } from './scheduleLabels'
 import { useOnline } from './useOnline'
 import './ServiceSchedule.css'
 import { labels } from '../../ui/labels'
@@ -144,15 +145,15 @@ export function ServiceSchedule({ service, access, currentUserId }: Props) {
               <header>
                 <strong>{label}</strong>
                 <span>{gap.confirmed} de {position.quantity} confirmado(s)</span>
-                <span className={`schedule-state schedule-state--${gap.state}`}>
+                <Badge tone={gap.state === 'filled' ? 'success' : 'attention'}>
                   {gap.state === 'filled' ? 'Vaga completa' : `Faltam ${gap.missing}: ${gap.invited} aguardando resposta, ${gap.uninvited} sem convite`}
-                </span>
+                </Badge>
               </header>
               {position.notes && <p>{position.notes}</p>}
               {people.length > 0 && <ul className="service-schedule__people">
                 {people.map((assignment) => (
                   <li key={assignment.id}>
-                    <span><strong>{nameOf(assignment.userId)}</strong> · {ASSIGNMENT_STATUS_LABEL[assignment.status]}</span>
+                    <span><strong>{nameOf(assignment.userId)}</strong> <Badge tone={ASSIGNMENT_STATUS_TONE[assignment.status]}>{ASSIGNMENT_STATUS_LABEL[assignment.status]}</Badge></span>
                     <span className="service-schedule__actions">
                       {availableAssignmentActions(assignment, currentUserId, canManage, final).map((action) => (
                         <button key={action} type="button" aria-label={`${ASSIGNMENT_ACTION_LABEL[action]} de ${nameOf(assignment.userId)}`} disabled={busy || !online} onClick={() => void perform(action, assignment)}>

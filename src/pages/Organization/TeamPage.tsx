@@ -15,10 +15,12 @@ import type { MemberDisplayStatus } from '../../domain/teams/teamMembership'
 import { InlineNameForm } from '../../components/ui/InlineNameForm'
 import { labels } from '../../ui/labels'
 import { MUSICAL_FUNCTIONS, musicalFunctionLabel } from '../../components/team/musicalFunctions'
+import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import './OrganizationPage.css'
 import './TeamPage.css'
 
 const STATUS_LABEL: Record<MemberDisplayStatus, string> = { active: 'Ativo', inactive: 'Inativo', pending_invite: 'Convite pendente' }
+const STATUS_TONE: Record<MemberDisplayStatus, BadgeTone> = { active: 'success', inactive: 'neutral', pending_invite: 'attention' }
 type StatusFilter = 'all' | MemberDisplayStatus
 
 type Result = { success: true } | { success: false; errors: string[] }
@@ -186,7 +188,7 @@ export function TeamPage() {
                   <li key={key} className="team-member">
                     <div>
                       <strong>{name}</strong>
-                      <span>{member.role === 'leader' ? 'Líder' : 'Membro'} · {STATUS_LABEL[member.displayStatus]}</span>
+                      <span>{member.role === 'leader' ? 'Líder' : 'Membro'} <Badge tone={STATUS_TONE[member.displayStatus]}>{STATUS_LABEL[member.displayStatus]}</Badge></span>
                       <span>Funções: {member.musicalFunctions.length ? member.musicalFunctions.map(musicalFunctionLabel).join(', ') : 'nenhuma'}</span>
                     </div>
                     <div className="team-member__actions">

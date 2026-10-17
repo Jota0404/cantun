@@ -25,3 +25,10 @@
   font: inherit;
   box-shadow: var(--shadow-soft);
 }
+
+.song-library-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}

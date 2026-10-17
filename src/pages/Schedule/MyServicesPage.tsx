@@ -90,8 +90,7 @@ export function MyServicesPage() {
   }
 
   return (
-    <main className="my-services">
-      <h2>Meus serviços</h2>
+    <div className="my-services">
       {!online && <p role="note">Você está sem conexão: confirmar, recusar e pedir substituição só funcionam online.</p>}
       {error && <p role="alert" className="organization-error">{error}</p>}
 
@@ -151,6 +150,6 @@ export function MyServicesPage() {
           )}
         </>}
       </section>
-    </main>
+    </div>
   )
 }
