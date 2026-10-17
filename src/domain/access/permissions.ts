@@ -19,6 +19,8 @@ export const PERMISSION_MATRIX = {
   'team_member.set_leader_status': { scope: 'team', owner: true, admin: true, leader: false, member: false },
   'team_member.set_role': { scope: 'team', owner: true, admin: true, leader: false, member: false },
   'team_member.set_functions': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  // B8 (RN-07): o Líder só remove `member`; só Owner e Admin removem Líder; ninguém remove a si mesmo; Admin não remove Owner.
+  'team_member.remove': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'team_member.set_own_functions': { scope: 'team', owner: true, admin: true, leader: 'L', member: 'P' },
   'song.create': { scope: 'organization', owner: true, admin: true, leader: true, member: true },
   'song.edit': { scope: 'organization', owner: true, admin: true, leader: 'L*', member: false },

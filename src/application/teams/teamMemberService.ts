@@ -60,6 +60,20 @@ export async function setMemberStatus(
   return changeMembership(input.membershipId, 'set_team_member_status', { p_status: input.status }, { status: input.status }, repository)
 }
 
+/** Remove o vínculo (e as atribuições futuras, no banco). Só online; o Dexie local é limpo depois do aceite. */
+export async function removeMember(
+  membershipId: string,
+  repository = teamMembershipRepository,
+): Promise<{ success: true } | { success: false; errors: string[] }> {
+  try {
+    await rpc('team_member_remove', { p_team_membership_id: membershipId })
+    await repository.removeLocal(membershipId)
+    return { success: true }
+  } catch (error) {
+    return { success: false, errors: [errorMessage(error, 'Não foi possível remover o membro.')] }
+  }
+}
+
 export async function setMemberFunctions(input: {
   membershipId: string
   musicalFunctions: string[]

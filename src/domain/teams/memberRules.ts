@@ -21,3 +21,10 @@ export function canSetFunctions(actor: AccessContext, target: Target, actorUserI
   if (target.userId === actorUserId) return hasPermission({ ...actor, isOwnResource: true }, 'team_member.set_own_functions')
   return hasPermission(actor, 'team_member.set_functions')
 }
+
+/** B8 (RN-07). O banco revalida: Líder só remove `member`, ninguém remove a si mesmo, Admin não remove Owner. */
+export function canRemoveMember(actor: AccessContext, target: Target, actorUserId: string): boolean {
+  if (target.userId === actorUserId) return false
+  if (target.role === 'leader' && actor.organizationRole !== 'owner' && actor.organizationRole !== 'admin') return false
+  return hasPermission(actor, 'team_member.remove')
+}

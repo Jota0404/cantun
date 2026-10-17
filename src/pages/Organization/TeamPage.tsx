@@ -4,14 +4,15 @@ import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { useAuth } from '../../auth/authContext'
 import { updateTeam, getTeam } from '../../application/teams/teamService'
 import {
-  demoteToMember, getMyAccessContext, listTeamMembers, promoteToLeader, setMemberFunctions, setMemberStatus, setMyDisplayName,
+  demoteToMember, getMyAccessContext, listTeamMembers, promoteToLeader, removeMember, setMemberFunctions, setMemberStatus, setMyDisplayName,
   type TeamMemberView,
 } from '../../application/teams/teamMemberService'
 import { createOrganizationInvite, buildOrganizationInviteUrl, revokeOrganizationInvite, type OrganizationInviteRole } from '../../application/organizations/organizationInviteService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
-import { canChangeRole, canChangeStatus, canSetFunctions } from '../../domain/teams/memberRules'
+import { canChangeRole, canChangeStatus, canRemoveMember, canSetFunctions } from '../../domain/teams/memberRules'
 import type { Team } from '../../domain/teams/team'
 import type { MemberDisplayStatus } from '../../domain/teams/teamMembership'
+import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { InlineNameForm } from '../../components/ui/InlineNameForm'
 import { labels } from '../../ui/labels'
 import { MUSICAL_FUNCTIONS, musicalFunctionLabel } from '../../components/team/musicalFunctions'
@@ -34,6 +35,7 @@ export function TeamPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [functionFilter, setFunctionFilter] = useState('')
   const [editingFunctions, setEditingFunctions] = useState<string>()
+  const [removing, setRemoving] = useState<{ membershipId: string; name: string }>()
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [inviteRole, setInviteRole] = useState<OrganizationInviteRole>('member')
   const [inviteEmail, setInviteEmail] = useState('')
@@ -196,6 +198,7 @@ export function TeamPage() {
                       {target && canChangeRole(access, target, 'member') && <button type="button" onClick={() => void run(() => demoteToMember(membershipId))}>Rebaixar a Membro {member.displayName}</button>}
                       {target && canChangeStatus(access, target, 'inactive') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'inactive' }))}>Inativar {member.displayName}</button>}
                       {target && canChangeStatus(access, target, 'active') && <button type="button" onClick={() => void run(() => setMemberStatus({ membershipId, status: 'active' }))}>Reativar {member.displayName}</button>}
+                      {target && canRemoveMember(access, target, user?.id ?? '') && <button type="button" aria-label={`Remover ${member.displayName} da banda`} onClick={() => setRemoving({ membershipId, name: member.displayName })}>Remover da banda</button>}
                       {target && canSetFunctions(access, target, user?.id ?? '') && (
                         <button type="button" aria-expanded={editingFunctions === key} onClick={() => setEditingFunctions(editingFunctions === key ? undefined : key)}>Editar funções de {member.displayName}</button>
                       )}
@@ -242,6 +245,18 @@ export function TeamPage() {
           </form>
         </section>
       </section>
+      <ConfirmModal
+        open={Boolean(removing)}
+        title="Remover da banda?"
+        message={`${removing?.name ?? ''} sairá da banda e perderá as escalas futuras dela. A conta e as músicas dessa pessoa continuam.`}
+        confirmLabel="Remover da banda"
+        onConfirm={() => {
+          const current = removing
+          setRemoving(undefined)
+          if (current) void run(() => removeMember(current.membershipId))
+        }}
+        onCancel={() => setRemoving(undefined)}
+      />
     </main>
   )
 }

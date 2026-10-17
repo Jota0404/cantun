@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AccessContext } from '../access/permissions'
 import { normalizeDisplayName } from '../users/displayName'
-import { canChangeRole, canChangeStatus, canSetFunctions } from './memberRules'
+import { canChangeRole, canChangeStatus, canRemoveMember, canSetFunctions } from './memberRules'
 
 const admin: AccessContext = { organizationRole: 'admin' }
 const leader: AccessContext = { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active' }
@@ -31,6 +31,14 @@ describe('member rules', () => {
     expect(canSetFunctions(leader, activeMember, 'me')).toBe(true)
     expect(canSetFunctions(leader, inactiveMember, 'me')).toBe(false)
     expect(canSetFunctions(admin, inactiveMember, 'me')).toBe(true)
+  })
+
+  it('remove: leader only members, owner/admin also leaders, never self, member never (B8 RN-07, N3, N6)', () => {
+    expect(canRemoveMember(leader, activeMember, 'me')).toBe(true)
+    expect(canRemoveMember(leader, activeLeader, 'me')).toBe(false)
+    expect(canRemoveMember(admin, activeLeader, 'me')).toBe(true)
+    expect(canRemoveMember(admin, { ...activeMember, userId: 'me' }, 'me')).toBe(false)
+    expect(canRemoveMember(member, activeMember, 'me')).toBe(false)
   })
 
   it('display name is 1–80 characters after trim (RN-15)', () => {

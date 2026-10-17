@@ -28,6 +28,8 @@ export class TeamMembershipRepository {
   async findByTeamAndUser(teamId: string, userId: string) { return this.db.teamMemberships.where('[teamId+userId]').equals([teamId, userId]).first() }
   async update(value: TeamMembership) { await this.db.teamMemberships.put(value); await queueTargetUpsert('teamMemberships', value) }
   async remove(id: string) { await this.db.teamMemberships.delete(id); await queueTargetDelete('teamMemberships', id) }
+  /** Remoção decidida pelo servidor (RPC `team_member_remove`): só o Dexie, sem fila. */
+  async removeLocal(id: string) { await this.db.teamMemberships.delete(id) }
 }
 
 export const teamRepository = new TeamRepository()
