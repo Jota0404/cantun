@@ -4,6 +4,8 @@ import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { getHomeSummary, type HomeSummary } from '../../application/home/getHomeSummary'
 import { formatServiceDate, SERVICE_STATUS_LABEL } from '../../components/service/serviceLabels'
 import { ASSIGNMENT_STATUS_LABEL, ASSIGNMENT_STATUS_TONE } from '../../components/schedule/scheduleLabels'
+import { musicalFunctionLabel } from '../../components/team/musicalFunctions'
+import { labels } from '../../ui/labels'
 import { Badge } from '../../components/ui/Badge'
 import './HomePage.css'
 
@@ -72,9 +74,9 @@ export function HomePage() {
 
       {summary && !summary.hasOrganization && (
         <section className="home-gaps" aria-labelledby="home-onboarding-title">
-          <h3 id="home-onboarding-title">Comece pela sua organização</h3>
-          <p>Crie ou entre em uma organização para montar equipes e serviços.</p>
-          <Link to="/organizations">Ir para organizações</Link>
+          <h3 id="home-onboarding-title">Comece pelo seu {labels.organization}</h3>
+          <p>Crie ou entre em um {labels.organization} para montar bandas e serviços.</p>
+          <Link to="/organizations">Ir para {labels.organizations}</Link>
         </section>
       )}
 
@@ -93,7 +95,7 @@ export function HomePage() {
               <Link to={`/services/${nextService.service.id}`}>{nextService.service.name}</Link>
               <span>{formatServiceDate(nextService.service.startsAt)}</span>
               {nextService.service.location && <span>{nextService.service.location}</span>}
-              <span>{nextService.assignment.musicalFunction}</span>
+              <span>{musicalFunctionLabel(nextService.assignment.musicalFunction)}</span>
               <Badge tone={ASSIGNMENT_STATUS_TONE[nextService.assignment.status]}>{ASSIGNMENT_STATUS_LABEL[nextService.assignment.status]}</Badge>
               <span>Serviço: {SERVICE_STATUS_LABEL[nextService.service.status]}</span>
             </li>
@@ -109,7 +111,7 @@ export function HomePage() {
               <li key={assignment.id}>
                 <Link to={`/services/${service.id}`}>{service.name}</Link>
                 <span>{formatServiceDate(service.startsAt)}</span>
-                <span>{assignment.musicalFunction}</span>
+                <span>{musicalFunctionLabel(assignment.musicalFunction)}</span>
                 <Badge tone="attention">Aguardando sua resposta</Badge>
               </li>
             ))}

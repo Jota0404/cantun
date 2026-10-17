@@ -59,12 +59,12 @@ describe('HomePage', () => {
   it('shows onboarding without organization', async () => {
     home.summary = { hasOrganization: false, pendingConfirmations: [], managedGaps: [] }
     render(<MemoryRouter><HomePage /></MemoryRouter>)
-    expect(await screen.findByRole('link', { name: 'Ir para organizações' })).toHaveAttribute('href', '/organizations')
+    expect(await screen.findByRole('link', { name: 'Ir para Ministérios' })).toHaveAttribute('href', '/organizations')
   })
 
   it('shows next service, pending confirmations and live stage', async () => {
     const service = { id: 'sv1', name: 'Culto de domingo', startsAt: '2026-10-11T22:00:00.000Z', status: 'ready', location: 'Templo central' }
-    const mine = { assignment: { id: 'a1', musicalFunction: 'Violão', status: 'invited' }, service, songTitles: [] }
+    const mine = { assignment: { id: 'a1', musicalFunction: 'acoustic-guitar', status: 'invited' }, service, songTitles: [] }
     home.summary = { hasOrganization: true, nextService: mine, pendingConfirmations: [mine], managedGaps: [], liveStage: { stageSessionId: 'st1', service } }
     render(<MemoryRouter><HomePage /></MemoryRouter>)
     const next = await screen.findByRole('region', { name: 'Próximo serviço' })
