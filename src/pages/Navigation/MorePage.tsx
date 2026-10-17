@@ -12,6 +12,8 @@ export function MorePage() {
   const { signOut } = useAuth()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState(false)
 
   async function handleSignOut() {
     setError('')
@@ -37,9 +39,11 @@ export function MorePage() {
 
   async function handleExport() {
     setError('')
-    const result = await exportMyData()
+    setExported(false)
+    setExporting(true)
+    const result = await exportMyData().finally(() => setExporting(false))
     if (!result.success) {
-      setError(result.errors[0])
+      setError(result.offline ? result.errors[0] : 'Não foi possível exportar seus dados. Tente novamente.')
       return
     }
     const url = URL.createObjectURL(new Blob([result.json], { type: 'application/json' }))
@@ -48,6 +52,7 @@ export function MorePage() {
     link.download = result.filename
     link.click()
     URL.revokeObjectURL(url)
+    setExported(true)
   }
 
   function toggleTheme() {
@@ -69,7 +74,8 @@ export function MorePage() {
       </section>
       <section aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacidade</h3>
-        <button type="button" onClick={() => void handleExport()}>Exportar meus dados</button>
+        <button type="button" disabled={exporting} onClick={() => void handleExport()}>{exporting ? 'Exportando…' : 'Exportar meus dados'}</button>
+        {exported && <p role="status">Arquivo gerado. Confira seus downloads.</p>}
       </section>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>

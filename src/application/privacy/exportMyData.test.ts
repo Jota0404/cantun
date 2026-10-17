@@ -17,12 +17,12 @@ describe('exportMyData', () => {
 
   it('fails clearly offline without calling the server', async () => {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    expect(await exportMyData()).toEqual({ success: false, errors: [OFFLINE_EXPORT_MESSAGE] })
+    expect(await exportMyData()).toEqual({ success: false, errors: [OFFLINE_EXPORT_MESSAGE], offline: true })
     expect(rpc).not.toHaveBeenCalled()
   })
 
-  it('reports server errors', async () => {
+  it('hides raw server errors behind a friendly message', async () => {
     rpc.mockRejectedValue(new Error('boom'))
-    expect(await exportMyData()).toEqual({ success: false, errors: ['boom'] })
+    expect(await exportMyData()).toEqual({ success: false, errors: ['Não foi possível exportar seus dados.'] })
   })
 })

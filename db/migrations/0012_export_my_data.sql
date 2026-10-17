@@ -28,7 +28,8 @@ begin
       from public.team_memberships tm join public.teams t on t.id = tm.team_id
       where tm.user_id = v_user_id), '[]'),
     'personal_songs', coalesce((
-      select jsonb_agg(to_jsonb(s) - 'user_id' order by s.created_at)
+      select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title, 'artist', s.artist, 'original_key', s.original_key, 'current_key', s.current_key,
+                                   'bpm', s.bpm, 'lyrics', s.lyrics, 'notes', s.notes, 'is_favorite', s.is_favorite, 'created_at', s.created_at) order by s.created_at)
       from public.songs s where s.user_id = v_user_id and s.organization_id is null and s.deleted_at is null), '[]'),
     'personal_repertoires', coalesce((
       select jsonb_agg(jsonb_build_object('id', r.id, 'name', r.name, 'created_at', r.created_at,
