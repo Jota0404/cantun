@@ -6,9 +6,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { HomePage } from './HomePage'
 
-const home = vi.hoisted(() => ({ summary: { hasOrganization: true, pendingConfirmations: [], managedGaps: [] } as Record<string, unknown> }))
+const home = vi.hoisted(() => ({ fail: false, summary: { hasOrganization: true, pendingConfirmations: [], managedGaps: [] } as Record<string, unknown> }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
-vi.mock('../../application/home/getHomeSummary', () => ({ getHomeSummary: async () => home.summary }))
+vi.mock('../../application/home/getHomeSummary', () => ({ getHomeSummary: async () => { if (home.fail) throw new Error('x'); return home.summary } }))
 
 function CurrentLocation() {
   return <p>{useLocation().pathname}</p>
@@ -63,15 +63,24 @@ describe('HomePage', () => {
   })
 
   it('shows next service, pending confirmations and live stage', async () => {
-    const service = { id: 'sv1', name: 'Culto de domingo', startsAt: '2026-10-11T22:00:00.000Z', status: 'ready' }
+    const service = { id: 'sv1', name: 'Culto de domingo', startsAt: '2026-10-11T22:00:00.000Z', status: 'ready', location: 'Templo central' }
     const mine = { assignment: { id: 'a1', musicalFunction: 'Violão', status: 'invited' }, service, songTitles: [] }
     home.summary = { hasOrganization: true, nextService: mine, pendingConfirmations: [mine], managedGaps: [], liveStage: { stageSessionId: 'st1', service } }
     render(<MemoryRouter><HomePage /></MemoryRouter>)
     const next = await screen.findByRole('region', { name: 'Próximo serviço' })
     expect(within(next).getByText('Violão')).toBeInTheDocument()
-    expect(within(next).getByText(/Pronto/)).toBeInTheDocument()
+    expect(within(next).getByText('Templo central')).toBeInTheDocument()
+    expect(within(next).getByText('Convidado, aguardando resposta')).toBeInTheDocument()
+    expect(within(next).getByText('Serviço: Pronto')).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Confirmações pendentes' })).getByText(/Aguardando sua resposta/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Abrir Modo Palco/ })).toHaveAttribute('href', '/stage/service-session/st1')
     home.summary = { hasOrganization: true, pendingConfirmations: [], managedGaps: [] }
+  })
+
+  it('shows an alert when loading fails', async () => {
+    home.fail = true
+    render(<MemoryRouter><HomePage /></MemoryRouter>)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar.')
+    home.fail = false
   })
 })

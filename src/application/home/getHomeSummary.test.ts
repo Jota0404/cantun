@@ -54,6 +54,16 @@ describe('getHomeSummary (RN-13)', () => {
     expect(summary.liveStage).toMatchObject({ stageSessionId: 'live-1', service: { id: 'near' } })
   })
 
+  it('ignores live stages of other organizations and finished services', async () => {
+    await db.organizations.put({ id: 'o1', name: 'Igreja', createdAt: now, updatedAt: now })
+    await db.services.bulkPut([svc('other', '2099-02-01T12:00:00Z', { organizationId: 'o2' }), svc('done', '2099-02-01T12:00:00Z', { status: 'completed' })])
+    await db.stageSessions.bulkPut([
+      { id: 'l1', serviceId: 'other', status: 'live', createdAt: now, updatedAt: now },
+      { id: 'l2', serviceId: 'done', status: 'live', createdAt: now, updatedAt: now },
+    ])
+    expect((await getHomeSummary()).liveStage).toBeUndefined()
+  })
+
   it('shows no managed gaps to a plain member', async () => {
     await db.organizations.put({ id: 'o1', name: 'Igreja', createdAt: now, updatedAt: now })
     await db.services.put(svc('near', '2099-02-01T12:00:00Z'))

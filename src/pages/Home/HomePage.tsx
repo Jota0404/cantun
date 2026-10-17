@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { getHomeSummary, type HomeSummary } from '../../application/home/getHomeSummary'
-import { formatServiceDate, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE } from '../../components/service/serviceLabels'
+import { formatServiceDate, SERVICE_STATUS_LABEL } from '../../components/service/serviceLabels'
+import { ASSIGNMENT_STATUS_LABEL, ASSIGNMENT_STATUS_TONE } from '../../components/schedule/scheduleLabels'
 import { Badge } from '../../components/ui/Badge'
 import './HomePage.css'
 
@@ -39,10 +40,11 @@ const homeActions = [
 
 export function HomePage() {
   const [summary, setSummary] = useState<HomeSummary>()
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    const load = () => { void getHomeSummary().then((next) => { if (!cancelled) setSummary(next) }).catch(() => undefined) }
+    const load = () => { void getHomeSummary().then((next) => { if (!cancelled) { setSummary(next); setFailed(false) } }).catch(() => { if (!cancelled) setFailed(true) }) }
     load()
     const unsubscribe = onRemoteDataApplied(load)
     return () => { cancelled = true; unsubscribe() }
@@ -66,6 +68,8 @@ export function HomePage() {
         </Link>
       </section>
 
+      {failed && <p role="alert">Não foi possível carregar.</p>}
+
       {summary && !summary.hasOrganization && (
         <section className="home-gaps" aria-labelledby="home-onboarding-title">
           <h3 id="home-onboarding-title">Comece pela sua organização</h3>
@@ -88,8 +92,10 @@ export function HomePage() {
             <li>
               <Link to={`/services/${nextService.service.id}`}>{nextService.service.name}</Link>
               <span>{formatServiceDate(nextService.service.startsAt)}</span>
+              {nextService.service.location && <span>{nextService.service.location}</span>}
               <span>{nextService.assignment.musicalFunction}</span>
-              <Badge tone={SERVICE_STATUS_TONE[nextService.service.status]}>{SERVICE_STATUS_LABEL[nextService.service.status]}</Badge>
+              <Badge tone={ASSIGNMENT_STATUS_TONE[nextService.assignment.status]}>{ASSIGNMENT_STATUS_LABEL[nextService.assignment.status]}</Badge>
+              <span>Serviço: {SERVICE_STATUS_LABEL[nextService.service.status]}</span>
             </li>
           </ul>
         </section>

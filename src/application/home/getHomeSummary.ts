@@ -1,5 +1,6 @@
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
 import { selectNextService } from '../../domain/home/nextService'
+import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import type { Service } from '../../domain/services/service'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { listMyOrganizations } from '../organizations/organizationService'
@@ -32,7 +33,7 @@ export async function getHomeSummary(now = new Date()): Promise<HomeSummary> {
   let liveStage: HomeSummary['liveStage']
   for (const session of liveSessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
     const service = await serviceRepository.getById(session.serviceId)
-    if (service) { liveStage = { stageSessionId: session.id, service }; break }
+    if (service && !isFinalStatus(service.status) && organizations.some((o) => o.id === service.organizationId)) { liveStage = { stageSessionId: session.id, service }; break }
   }
 
   return {
