@@ -25,7 +25,12 @@ export function MorePage() {
         `Há ${cause.pendingCount} alteração(ões) feitas neste aparelho que ainda não foram sincronizadas. ` +
         'Se sair agora, elas serão descartadas. Conecte-se à internet para sincronizar antes de sair.\n\nSair mesmo assim?',
       )
-      if (discard) await signOut({ discardPendingChanges: true })
+      if (!discard) return
+      try {
+        await signOut({ discardPendingChanges: true })
+      } catch (retryCause) {
+        setError(retryCause instanceof Error ? retryCause.message : 'Não foi possível sair.')
+      }
     }
   }
 

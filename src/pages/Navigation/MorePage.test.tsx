@@ -30,4 +30,13 @@ describe('MorePage', () => {
     expect(confirm).toHaveBeenCalled()
     expect(signOut).toHaveBeenLastCalledWith({ discardPendingChanges: true })
   })
+
+  it('shows an error when signing out after confirming fails', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    signOut.mockRejectedValueOnce(new PendingLocalChangesError(2)).mockRejectedValueOnce(new Error('Sem conexão'))
+    render(<MemoryRouter><MorePage /></MemoryRouter>)
+    await user.click(screen.getByRole('button', { name: 'Sair' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Sem conexão')
+  })
 })
