@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
-import { listManagedServiceGaps, type ManagedServiceGap } from '../../application/services/scheduleService'
-import { formatServiceDate } from '../../components/service/serviceLabels'
+import { getHomeSummary, type HomeSummary } from '../../application/home/getHomeSummary'
+import { formatServiceDate, SERVICE_STATUS_LABEL } from '../../components/service/serviceLabels'
+import { ASSIGNMENT_STATUS_LABEL, ASSIGNMENT_STATUS_TONE } from '../../components/schedule/scheduleLabels'
+import { Badge } from '../../components/ui/Badge'
 import './HomePage.css'
 
 const homeActions = [
@@ -37,15 +39,19 @@ const homeActions = [
 ]
 
 export function HomePage() {
-  const [gaps, setGaps] = useState<ManagedServiceGap[]>([])
+  const [summary, setSummary] = useState<HomeSummary>()
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    const load = () => { void listManagedServiceGaps().then((next) => { if (!cancelled) setGaps(next) }).catch(() => undefined) }
+    const load = () => { void getHomeSummary().then((next) => { if (!cancelled) { setSummary(next); setFailed(false) } }).catch(() => { if (!cancelled) setFailed(true) }) }
     load()
     const unsubscribe = onRemoteDataApplied(load)
     return () => { cancelled = true; unsubscribe() }
   }, [])
+
+  const gaps = summary?.managedGaps ?? []
+  const { nextService, pendingConfirmations = [], liveStage } = summary ?? {}
 
   return (
     <main className="home-page">
@@ -61,6 +67,55 @@ export function HomePage() {
           Abrir biblioteca
         </Link>
       </section>
+
+      {failed && <p role="alert">Não foi possível carregar.</p>}
+
+      {summary && !summary.hasOrganization && (
+        <section className="home-gaps" aria-labelledby="home-onboarding-title">
+          <h3 id="home-onboarding-title">Comece pela sua organização</h3>
+          <p>Crie ou entre em uma organização para montar equipes e serviços.</p>
+          <Link to="/organizations">Ir para organizações</Link>
+        </section>
+      )}
+
+      {liveStage && (
+        <section className="home-gaps" aria-labelledby="home-live-title">
+          <h3 id="home-live-title">Palco ao vivo</h3>
+          <Link to={`/stage/service-session/${liveStage.stageSessionId}`}>Abrir Modo Palco: {liveStage.service.name}</Link>
+        </section>
+      )}
+
+      {nextService && (
+        <section className="home-gaps" aria-labelledby="home-next-title">
+          <h3 id="home-next-title">Próximo serviço</h3>
+          <ul>
+            <li>
+              <Link to={`/services/${nextService.service.id}`}>{nextService.service.name}</Link>
+              <span>{formatServiceDate(nextService.service.startsAt)}</span>
+              {nextService.service.location && <span>{nextService.service.location}</span>}
+              <span>{nextService.assignment.musicalFunction}</span>
+              <Badge tone={ASSIGNMENT_STATUS_TONE[nextService.assignment.status]}>{ASSIGNMENT_STATUS_LABEL[nextService.assignment.status]}</Badge>
+              <span>Serviço: {SERVICE_STATUS_LABEL[nextService.service.status]}</span>
+            </li>
+          </ul>
+        </section>
+      )}
+
+      {pendingConfirmations.length > 0 && (
+        <section className="home-gaps" aria-labelledby="home-pending-title">
+          <h3 id="home-pending-title">Confirmações pendentes</h3>
+          <ul>
+            {pendingConfirmations.map(({ assignment, service }) => (
+              <li key={assignment.id}>
+                <Link to={`/services/${service.id}`}>{service.name}</Link>
+                <span>{formatServiceDate(service.startsAt)}</span>
+                <span>{assignment.musicalFunction}</span>
+                <Badge tone="attention">Aguardando sua resposta</Badge>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {gaps.length > 0 && (
         <section className="home-gaps" aria-labelledby="home-gaps-title">
