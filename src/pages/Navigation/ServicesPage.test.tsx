@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axeViolations } from '../../test/axe'
 import { ServicesPage } from './ServicesPage'
 
-const m = vi.hoisted(() => ({ orgs: [{ id: 'o1', name: 'Igreja' }] as unknown[], allowed: true }))
-vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => m.orgs }))
+const m = vi.hoisted(() => ({ orgs: [{ id: 'o1', name: 'Igreja' }] as unknown[], allowed: true, fail: false, remote: undefined as undefined | (() => void) }))
+vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => { if (m.fail) throw new Error('x'); return m.orgs } }))
+vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (cb: () => void) => { m.remote = cb; return () => undefined } }))
 vi.mock('../../application/teams/teamService', () => ({ listTeams: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] }))
 vi.mock('../../application/teams/teamMemberService', () => ({
   getMyAccessContext: async () => (m.allowed ? { organizationRole: 'owner' } : { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' }),
@@ -16,7 +17,23 @@ vi.mock('../Schedule/MyServicesPage', () => ({ MyServicesPage: () => <p>Meus pr�
 vi.mock('../../components/service/ServicesPanel', () => ({ ServicesPanel: () => <p>Lista de todos os serviços</p> }))
 
 describe('ServicesPage', () => {
-  beforeEach(() => { m.orgs = [{ id: 'o1', name: 'Igreja' }]; m.allowed = true })
+  beforeEach(() => { m.orgs = [{ id: 'o1', name: 'Igreja' }]; m.allowed = true; m.fail = false; m.remote = undefined })
+
+  it('shows an error, not the empty-organization message, when loading fails', async () => {
+    m.fail = true
+    render(<MemoryRouter><ServicesPage tab="mine" /></MemoryRouter>)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar.')
+    expect(screen.queryByText(/ainda não participa/)).not.toBeInTheDocument()
+  })
+
+  it('reloads after the remote pull so a fresh device gets the tabs', async () => {
+    m.orgs = []
+    render(<MemoryRouter><ServicesPage tab="mine" /></MemoryRouter>)
+    expect(await screen.findByText(/ainda não participa/)).toBeInTheDocument()
+    m.orgs = [{ id: 'o1', name: 'Igreja' }]
+    act(() => m.remote?.())
+    expect(await screen.findByRole('navigation', { name: 'Seções de serviços' })).toBeInTheDocument()
+  })
 
   it('managers see both tabs and open "Todos os serviços"', async () => {
     render(<MemoryRouter initialEntries={['/servicos/todos']}><ServicesPage tab="all" /></MemoryRouter>)

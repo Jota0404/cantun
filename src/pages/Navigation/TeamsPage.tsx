@@ -15,6 +15,7 @@ export function TeamsPage() {
   const [organization, setOrganization] = useState<Organization>()
   const [teams, setTeams] = useState<Team[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -24,12 +25,15 @@ export function TeamsPage() {
       if (cancelled) return
       setOrganization(principal)
       setTeams(organizationTeams)
+      setFailed(false)
       setLoaded(true)
     }
-    void load().catch(() => { if (!cancelled) setLoaded(true) })
+    void load().catch(() => { if (!cancelled) { setFailed(true); setLoaded(true) } })
     const unsubscribe = onRemoteDataApplied(() => { void load().catch(() => undefined) })
     return () => { cancelled = true; unsubscribe() }
   }, [])
+
+  if (failed) return <main className="nav-page"><h2>{labels.teams}</h2><p role="alert">Não foi possível carregar.</p></main>
 
   if (loaded && !organization) return <main className="nav-page"><h2>{labels.teams}</h2><TeamOnboarding /></main>
 

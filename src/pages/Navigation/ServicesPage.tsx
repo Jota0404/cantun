@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { listMyOrganizations } from '../../application/organizations/organizationService'
+import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { listTeams } from '../../application/teams/teamService'
 import { hasPermission } from '../../domain/access/permissions'
@@ -17,6 +18,7 @@ export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
   const [teams, setTeams] = useState<Team[]>([])
   const [canManage, setCanManage] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -28,10 +30,12 @@ export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
       setOrganization(principal)
       setTeams(organizationTeams)
       setCanManage(contexts.some((context) => hasPermission(context, 'service.create')))
+      setFailed(false)
       setLoaded(true)
     }
-    void load().catch(() => { if (!cancelled) setLoaded(true) })
-    return () => { cancelled = true }
+    void load().catch(() => { if (!cancelled) { setFailed(true); setLoaded(true) } })
+    const unsubscribe = onRemoteDataApplied(() => { void load().catch(() => undefined) })
+    return () => { cancelled = true; unsubscribe() }
   }, [])
 
   const showAll = tab === 'all' && canManage
@@ -49,7 +53,8 @@ export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
         ? organization && <ServicesPanel organizationId={organization.id} teams={teams} />
         : <MyServicesPage />}
       {loaded && tab === 'all' && !canManage && <p>Você vê aqui os serviços em que está escalado.</p>}
-      {loaded && !organization && <p>Você ainda não participa de um Ministério. <Link to="/bandas">Criar a primeira banda</Link></p>}
+      {failed && <p role="alert">Não foi possível carregar.</p>}
+      {loaded && !failed && !organization && <p>Você ainda não participa de um Ministério. <Link to="/bandas">Criar a primeira banda</Link></p>}
     </main>
   )
 }
