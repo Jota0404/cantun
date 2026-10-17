@@ -4,6 +4,7 @@ import type { Song } from '../domain/songs/song'
 import { SalmodiaDatabase } from '../db/database'
 import { SyncEngine } from './syncEngine'
 import { onRemoteDataApplied } from './remoteChanges'
+import { ApiError } from '../platform/http'
 
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn() }))
 vi.mock('../platform/sync', () => remote)
@@ -145,5 +146,28 @@ describe('SyncEngine (songs)', () => {
     await db.syncQueue.add({ userId: 'user-1', entity: 'songs', entityId: 'song-1', operation: 'delete', updatedAt: '2026-10-05T00:00:00Z', attempts: 0 })
     await new SyncEngine(db).sync('user-1')
     expect((await db.syncQueue.toArray())[0]).toMatchObject({ entityId: 'song-1', attempts: 1 })
+  })
+
+  it('stops resending a permanent 403, counts it and discards it with the local edit; network errors keep retrying', async () => {
+    remote.selectRows.mockResolvedValue([remoteRow('2026-10-01T00:00:00Z')])
+    remote.upsertRows.mockRejectedValue(new ApiError(403, 'sem permissão'))
+    const engine = new SyncEngine(db)
+    await db.songs.put(song('2026-10-02T00:00:00Z', 'Editada'))
+    await queue(song('2026-10-02T00:00:00Z', 'Editada'))
+
+    await engine.sync('user-1')
+    await engine.sync('user-1')
+    expect(remote.upsertRows).toHaveBeenCalledTimes(1)
+    expect(await engine.getStatus()).toEqual({ pending: 0, failed: [{ id: expect.any(Number), entity: 'songs', reason: 'sem permissão' }] })
+
+    await engine.discardFailed()
+    expect(await db.syncQueue.count()).toBe(0)
+    expect(await db.songs.get('song-1')).toBeUndefined()
+
+    remote.upsertRows.mockRejectedValue(new ApiError(0, 'rede'))
+    await db.songs.put(song('2026-10-03T00:00:00Z'))
+    await queue(song('2026-10-03T00:00:00Z'))
+    await engine.sync('user-1')
+    expect(await engine.getStatus()).toEqual({ pending: 1, failed: [] })
   })
 })

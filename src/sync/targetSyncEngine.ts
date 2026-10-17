@@ -87,11 +87,11 @@ export interface TargetSyncQueueItem {
 
 export interface SyncStatus {
   pending: number
-  failed: Array<{ id: number; entity: TargetWritableEntityName; reason: string }>
+  failed: Array<{ id: number; entity: string; reason: string }>
 }
 
 // Erro permanente: o servidor entendeu e recusou (403, 409…); repetir não muda nada. 408 e 429 são transitórios.
-function isPermanent(error: unknown): error is ApiError {
+export function isPermanent(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429
 }
 
