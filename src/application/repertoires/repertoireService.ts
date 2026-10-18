@@ -9,6 +9,9 @@ import type { Song } from '../../domain/songs/song'
 import { listMyOrganizations } from '../organizations/organizationService'
 import { toSong } from '../../domain/songs/songRow'
 import { rpc } from '../../platform/rpc'
+import { getCurrentUser } from '../../platform/auth'
+import { hasPermission } from '../../domain/access/permissions'
+import { getMyAccessContext } from '../teams/teamMemberService'
 import { OFFLINE_COPY_MESSAGE } from '../songs/copySongToOrganization'
 
 /** Repertórios agrupados por organização (Dexie, offline). */
@@ -106,18 +109,23 @@ export async function deleteRepertoire(repertoireId: string): Promise<void> {
   await repertoireRepository.remove(repertoireId)
 }
 
-export async function duplicateRepertoire(repertoireId: string, name?: string): Promise<Repertoire> {
+/** RN-05: "Cópia de …", mesmas músicas e ordem, mesmo escopo; o autor é o usuário. Organização exige `repertoire.create`. */
+export async function duplicateRepertoire(repertoireId: string): Promise<Repertoire> {
   const current = await repertoireRepository.getById(repertoireId)
   if (!current) throw new Error('Repertório não encontrado.')
-  const copy = await createRepertoire({
-    organizationId: current.organizationId,
-    name: name?.trim() || current.name + ' (cópia)',
-    createdByUserId: current.createdByUserId,
-    version: 1,
-  })
+  const user = getCurrentUser()
+  if (!user) throw new Error('Entre na sua conta para duplicar o repertório.')
+  if (current.organizationId && !hasPermission(await getMyAccessContext({ organizationId: current.organizationId }), 'repertoire.create')) {
+    throw new Error('Você não tem permissão para criar repertórios neste Ministério.')
+  }
+  const copy = await createRepertoire({ organizationId: current.organizationId, name: `Cópia de ${current.name}`, createdByUserId: user.id, version: 1 })
+  const now = new Date().toISOString()
   const items = await repertoireItemRepository.listByRepertoireId(repertoireId)
-  for (const item of items) {
-    await repertoireItemRepository.create({ ...item, id: crypto.randomUUID(), repertoireId: copy.id })
+  try {
+    await repertoireItemRepository.createMany(items.map((item) => ({ ...item, id: crypto.randomUUID(), repertoireId: copy.id, updatedAt: now })))
+  } catch (error) {
+    await repertoireRepository.remove(copy.id)
+    throw error
   }
   return copy
 }

@@ -28,7 +28,7 @@ async function editableError(serviceId: string, repositories: ServiceScheduleRep
 // Os itens renumerados sobem juntos no mesmo lote do sync (unique deferida no banco, VS-02 §Dados).
 async function saveRenumbered(serviceId: string, changed: ServiceItem[], repositories: ServiceScheduleRepositories) {
   const now = new Date().toISOString()
-  for (const item of changed) await repositories.items.update({ ...item, updatedAt: now })
+  await repositories.items.saveMany(changed.map((item) => ({ ...item, updatedAt: now })))
   await touchService(serviceId, repositories, now)
   return repositories.items.listByServiceId(serviceId)
 }

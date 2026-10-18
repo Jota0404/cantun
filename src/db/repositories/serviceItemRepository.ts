@@ -1,7 +1,7 @@
 import type { ServiceItem } from '../../domain/services/serviceItem'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
-import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
+import { queueTargetDelete, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
 
 export class ServiceItemRepository {
   private readonly db: SalmodiaDatabase
@@ -9,6 +9,10 @@ export class ServiceItemRepository {
     this.db = db
   }
   async create(value: ServiceItem): Promise<void> { await this.db.serviceItems.add(value); await queueTargetUpsert('serviceItems', value) }
+  /** Grava e enfileira todos os itens atomicamente (renumeração em lote). */
+  async saveMany(values: ServiceItem[]): Promise<void> {
+    if (values.length) await queueTargetUpserts('serviceItems', values, [this.db.serviceItems], async () => { await this.db.serviceItems.bulkPut(values) })
+  }
   async getById(id: string): Promise<ServiceItem | undefined> { return this.db.serviceItems.get(id) }
   async listByServiceId(serviceId: string): Promise<ServiceItem[]> { return this.db.serviceItems.where('serviceId').equals(serviceId).sortBy('position') }
   async update(value: ServiceItem): Promise<void> { await this.db.serviceItems.put(value); await queueTargetUpsert('serviceItems', value) }

@@ -1,7 +1,7 @@
 import type { RepertoireItem } from '../../domain/repertoires/repertoireItem'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
-import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
+import { queueTargetDelete, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
 
 export class RepertoireItemRepository {
   private readonly db: SalmodiaDatabase
@@ -9,6 +9,9 @@ export class RepertoireItemRepository {
     this.db = db
   }
   async create(value: RepertoireItem): Promise<void> { await this.db.repertoireItems.add(value); await queueTargetUpsert('repertoireItems', value) }
+  async createMany(values: RepertoireItem[]): Promise<void> {
+    if (values.length) await queueTargetUpserts('repertoireItems', values, [this.db.repertoireItems], async () => { await this.db.repertoireItems.bulkAdd(values) })
+  }
   async getById(id: string): Promise<RepertoireItem | undefined> { return this.db.repertoireItems.get(id) }
   async listByRepertoireId(repertoireId: string): Promise<RepertoireItem[]> { return this.db.repertoireItems.where('repertoireId').equals(repertoireId).sortBy('position') }
   async listBySongId(songId: string): Promise<RepertoireItem[]> { return this.db.repertoireItems.where('songId').equals(songId).toArray() }
