@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -107,6 +107,33 @@ describe('MorePage', () => {
       await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
       await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
       expect(deleteAccount).not.toHaveBeenCalled()
+      vi.restoreAllMocks()
+    })
+
+    it('locks the dialog while deleting, so a double click sends one request', async () => {
+      const user = userEvent.setup()
+      let finish: (value: { success: false; errors: string[] }) => void = () => undefined
+      deleteAccount.mockReset().mockReturnValueOnce(new Promise((resolve) => { finish = resolve }))
+      renderMore()
+      await openAndConfirm(user)
+      const busyButton = screen.getByRole('button', { name: 'Excluindo…' })
+      expect(busyButton).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+      await user.keyboard('{Escape}')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(deleteAccount).toHaveBeenCalledTimes(1)
+      finish({ success: false, errors: ['x'] })
+      expect(await screen.findByRole('alert')).toHaveTextContent('x')
+    })
+
+    it('reacts to going offline while the dialog is open', async () => {
+      const user = userEvent.setup()
+      renderMore()
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      act(() => { window.dispatchEvent(new Event('offline')) })
+      expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão')
       vi.restoreAllMocks()
     })
 

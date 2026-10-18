@@ -201,6 +201,7 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
 
 export class TargetSyncEngine {
   private syncing = false
+  private stopped = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
   constructor(db: SalmodiaDatabase) {
@@ -262,8 +263,20 @@ export class TargetSyncEngine {
     })
   }
 
+  /** Para o retry e espera o sync em andamento terminar; nada reagenda até `start()`. */
+  async stop(): Promise<void> {
+    this.stopped = true
+    window.clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
+    while (this.syncing) await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  start(): void {
+    this.stopped = false
+  }
+
   async sync(): Promise<void> {
-    if (this.syncing || !navigator.onLine) return
+    if (this.syncing || this.stopped || !navigator.onLine) return
     this.syncing = true
     try {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
@@ -352,7 +365,7 @@ export class TargetSyncEngine {
     }
     // Só o que ainda pode dar certo: itens `failed` esperam o usuário descartar.
     const retryable = await this.db.targetSyncQueue.filter((i) => i.status !== 'failed').toArray()
-    if (retryable.length > 0 && this.retryTimer === undefined && navigator.onLine) {
+    if (retryable.length > 0 && !this.stopped && this.retryTimer === undefined && navigator.onLine) {
       // Recuo exponencial pelo maior `attempts` da fila (10 s, 20 s… no máximo 300 s).
       const attempts = Math.max(...retryable.map((i) => i.attempts))
       this.retryTimer = window.setTimeout(() => {

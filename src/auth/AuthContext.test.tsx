@@ -9,6 +9,7 @@ const auth = vi.hoisted(() => ({
   signIn: vi.fn(),
   signUp: vi.fn(),
   signOut: vi.fn(),
+  clearCurrentUser: vi.fn(),
   verifyEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
   resendVerification: vi.fn(),
@@ -18,7 +19,11 @@ vi.mock('../platform/auth', () => auth)
 vi.mock('../platform/http', () => ({ isPlatformConfigured: true }))
 const realtime = vi.hoisted(() => ({ onSessionExpired: null as (() => void) | null }))
 vi.mock('../platform/realtime', () => ({ realtime }))
-vi.mock('../sync/syncService', () => ({ syncEngine: { bootstrap: vi.fn(), sync: vi.fn() }, syncTargetDomain: vi.fn() }))
+const engines = vi.hoisted(() => ({
+  syncEngine: { bootstrap: vi.fn(), sync: vi.fn(), start: vi.fn(), stop: vi.fn(async () => undefined) },
+  targetSyncEngine: { start: vi.fn(), stop: vi.fn(async () => undefined) },
+}))
+vi.mock('../sync/syncService', () => ({ ...engines, syncTargetDomain: vi.fn() }))
 
 const deleteMyAccount = vi.hoisted(() => vi.fn())
 vi.mock('../application/privacy/deleteMyAccount', () => ({ deleteMyAccount }))
@@ -104,6 +109,10 @@ describe('AuthProvider', () => {
 
     expect(await db.syncQueue.count()).toBe(0)
     expect(result.current.user).toBeNull()
+    expect(auth.clearCurrentUser).toHaveBeenCalled()
+    const stopOrder = engines.syncEngine.stop.mock.invocationCallOrder[0]
+    expect(stopOrder).toBeLessThan(auth.signOut.mock.invocationCallOrder[0])
+    expect(engines.targetSyncEngine.stop).toHaveBeenCalled()
   })
 
   it('deleteAccount keeps everything when the server refuses', async () => {

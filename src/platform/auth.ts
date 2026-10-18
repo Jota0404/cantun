@@ -61,6 +61,11 @@ export const signUp = (email: string, password: string, displayName: string): Pr
 export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', { email, password })
 
 /** Revoga a sessão no servidor. Sem rede, lança e mantém o usuário (o cookie continuaria válido). */
+/** Esquece a identidade em memória e no cache local (ex.: conta excluída). */
+export function clearCurrentUser(): void {
+  setCurrentUser(null)
+}
+
 export async function signOut(): Promise<void> {
   try {
     await apiRequest<void>('POST', '/auth/logout')

@@ -8,6 +8,7 @@ type ConfirmModalProps = {
   confirmLabel?: string
   cancelLabel?: string
   confirmDisabled?: boolean
+  cancelDisabled?: boolean
   children?: ReactNode
   onConfirm: () => void
   onCancel: () => void
@@ -20,6 +21,7 @@ export function ConfirmModal({
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
   confirmDisabled = false,
+  cancelDisabled = false,
   children,
   onConfirm,
   onCancel,
@@ -47,7 +49,7 @@ export function ConfirmModal({
         <p>{message}</p>
         {children}
         <div className="confirm-modal__actions">
-          <button ref={cancelButtonRef} type="button" onClick={onCancel}>{cancelLabel}</button>
+          <button ref={cancelButtonRef} type="button" disabled={cancelDisabled} onClick={onCancel}>{cancelLabel}</button>
           <button className="confirm-modal__confirm" type="button" disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </section>

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
 import { exportMyData } from '../../application/privacy/exportMyData'
+import { useOnline } from '../../components/schedule/useOnline'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { labels } from '../../ui/labels'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
@@ -16,6 +17,8 @@ export function MorePage() {
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleteError, setDeleteError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const online = useOnline()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -63,23 +66,28 @@ export function MorePage() {
 
   // Estável: o ConfirmModal devolve o foco ao Cancelar sempre que onCancel muda.
   const closeDelete = useCallback(() => {
+    if (busy) return
     setDeleting(false)
     setConfirmText('')
     setDeleteError('')
-  }, [])
+  }, [busy])
 
   async function handleDelete() {
+    if (busy) return
     if (!navigator.onLine) {
       setDeleteError('Sem conexão: conecte-se à internet para excluir sua conta.')
       return
     }
     setDeleteError('')
+    setBusy(true)
     try {
       const result = await deleteAccount()
       if (result.success) navigate('/auth', { replace: true, state: { notice: 'Conta excluída' } })
       else setDeleteError(result.errors[0])
     } catch {
       setDeleteError('Não foi possível limpar os dados deste aparelho. Tente sair da conta.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -110,14 +118,15 @@ export function MorePage() {
         open={deleting}
         title="Excluir minha conta"
         message={`O que você criou para ${labels.organizationDefinite} continua lá, como “Ex-membro”. Seus dados pessoais, vínculos e escalas são apagados agora, inclusive alterações deste aparelho ainda não sincronizadas. Isso não pode ser desfeito.`}
-        confirmLabel="Excluir definitivamente"
-        confirmDisabled={confirmText !== 'EXCLUIR'}
+        confirmLabel={busy ? 'Excluindo…' : 'Excluir definitivamente'}
+        confirmDisabled={confirmText !== 'EXCLUIR' || busy}
+        cancelDisabled={busy}
         onConfirm={() => void handleDelete()}
         onCancel={closeDelete}
       >
         <label>Digite EXCLUIR para confirmar <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
-        {!navigator.onLine && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
-        {deleteError && navigator.onLine && <p role="alert">{deleteError}</p>}
+        {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
+        {deleteError && online && <p role="alert">{deleteError}</p>}
       </ConfirmModal>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>
