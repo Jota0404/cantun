@@ -17,7 +17,7 @@
 | Vínculos | organização, equipe, papel, funções musicais | controlar acesso e escalar | **Sim, potencial** (filiação a igreja, LGPD art. 11) `[JURÍDICO: base legal]` | Até remoção do vínculo ou exclusão |
 | Escala e disponibilidade | atribuições, datas indisponíveis | montar escalas | Não | Apagadas na exclusão (futuras e passadas) |
 | Conteúdo musical | músicas, repertórios, serviços | operar o ministério | Não | Pessoal: apagado na exclusão. Do ministério: permanece com a organização, autoria "Ex-membro" (ADR-062/063) |
-| Consentimento | documento, versão, data do aceite | prova do aceite | Não | Apagado na exclusão `[JURÍDICO: manter prova?]` |
+| Consentimento | documento (`privacy`, `terms` e a declaração de idade `age`), versão, data do aceite | prova do aceite | Não | Apagado na exclusão `[JURÍDICO: manter prova?]` |
 | Log administrativo | tipo de ação, data, organização (sem e-mail nem conteúdo) | auditoria do Owner | Não | Titular vira nulo na exclusão; `[JURÍDICO: prazo]` |
 | Logs do servidor | método, rota, status, tempo (sem corpo, cookie, token ou link) | operação e segurança | Não | Conforme o Render `[JURÍDICO: prazo]` |
 | Cópias de segurança | tudo acima, em dump | recuperação | Herda | 30 dias (proposto) `[JURÍDICO]`; ver BACKUP_RECOVERY §6 |

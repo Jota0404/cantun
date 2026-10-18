@@ -64,4 +64,11 @@ describe('platform auth', () => {
     expect(auth.getCurrentUser()).toBeNull()
     expect(apiRequest).toHaveBeenLastCalledWith('POST', '/auth/logout')
   })
+
+  it('signUp sends the age declaration and the consent version', async () => {
+    apiRequest.mockResolvedValueOnce({ user })
+    const auth = await loadAuth()
+    await auth.signUp('a@example.com', 'senha-segura', 'Ana')
+    expect(apiRequest).toHaveBeenCalledWith('POST', '/auth/signup', expect.objectContaining({ ageDeclared: true, consentVersion: expect.any(String) }))
+  })
 })

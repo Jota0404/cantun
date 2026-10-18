@@ -53,13 +53,13 @@ export async function getSession(): Promise<AuthUser | null> {
   }
 }
 
-async function authenticate(path: string, body: Record<string, string>): Promise<AuthUser> {
+async function authenticate(path: string, body: Record<string, string | boolean>): Promise<AuthUser> {
   const { user } = await apiRequest<{ user: AuthUser }>('POST', path, body)
   setCurrentUser(user)
   return user
 }
 
-export const signUp = (email: string, password: string, displayName: string): Promise<AuthUser> => authenticate('/auth/signup', { email, password, displayName, consentVersion: CONSENT_VERSION })
+export const signUp = (email: string, password: string, displayName: string): Promise<AuthUser> => authenticate('/auth/signup', { email, password, displayName, consentVersion: CONSENT_VERSION, ageDeclared: true })
 
 export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', { email, password })
 

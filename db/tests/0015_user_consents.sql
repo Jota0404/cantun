@@ -70,17 +70,17 @@ reset role;
 select pg_temp.ok(not app.consent_pending('00000000-0000-0000-0000-0000000c1501'), 'dois documentos: em dia');
 
 -- Bruno aceita via servidor (accept_consents); versão errada recusada.
-select pg_temp.fails_with($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1502', 'x')$q$, 'outdated consent version', 'accept_consents versão errada');
-select app.accept_consents('00000000-0000-0000-0000-0000000c1502', '2026-10-17');
-select app.accept_consents('00000000-0000-0000-0000-0000000c1502', '2026-10-17');
-select pg_temp.ok((select count(*) = 2 from public.user_consents where user_id = '00000000-0000-0000-0000-0000000c1502'), 'accept_consents idempotente');
+select pg_temp.fails_with($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1502', 'x', true)$q$, 'outdated consent version', 'accept_consents versão errada');
+select app.accept_consents('00000000-0000-0000-0000-0000000c1502', '2026-10-17', true);
+select app.accept_consents('00000000-0000-0000-0000-0000000c1502', '2026-10-17', true);
+select pg_temp.ok((select count(*) = 3 from public.user_consents where user_id = '00000000-0000-0000-0000-0000000c1502'), 'accept_consents idempotente (privacy, terms, age)');
 
 -- Outro usuário não lê o aceite alheio; cada um lê o seu.
 set local role cantum_user;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000c1501');
 select pg_temp.ok((select count(*) = 2 and bool_and(user_id = '00000000-0000-0000-0000-0000000c1501') from public.user_consents), 'Ana lê só o seu');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000c1502');
-select pg_temp.ok((select count(*) = 2 and bool_and(user_id = '00000000-0000-0000-0000-0000000c1502') from public.user_consents), 'Bruno lê só o seu');
+select pg_temp.ok((select count(*) = 3 and bool_and(user_id = '00000000-0000-0000-0000-0000000c1502') from public.user_consents), 'Bruno lê só o seu');
 select pg_temp.as_user(null);
 select pg_temp.ok((select count(*) = 0 from public.user_consents), 'anônimo não lê');
 
@@ -89,7 +89,7 @@ select pg_temp.as_user('00000000-0000-0000-0000-0000000c1501');
 select pg_temp.denied($q$insert into public.user_consents (user_id, document, version) values ('00000000-0000-0000-0000-0000000c1501', 'privacy', 'outra')$q$, 'N9: insert direto');
 select pg_temp.denied($q$update public.user_consents set version = 'x'$q$, 'N9: update direto');
 select pg_temp.denied($q$delete from public.user_consents$q$, 'N9: delete direto');
-select pg_temp.denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'accept_consents fora do cliente');
+select pg_temp.denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17', true)$q$, 'accept_consents fora do cliente');
 reset role;
 
 -- Helpers do servidor e record_consent fora do alcance de cantum_user/cantum_anon: permission denied.
@@ -106,11 +106,11 @@ end $$;
 set local role cantum_user;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000c1501');
 select pg_temp.perm_denied($q$select app.consent_pending('00000000-0000-0000-0000-0000000c1501')$q$, 'cantum_user: consent_pending');
-select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'cantum_user: accept_consents');
+select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17', true)$q$, 'cantum_user: accept_consents');
 reset role;
 set local role cantum_anon;
 select pg_temp.perm_denied($q$select app.consent_pending('00000000-0000-0000-0000-0000000c1501')$q$, 'cantum_anon: consent_pending');
-select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'cantum_anon: accept_consents');
+select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17', true)$q$, 'cantum_anon: accept_consents');
 select pg_temp.perm_denied($q$select public.record_consent('privacy', '2026-10-17')$q$, 'cantum_anon: record_consent');
 reset role;
 

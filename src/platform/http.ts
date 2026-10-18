@@ -53,6 +53,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   'not authorized to invite organization members': 'Você não tem permissão para convidar pessoas.',
   'team does not belong to organization': 'A banda não pertence a este Ministério.',
   'team membership not found': 'Membro não encontrado.',
+  'age declaration required': 'Declare ter 16 anos ou mais para criar a conta.',
   'outdated consent version': 'A versão da Política e dos Termos mudou. Recarregue a página e tente de novo.',
   'sole owner of an organization: transfer ownership first': 'Você é o único Owner de um Ministério. Transfira a propriedade antes de excluir a conta.',
 }

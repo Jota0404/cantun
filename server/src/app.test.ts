@@ -47,7 +47,7 @@ function tokenFrom(mail: Mail | undefined): string {
 }
 
 async function signup(email: string, password = 'senha-forte-123', displayName = 'Pessoa Teste') {
-  const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, email, password, displayName } })
+  const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password, displayName } })
   assert.equal(response.statusCode, 201, response.body)
   return { cookie: cookieOf(response), user: response.json().user as { id: string; email: string; emailVerified: boolean; displayName: string } }
 }
@@ -61,7 +61,7 @@ test('hash de senha: formato scrypt e verificação', async () => {
 
 describe('autenticação', () => {
   test('cadastro cria sessão em cookie HttpOnly e envia verificação', async () => {
-    const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, email: 'Ana@Teste.Local', password: 'senha-forte-123', displayName: '  Ana Souza ' } })
+    const response = await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'Ana@Teste.Local', password: 'senha-forte-123', displayName: '  Ana Souza ' } })
     assert.equal(response.statusCode, 201)
     const setCookie = String(response.headers['set-cookie'])
     assert.match(setCookie, /cantum_session=/)
@@ -85,8 +85,8 @@ describe('autenticação', () => {
   })
 
   test('e-mail duplicado, senha curta e login inválido são recusados', async () => {
-    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, email: 'ana@teste.local', password: 'outra-senha-123', displayName: 'Ana' } })).statusCode, 409)
-    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, email: 'curta@teste.local', password: '123', displayName: 'Curta' } })).statusCode, 400)
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'ana@teste.local', password: 'outra-senha-123', displayName: 'Ana' } })).statusCode, 409)
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/signup', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'curta@teste.local', password: '123', displayName: 'Curta' } })).statusCode, 400)
     const wrong = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'ana@teste.local', password: 'errada-123' } })
     assert.equal(wrong.statusCode, 401)
     const unknown = await app.inject({ method: 'POST', url: '/auth/login', payload: { email: 'ninguem@teste.local', password: 'qualquer-123' } })
@@ -97,7 +97,7 @@ describe('autenticação', () => {
   test('cadastro exige nome de exibição com 1 a 80 caracteres', async () => {
     // IP próprio: não consome o limite de cadastro dos outros testes.
     for (const displayName of [undefined, '', '   ', 'x'.repeat(81)]) {
-      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.80', payload: { consentVersion: CONSENT_VERSION, email: 'sem.nome@teste.local', password: 'senha-forte-123', displayName } })
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.80', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'sem.nome@teste.local', password: 'senha-forte-123', displayName } })
       assert.equal(response.statusCode, 400, `displayName ${JSON.stringify(displayName)}`)
     }
     const login = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.0.0.80', payload: { email: 'sem.nome@teste.local', password: 'senha-forte-123' } })
@@ -315,7 +315,7 @@ describe('músicas do Ministério (ADR-062)', () => {
   test('RPC de cópia, edição da cópia por Líder/Admin sem trocar o autor, upsert negado e pull por Ministério', async () => {
     const ip = { remoteAddress: '10.0.0.93' }
     const join = async (email: string, displayName: string) => {
-      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, email, password: 'senha-forte-123', displayName } })
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName } })
       assert.equal(response.statusCode, 201, response.body)
       return { cookie: cookieOf(response), id: response.json().user.id as string }
     }
@@ -393,7 +393,7 @@ describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }
     const join = async (email: string, displayName: string) => {
-      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, email, password: 'senha-forte-123', displayName } })
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName } })
       assert.equal(response.statusCode, 201, response.body)
       return { cookie: cookieOf(response), id: response.json().user.id as string }
     }
@@ -518,7 +518,7 @@ describe('escala (ADR-053, ADR-054)', () => {
       mailer: { send: async () => { throw new Error('Brevo recusou o envio (HTTP 401)') } },
     })
     try {
-      const response = await failing.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.92', payload: { consentVersion: CONSENT_VERSION, email: 'sem.brevo@teste.local', password: 'senha-forte-123', displayName: 'Sem Brevo' } })
+      const response = await failing.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.92', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'sem.brevo@teste.local', password: 'senha-forte-123', displayName: 'Sem Brevo' } })
       const cookie = cookieOf(response)
       const userId = response.json().user.id as string
       const call = (name: string, payload: object) => failing.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie }, payload })
@@ -577,7 +577,7 @@ describe('provedor de e-mail fora do ar', () => {
     })
     try {
       const ip = { remoteAddress: '10.0.0.90' }
-      const signup = await failing.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, email: 'sem.correio@teste.local', password: 'senha-forte-123', displayName: 'Sem Correio' } })
+      const signup = await failing.inject({ method: 'POST', url: '/auth/signup', ...ip, payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email: 'sem.correio@teste.local', password: 'senha-forte-123', displayName: 'Sem Correio' } })
       assert.equal(signup.statusCode, 201, signup.body)
       const cookie = cookieOf(signup)
       assert.equal((await failing.inject({ method: 'GET', url: '/auth/session', headers: { cookie } })).statusCode, 200)
@@ -734,18 +734,26 @@ describe('consentimento (B8, RN-01/D7)', () => {
   test('cadastro sem aceite ou com versão que não é a vigente é recusado e não cria conta', async () => {
     const semAceite = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local' } })
     assert.equal(semAceite.statusCode, 400)
-    const antiga = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: '1999-01-01' } })
+    const antiga = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: '1999-01-01', ageDeclared: true } })
     assert.equal(antiga.statusCode, 400)
+    const semIdade = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: CONSENT_VERSION } })
+    assert.equal(semIdade.statusCode, 400)
+    const idadeFalsa = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: CONSENT_VERSION, ageDeclared: false } })
+    assert.equal(idadeFalsa.statusCode, 400)
+    for (const ageDeclared of ['true', 1, null, 'false', false]) {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: CONSENT_VERSION, ageDeclared } })
+      assert.equal(response.statusCode, 400, String(ageDeclared))
+    }
     assert.equal((await pool.query("select 1 from app.users where email = 'sem.aceite@teste.local'")).rowCount, 0)
   })
 
   test('cadastro com aceite grava os dois documentos; nova versão exige re-aceite no login', async () => {
-    const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.111', payload: { ...base, email: 'aceite@teste.local', consentVersion: CONSENT_VERSION } })
+    const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.111', payload: { ...base, email: 'aceite@teste.local', consentVersion: CONSENT_VERSION, ageDeclared: true } })
     assert.equal(response.statusCode, 201)
     assert.equal(response.json().user.consentRequired, false)
     const id = response.json().user.id as string
     const rows = await pool.query('select document, version from public.user_consents where user_id = $1 order by document', [id])
-    assert.deepEqual(rows.rows, [{ document: 'privacy', version: CONSENT_VERSION }, { document: 'terms', version: CONSENT_VERSION }])
+    assert.deepEqual(rows.rows, [{ document: 'age', version: CONSENT_VERSION }, { document: 'privacy', version: CONSENT_VERSION }, { document: 'terms', version: CONSENT_VERSION }])
     // Simula a troca de versão: sem aceite da vigente, o login e a sessão sinalizam o re-aceite.
     await pool.query('update public.user_consents set version = $2 where user_id = $1', [id, '2000-01-01'])
     const login = await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.0.0.111', payload: { email: 'aceite@teste.local', password: base.password } })

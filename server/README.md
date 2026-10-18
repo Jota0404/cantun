@@ -25,7 +25,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 
 | Rota | Corpo | Resposta |
 |---|---|---|
-| `POST /auth/signup` | `{ email, password, displayName, consentVersion }` (senha 8–128; nome 1–80 sem contar espaços nas pontas; `consentVersion` = versão vigente de Política e Termos) | 201 `{ user }` + cookie; envia link de verificação. Sem `consentVersion` ou com versão diferente da vigente: 400, sem criar conta |
+| `POST /auth/signup` | `{ email, password, displayName, consentVersion, ageDeclared }` (senha 8–128; nome 1–80 sem contar espaços nas pontas; `consentVersion` = versão vigente de Política e Termos) | 201 `{ user }` + cookie; envia link de verificação. `ageDeclared` deve ser o booleano `true`, sem coerção (`"true"`, `1`, `null` ou `false` dão 400) (autodeclaração de 16 anos ou mais, gravada como documento `age`). Sem `consentVersion`, com versão diferente da vigente ou sem `ageDeclared: true`: 400, sem criar conta |
 | `POST /auth/login` | `{ email, password }` | 200 `{ user }` + cookie |
 | `POST /auth/logout` | — | 204; revoga a sessão |
 | `GET /auth/session` | — | 200 `{ user }` ou 401 |
