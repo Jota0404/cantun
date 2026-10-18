@@ -137,10 +137,12 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     return rows[0].user_id
   }
 
-  app.post<{ Body: { email: string; password: string; displayName: string; consentVersion: string } }>('/auth/signup', {
+  app.post<{ Body: { email: string; password: string; displayName: string; consentVersion: string; ageDeclared: boolean } }>('/auth/signup', {
     config: authLimit,
-    schema: { body: { type: 'object', required: ['email', 'password', 'displayName', 'consentVersion'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema, consentVersion: { type: 'string', minLength: 1, maxLength: 32 } } } },
+    schema: { body: { type: 'object', required: ['email', 'password', 'displayName', 'consentVersion', 'ageDeclared'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema, consentVersion: { type: 'string', minLength: 1, maxLength: 32 }, ageDeclared: { type: 'boolean' } } } },
   }, async (request, reply) => {
+    // Autodeclaração de idade mínima (RN-10): recusa antes de qualquer custo ou conta; app.accept_consents repete a checagem na transação.
+    if (request.body.ageDeclared !== true) throw new HttpError(400, 'age declaration required')
     const email = request.body.email.trim().toLowerCase()
     const passwordHash = await hashPassword(request.body.password)
     // Conta e aceite na mesma transação: versão que não é a vigente (accept_consents) desfaz o cadastro.
@@ -152,7 +154,7 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
         [email, passwordHash, request.body.displayName.trim()],
       )
       if (!rows[0]) throw new HttpError(409, 'e-mail já cadastrado')
-      await client.query('select app.accept_consents($1, $2)', [rows[0].id, request.body.consentVersion])
+      await client.query('select app.accept_consents($1, $2, $3)', [rows[0].id, request.body.consentVersion, request.body.ageDeclared])
       return { ...rows[0], consent_pending: false }
     })
     await sendEmailToken(user.id, email, 'verify_email')

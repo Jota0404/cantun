@@ -6,7 +6,7 @@
 O CANTUM é uma ferramenta para organizar equipes de louvor: pessoas, funções, escalas, repertórios e o Modo Palco. Prestador do serviço: [JURÍDICO: nome ou razão social e contato].
 
 ## 2. Sua conta
-Você é responsável pelas informações do cadastro e pela guarda da sua senha. Uma conta é pessoal. [JURÍDICO: idade mínima e regras para menores.]
+Você é responsável pelas informações do cadastro e pela guarda da sua senha. Uma conta é pessoal. Para criar uma conta é preciso ter 16 anos ou mais, o que você declara no cadastro; o CANTUM não verifica a idade. Menores de 16 anos não devem usar o serviço, e contas de menores descobertas serão suspensas até o responsável comprovar a situação ou pedir a exclusão. [JURÍDICO: idade mínima, aferição e procedimento com o responsável; texto provisório.]
 
 ## 3. Conteúdo
 O conteúdo que você cria é seu ou do seu ministério. Você declara ter o direito de usar as letras e cifras que cadastra. [JURÍDICO: direitos autorais e licenças de música.] O conteúdo criado dentro de um ministério pertence à organização e permanece nela se você sair ou excluir a conta.
