@@ -21,6 +21,18 @@ begin
   raise exception 'deveria ser negado: %', p_label;
 end $$;
 
+create function pg_temp.denied_msg(p_sql text, p_label text, p_message text) returns void language plpgsql
+as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if sqlerrm = p_message then return; end if;
+    raise exception 'mensagem errada em %: % (esperado %)', p_label, sqlerrm, p_message;
+  end;
+  raise exception 'deveria falhar: %', p_label;
+end $$;
+
 do $$ begin
   execute format('grant usage on schema %s to cantum_user, cantum_anon', pg_my_temp_schema()::regnamespace);
 end $$;
@@ -102,21 +114,44 @@ select pg_temp.ok((select count(*) = 1 from public.organization_memberships), 'o
 
 -- Por RPC: Admin não mexe em Owner; ninguém vira owner; Owner promove e rebaixa; Owner nunca sai por RPC.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1402');
-select pg_temp.denied($q$select public.update_organization_member_role((select id from owner_row), 'member')$q$, 'Admin rebaixa Owner por RPC');
-select pg_temp.denied($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'owner')$q$, 'RPC não cria owner');
-select pg_temp.denied($q$select public.remove_organization_member((select id from owner_row))$q$, 'Admin remove Owner por RPC');
+select pg_temp.denied_msg($q$select public.update_organization_member_role((select id from owner_row), 'member')$q$, 'Admin rebaixa Owner por RPC', 'owner role cannot be changed');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'owner')$q$, 'RPC não cria owner', 'invalid member role');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', null)$q$, 'RPC com papel nulo', 'invalid member role');
+select pg_temp.denied_msg($q$select public.remove_organization_member((select id from owner_row))$q$, 'Admin remove Owner por RPC', 'organization owner cannot be removed');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1404');
-select pg_temp.denied($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d05', 'admin')$q$, 'membro promove por RPC');
-select pg_temp.denied($q$select public.remove_organization_member('20000000-0000-0000-0000-000000000d05')$q$, 'membro remove por RPC');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d05', 'admin')$q$, 'membro promove por RPC', 'not authorized');
+select pg_temp.denied_msg($q$select public.remove_organization_member('20000000-0000-0000-0000-000000000d05')$q$, 'membro remove por RPC', 'not authorized');
+-- Forasteiro com o uuid do vínculo (sem vínculo na organização; v_actor_role nulo): 07 sem organização, 06 de outra.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000d1407');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'admin')$q$, 'forasteiro promove por RPC', 'not authorized');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d03', 'member')$q$, 'forasteiro rebaixa Admin por RPC', 'not authorized');
+select pg_temp.denied_msg($q$select public.remove_organization_member('20000000-0000-0000-0000-000000000d04')$q$, 'forasteiro remove membro por RPC', 'not authorized');
+select pg_temp.denied_msg($q$select public.remove_organization_member('20000000-0000-0000-0000-000000000d03')$q$, 'forasteiro remove Admin por RPC', 'not authorized');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000d1406');
+select pg_temp.denied_msg($q$select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'admin')$q$, 'Owner de outra organização promove por RPC', 'not authorized');
+select pg_temp.denied_msg($q$select public.remove_organization_member('20000000-0000-0000-0000-000000000d04')$q$, 'Owner de outra organização remove por RPC', 'not authorized');
+reset role;
+select pg_temp.ok((select count(*) = 5 from public.organization_memberships where organization_id = '10000000-0000-0000-0000-000000000d14')
+                  and (select role = 'member' from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d04')
+                  and (select role = 'admin' from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d03'), 'negativos por RPC não alteraram vínculos');
+set local role cantum_user;
+-- Admin promove e remove um Membro (RPC), sem mexer no Owner.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000d1402');
+select public.update_organization_member_role('20000000-0000-0000-0000-000000000d05', 'admin');
+select pg_temp.ok((select role = 'admin' from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d05'), 'Admin promove Membro a admin por RPC');
+select public.update_organization_member_role('20000000-0000-0000-0000-000000000d05', 'member');
+select public.remove_organization_member('20000000-0000-0000-0000-000000000d05');
+select pg_temp.ok(not exists (select 1 from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d05'), 'Admin remove Membro por RPC');
+select pg_temp.ok((select role = 'owner' from public.organization_memberships where id = (select id from owner_row)), 'Owner intacto');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1401');
-select pg_temp.denied($q$select public.remove_organization_member((select id from owner_row))$q$, 'Owner remove a si por RPC');
-select pg_temp.denied($q$select public.update_organization_member_role((select id from owner_row), 'admin')$q$, 'Owner rebaixa a si por RPC');
+select pg_temp.denied_msg($q$select public.remove_organization_member((select id from owner_row))$q$, 'Owner remove a si por RPC', 'organization owner cannot be removed');
+select pg_temp.denied_msg($q$select public.update_organization_member_role((select id from owner_row), 'admin')$q$, 'Owner rebaixa a si por RPC', 'owner role cannot be changed');
 select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'admin');
 select pg_temp.ok((select role = 'admin' from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d04'), 'Owner promove a admin por RPC');
 select public.update_organization_member_role('20000000-0000-0000-0000-000000000d04', 'member');
 select pg_temp.ok((select role = 'member' from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d04'), 'Owner rebaixa a member por RPC');
-select public.remove_organization_member('20000000-0000-0000-0000-000000000d05');
-select pg_temp.ok(not exists (select 1 from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d05'), 'Owner remove membro por RPC');
+select public.remove_organization_member('20000000-0000-0000-0000-000000000d03');
+select pg_temp.ok(not exists (select 1 from public.organization_memberships where id = '20000000-0000-0000-0000-000000000d03'), 'Owner remove Admin por RPC');
 
 -- Aceite de convite continua criando o vínculo (security definer).
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1407');
