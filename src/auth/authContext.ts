@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { AuthUser } from '../platform/auth'
 import type { DeleteMyAccountResult } from '../application/privacy/deleteMyAccount'
+import type { RecordConsentResult } from '../application/privacy/recordConsent'
 import type { SignOutOptions } from './localSession'
 
 export interface AuthContextValue {
@@ -13,6 +14,8 @@ export interface AuthContextValue {
   signOut: (options?: SignOutOptions) => Promise<void>
   /** Exclui a conta no servidor e, só em caso de sucesso, apaga os dados locais e encerra a sessão (ADR-063). */
   deleteAccount: () => Promise<DeleteMyAccountResult>
+  /** Registra o aceite da versão vigente de Política e Termos (D7) e atualiza `user.consentRequired`. */
+  acceptConsent: () => Promise<RecordConsentResult>
   /** Reconsulta a sessão no servidor; 401 deixa `user = null`. Sem rede, mantém o usuário. */
   refresh: () => Promise<void>
   /** Confirma o token do link de verificação e atualiza `user.emailVerified`. Lança `ApiError` se o token for inválido. */

@@ -25,7 +25,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 
 | Rota | Corpo | Resposta |
 |---|---|---|
-| `POST /auth/signup` | `{ email, password, displayName }` (senha 8–128; nome 1–80 sem contar espaços nas pontas) | 201 `{ user }` + cookie; envia link de verificação |
+| `POST /auth/signup` | `{ email, password, displayName, consentVersion }` (senha 8–128; nome 1–80 sem contar espaços nas pontas; `consentVersion` = versão vigente de Política e Termos) | 201 `{ user }` + cookie; envia link de verificação. Sem `consentVersion` ou com versão diferente da vigente: 400, sem criar conta |
 | `POST /auth/login` | `{ email, password }` | 200 `{ user }` + cookie |
 | `POST /auth/logout` | — | 204; revoga a sessão |
 | `GET /auth/session` | — | 200 `{ user }` ou 401 |
@@ -34,7 +34,7 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 | `POST /auth/password-reset/request` | `{ email }` | sempre 204 |
 | `POST /auth/password-reset/confirm` | `{ token, password }` | 204; derruba todas as sessões |
 
-`user = { id, email, emailVerified, displayName }`. O nome muda por `POST /rpc/set_my_display_name`; os nomes dos membros de uma organização vêm de `POST /rpc/get_organization_member_profiles` (sem e-mail). As rotas de autenticação aceitam 10 requisições por minuto por IP.
+`user = { id, email, emailVerified, displayName, consentRequired }`. `consentRequired` é `true` quando a versão vigente de Política e Termos (`app.current_consent_version()`) ainda não foi aceita; o cliente chama `POST /rpc/record_consent` (`p_document` `privacy` e `terms`, `p_version`) e relê `/auth/session`. O nome muda por `POST /rpc/set_my_display_name`; os nomes dos membros de uma organização vêm de `POST /rpc/get_organization_member_profiles` (sem e-mail). As rotas de autenticação aceitam 10 requisições por minuto por IP.
 
 ### RPC
 

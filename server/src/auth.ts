@@ -59,10 +59,12 @@ interface UserRow {
   email: string
   email_verified_at: Date | null
   display_name: string
+  consent_pending: boolean
 }
 
-const toUser = (row: UserRow) => ({ id: row.id, email: row.email, emailVerified: row.email_verified_at !== null, displayName: row.display_name })
-const USER_COLUMNS = 'id, email, email_verified_at, display_name'
+// consentRequired: a versão vigente de Política e Termos ainda não foi aceita (D7); a UI barra até o re-aceite.
+const toUser = (row: UserRow) => ({ id: row.id, email: row.email, emailVerified: row.email_verified_at !== null, displayName: row.display_name, consentRequired: row.consent_pending })
+const USER_COLUMNS = 'id, email, email_verified_at, display_name, app.consent_pending(id) as consent_pending'
 
 const emailSchema = { type: 'string', minLength: 3, maxLength: 254, pattern: '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' }
 const passwordSchema = { type: 'string', minLength: 8, maxLength: 128 }
@@ -135,22 +137,27 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     return rows[0].user_id
   }
 
-  app.post<{ Body: { email: string; password: string; displayName: string } }>('/auth/signup', {
+  app.post<{ Body: { email: string; password: string; displayName: string; consentVersion: string } }>('/auth/signup', {
     config: authLimit,
-    schema: { body: { type: 'object', required: ['email', 'password', 'displayName'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema } } },
+    schema: { body: { type: 'object', required: ['email', 'password', 'displayName', 'consentVersion'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema, consentVersion: { type: 'string', minLength: 1, maxLength: 32 } } } },
   }, async (request, reply) => {
     const email = request.body.email.trim().toLowerCase()
     const passwordHash = await hashPassword(request.body.password)
-    const { rows } = await pool.query<UserRow>(
-      `insert into app.users (email, password_hash, display_name) values ($1, $2, $3)
-       on conflict (email) do nothing
-       returning ${USER_COLUMNS}`,
-      [email, passwordHash, request.body.displayName.trim()],
-    )
-    if (!rows[0]) throw new HttpError(409, 'e-mail já cadastrado')
-    await sendEmailToken(rows[0].id, email, 'verify_email')
-    await startSession(reply, rows[0].id)
-    return reply.code(201).send({ user: toUser(rows[0]) })
+    // Conta e aceite na mesma transação: versão que não é a vigente (accept_consents) desfaz o cadastro.
+    const user = await transaction(pool, async (client) => {
+      const { rows } = await client.query<UserRow>(
+        `insert into app.users (email, password_hash, display_name) values ($1, $2, $3)
+         on conflict (email) do nothing
+         returning id, email, email_verified_at, display_name`,
+        [email, passwordHash, request.body.displayName.trim()],
+      )
+      if (!rows[0]) throw new HttpError(409, 'e-mail já cadastrado')
+      await client.query('select app.accept_consents($1, $2)', [rows[0].id, request.body.consentVersion])
+      return { ...rows[0], consent_pending: false }
+    })
+    await sendEmailToken(user.id, email, 'verify_email')
+    await startSession(reply, user.id)
+    return reply.code(201).send({ user: toUser(user) })
   })
 
   app.post<{ Body: { email: string; password: string } }>('/auth/login', {

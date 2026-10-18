@@ -7,6 +7,7 @@ import { realtime } from '../platform/realtime'
 import { syncEngine, syncTargetDomain, targetSyncEngine } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
+import { recordConsent } from '../application/privacy/recordConsent'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -111,6 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       currentUserId.current = null
       setUser(null)
+      return result
+    },
+    acceptConsent: async () => {
+      const result = await recordConsent()
+      if (result.success) await refresh()
       return result
     },
     refresh,

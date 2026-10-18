@@ -39,3 +39,7 @@
   .auth-page { min-height: calc(100svh - 28px); }
   .auth-card { padding: 24px; }
 }
+
+.auth-form .auth-form__consent { display: flex; align-items: flex-start; gap: 10px; font-weight: 500; }
+.auth-form .auth-form__consent input { width: auto; min-height: 0; margin-top: 3px; flex: none; }
+.auth-legal { display: flex; gap: 16px; margin-top: 16px; font-size: 13px; }

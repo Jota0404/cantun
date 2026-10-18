@@ -28,6 +28,8 @@ import { AppNav } from './components/nav/AppNav'
 import { ServicesPage } from './pages/Navigation/ServicesPage'
 import { TeamsPage } from './pages/Navigation/TeamsPage'
 import { MorePage } from './pages/Navigation/MorePage'
+import { LegalPage } from './pages/Legal/LegalPage'
+import { ConsentGate } from './components/auth/ConsentGate'
 import { SkipLink } from './components/ui/SkipLink'
 import './App.css'
 
@@ -37,6 +39,8 @@ function App() {
   const isStageMode = location.pathname.startsWith('/stage/')
   // /auth/* abre sem sessão: os links de verificação e redefinição chegam por e-mail.
   const isAuthRoute = location.pathname === '/auth' || location.pathname.startsWith('/auth/')
+  // Política e Termos abrem sem sessão (RN-02).
+  const isLegalRoute = location.pathname === '/privacidade' || location.pathname === '/termos'
   const isInviteRoute = location.pathname.startsWith('/organization/invite/')
 
   useEffect(() => {
@@ -49,12 +53,16 @@ function App() {
 
   if (loading) return <div className="shell"><main aria-live="polite"><p>Carregando sessão…</p></main></div>
 
-  if (!user && !isAuthRoute) return <Navigate to="/auth" state={{ from: location.pathname + location.search }} replace />
+  if (!user && !isAuthRoute && !isLegalRoute) return <Navigate to="/auth" state={{ from: location.pathname + location.search }} replace />
 
+  // D7: versão nova da Política/Termos exige re-aceite antes de usar o app (os próprios textos continuam legíveis).
+  if (user?.consentRequired && !isLegalRoute) return <div className="shell"><SkipLink /><div id="conteudo" tabIndex={-1} className="app-content"><ConsentGate /></div></div>
+
+  const showChrome = !isStageMode && !isAuthRoute && !isInviteRoute && !(isLegalRoute && !user)
   return (
     <div className={`shell${isStageMode ? ' shell--stage' : ''}`}>
       <SkipLink />
-      {!isStageMode && !isAuthRoute && !isInviteRoute && <>
+      {showChrome && <>
         <header className="app-header">
           <h1><Link to="/">CANTUM</Link></h1>
         </header>
@@ -65,6 +73,7 @@ function App() {
       <div id="conteudo" tabIndex={-1} className="app-content">
       <Routes>
         <Route path="/" element={<HomePage />} /><Route path="/auth" element={<AuthPage />} />
+        <Route path="/privacidade" element={<LegalPage document="privacy" />} /><Route path="/termos" element={<LegalPage document="terms" />} />
         <Route path="/auth/verify-email" element={<VerifyEmailPage />} /><Route path="/auth/forgot-password" element={<ForgotPasswordPage />} /><Route path="/auth/reset-password" element={<ResetPasswordPage />} />
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/service-session/:stageSessionId" element={<ServiceStagePage />} /><Route path="/stage/service-session/:stageSessionId/musician" element={<ServiceStageMusicianPage />} />

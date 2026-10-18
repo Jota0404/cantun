@@ -110,6 +110,7 @@ export function MorePage() {
       </section>
       <section aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacidade</h3>
+        <p><Link to="/privacidade">Política de Privacidade</Link> · <Link to="/termos">Termos de Uso</Link></p>
         <button type="button" disabled={exporting} onClick={() => void handleExport()}>{exporting ? 'Exportando…' : 'Exportar meus dados'}</button>
         {exported && <p role="status">Arquivo gerado. Confira seus downloads.</p>}
         <button type="button" onClick={() => setDeleting(true)}>Excluir minha conta</button>
