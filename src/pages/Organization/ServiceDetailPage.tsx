@@ -8,6 +8,7 @@ import { deleteService, getService, transitionService, updateServiceInfo } from 
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { useAuth } from '../../auth/authContext'
 import { Badge } from '../../components/ui/Badge'
+import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
@@ -40,6 +41,7 @@ export function ServiceDetailPage() {
   const [itemTitle, setItemTitle] = useState('')
   const [itemMinutes, setItemMinutes] = useState('')
   const [itemNotes, setItemNotes] = useState('')
+  const [applying, setApplying] = useState(false)
   const [dragged, setDragged] = useState<string>()
   const [error, setError] = useState('')
 
@@ -212,6 +214,8 @@ export function ServiceDetailPage() {
           ))}
         </ol>
       )}
+      {canEdit && <p><button type="button" onClick={() => setApplying(true)}>Aplicar repertório</button></p>}
+      {applying && <ApplyRepertoireDialog serviceId={serviceId} items={items} itemLabel={itemLabel} onClose={() => setApplying(false)} onApplied={() => { setApplying(false); void load() }} />}
       {canEdit && <form className="service-form" onSubmit={(event) => void addItem(event)} aria-label="Adicionar item">
         <label>Tipo
           <select value={itemType} onChange={(event) => setItemType(event.target.value as ServiceItemType)}>
