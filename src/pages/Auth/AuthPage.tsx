@@ -11,6 +11,7 @@ export function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [accepted, setAccepted] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const state = location.state as { from?: string; notice?: string } | null
@@ -41,13 +42,15 @@ export function AuthPage() {
           {mode === 'signup' && <label>Nome<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" required maxLength={80} pattern=".*\S.*" title="Informe seu nome." /></label>}
           <label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
           <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'login' ? undefined : 8} maxLength={128} /></label>
+          {mode === 'signup' && <label className="auth-form__consent"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} required /><span>Li e aceito a <Link to="/privacidade" target="_blank">Política de Privacidade</Link> e os <Link to="/termos" target="_blank">Termos de Uso</Link></span></label>}
           <button className="auth-form__submit" type="submit">{mode === 'login' ? 'Entrar' : 'Criar conta'}</button>
         </form>
         {mode === 'login' && <Link className="auth-link" to="/auth/forgot-password">Esqueci a senha</Link>}
         {state?.notice && !message && !error && <p className="auth-message" role="status">{state.notice}</p>}
         {message && <p className="auth-message" role="status">{message}</p>}
         {error && <p className="auth-error" role="alert">{error}</p>}
-        <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage(''); setError('') }}>
+        <nav className="auth-legal" aria-label="Documentos legais"><Link to="/privacidade" target="_blank">Privacidade</Link><Link to="/termos" target="_blank">Termos</Link></nav>
+        <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setAccepted(false); setMessage(''); setError('') }}>
           {mode === 'login' ? 'Ainda não tenho uma conta' : 'Já tenho uma conta'}
         </button>
       </section>

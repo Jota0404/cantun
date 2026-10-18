@@ -1,3 +1,4 @@
+import { CONSENT_VERSION } from '../domain/privacy/consent'
 import { ApiError, apiRequest } from './http'
 
 export interface AuthUser {
@@ -6,6 +7,8 @@ export interface AuthUser {
   emailVerified: boolean
   /** RN-15: sempre presente (1–80 caracteres). */
   displayName: string
+  /** D7: a versão vigente de Política e Termos ainda não foi aceita; a UI pede o re-aceite. */
+  consentRequired?: boolean
 }
 
 // Último usuário autenticado, para o app abrir offline (local-first, ADR-048).
@@ -56,7 +59,7 @@ async function authenticate(path: string, body: Record<string, string>): Promise
   return user
 }
 
-export const signUp = (email: string, password: string, displayName: string): Promise<AuthUser> => authenticate('/auth/signup', { email, password, displayName })
+export const signUp = (email: string, password: string, displayName: string): Promise<AuthUser> => authenticate('/auth/signup', { email, password, displayName, consentVersion: CONSENT_VERSION })
 
 export const signIn = (email: string, password: string): Promise<AuthUser> => authenticate('/auth/login', { email, password })
 
