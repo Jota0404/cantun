@@ -740,7 +740,10 @@ describe('consentimento (B8, RN-01/D7)', () => {
     assert.equal(semIdade.statusCode, 400)
     const idadeFalsa = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: CONSENT_VERSION, ageDeclared: false } })
     assert.equal(idadeFalsa.statusCode, 400)
-    assert.equal(idadeFalsa.json().error, 'age declaration required')
+    for (const ageDeclared of ['true', 1, null, 'false', false]) {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.110', payload: { ...base, email: 'sem.aceite@teste.local', consentVersion: CONSENT_VERSION, ageDeclared } })
+      assert.equal(response.statusCode, 400, String(ageDeclared))
+    }
     assert.equal((await pool.query("select 1 from app.users where email = 'sem.aceite@teste.local'")).rowCount, 0)
   })
 

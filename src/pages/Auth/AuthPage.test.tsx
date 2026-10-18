@@ -64,4 +64,14 @@ describe('AuthPage', () => {
     expect(signUp).not.toHaveBeenCalled()
     expect(await axeViolations(container)).toEqual([])
   })
+
+  it('a declaração de idade volta a desmarcada ao alternar entre entrar e cadastrar', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><AuthPage /></MemoryRouter>)
+    await user.click(screen.getByRole('button', { name: 'Ainda não tenho uma conta' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Declaro ter 16 anos ou mais' }))
+    await user.click(screen.getByRole('button', { name: 'Já tenho uma conta' }))
+    await user.click(screen.getByRole('button', { name: 'Ainda não tenho uma conta' }))
+    expect(screen.getByRole('checkbox', { name: 'Declaro ter 16 anos ou mais' })).not.toBeChecked()
+  })
 })

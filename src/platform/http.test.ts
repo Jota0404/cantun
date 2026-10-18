@@ -63,3 +63,8 @@ describe('apiRequest', () => {
     await expect(apiRequest('GET', '/sync/songs')).rejects.toMatchObject({ status: 0, message: 'Sem conexão: tente de novo quando estiver online.' })
   })
 })
+
+it('translates the age declaration error to pt-BR', async () => {
+  const { translateServerMessage } = await loadHttp()
+  expect(translateServerMessage('age declaration required')).toBe('Declare ter 16 anos ou mais para criar a conta.')
+})

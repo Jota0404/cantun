@@ -27,7 +27,7 @@ Você pode exportar seus dados e excluir sua conta na tela Mais. Para os demais 
 ## 7. Menores de idade
 A idade mínima para criar conta no CANTUM é de 16 anos. Ao se cadastrar, a pessoa declara ter 16 anos ou mais; guardamos apenas essa declaração, junto do aceite deste texto, e não coletamos data de nascimento nem documento. O CANTUM não verifica a idade: a declaração é de responsabilidade de quem a faz. Menores de 16 anos não devem usar o serviço, e líderes de equipe não devem cadastrá-los. [JURÍDICO: a idade mínima e a forma de aferição seguem a LGPD (art. 14), o ECA Digital e orientação da ANPD; texto provisório.]
 
-Se descobrirmos uma conta de menor de 16 anos, ela será suspensa. [JURÍDICO: procedimento provisório] O responsável legal pode comprovar a situação e pedir a exclusão da conta e dos dados pelo canal de contato do controlador, e atenderemos o pedido no prazo definido na seção 6.
+Se descobrirmos uma conta de menor de 16 anos, ela poderá ser suspensa ou excluída. [JURÍDICO: procedimento provisório] O responsável legal pode comprovar a situação e pedir a exclusão da conta e dos dados pelo canal de contato do controlador, e atenderemos o pedido no prazo definido na seção 6.
 
 ## 8. Mudanças nesta política
 Quando o texto mudar, a versão muda e pediremos um novo aceite no próximo login.

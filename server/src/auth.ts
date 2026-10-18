@@ -139,10 +139,9 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
 
   app.post<{ Body: { email: string; password: string; displayName: string; consentVersion: string; ageDeclared: boolean } }>('/auth/signup', {
     config: authLimit,
-    schema: { body: { type: 'object', required: ['email', 'password', 'displayName', 'consentVersion', 'ageDeclared'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema, consentVersion: { type: 'string', minLength: 1, maxLength: 32 }, ageDeclared: { type: 'boolean' } } } },
+    schema: { body: { type: 'object', required: ['email', 'password', 'displayName', 'consentVersion', 'ageDeclared'], additionalProperties: false, properties: { email: emailSchema, password: passwordSchema, displayName: displayNameSchema, consentVersion: { type: 'string', minLength: 1, maxLength: 32 }, ageDeclared: { const: true } } } },
   }, async (request, reply) => {
-    // Autodeclaração de idade mínima (RN-10): recusa antes de qualquer custo ou conta; app.accept_consents repete a checagem na transação.
-    if (request.body.ageDeclared !== true) throw new HttpError(400, 'age declaration required')
+    // Autodeclaração de idade mínima (RN-10): o schema só aceita o booleano `true` (sem coerção); app.accept_consents repete a checagem na transação.
     const email = request.body.email.trim().toLowerCase()
     const passwordHash = await hashPassword(request.body.password)
     // Conta e aceite na mesma transação: versão que não é a vigente (accept_consents) desfaz o cadastro.

@@ -51,6 +51,12 @@ insert into public.user_consents (user_id, document, version) values
   ('00000000-0000-0000-0000-0000000c1602', 'privacy', '2026-10-17'), ('00000000-0000-0000-0000-0000000c1602', 'terms', '2026-10-17');
 select pg_temp.ok(not app.consent_pending('00000000-0000-0000-0000-0000000c1602'), 'conta existente sem age: em dia');
 
+-- consent_pending olha só privacy e terms: privacy + age sem terms continua pendente.
+insert into app.users (id, email, display_name) values ('00000000-0000-0000-0000-0000000c1603', 'carla@x.local', 'Carla');
+insert into public.user_consents (user_id, document, version) values
+  ('00000000-0000-0000-0000-0000000c1603', 'privacy', '2026-10-17'), ('00000000-0000-0000-0000-0000000c1603', 'age', '2026-10-17');
+select pg_temp.ok(app.consent_pending('00000000-0000-0000-0000-0000000c1603'), 'privacy + age sem terms: pendente');
+
 -- N9: o cliente não grava a declaração nem por record_consent nem direto.
 set local role cantum_user;
 select set_config('app.user_id', '00000000-0000-0000-0000-0000000c1602', true);
