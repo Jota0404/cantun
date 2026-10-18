@@ -28,6 +28,9 @@ vi.mock('../sync/syncService', () => ({ ...engines, syncTargetDomain: vi.fn() })
 const deleteMyAccount = vi.hoisted(() => vi.fn())
 vi.mock('../application/privacy/deleteMyAccount', () => ({ deleteMyAccount }))
 
+const recordConsent = vi.hoisted(() => vi.fn())
+vi.mock('../application/privacy/recordConsent', () => ({ recordConsent }))
+
 import { db } from '../db/database'
 import { AuthProvider } from './AuthContext.tsx'
 import { useAuth } from './authContext'
@@ -58,6 +61,25 @@ describe('AuthProvider', () => {
     auth.getSession.mockResolvedValueOnce(null)
     await act(() => result.current.refresh())
     expect(result.current.user).toBeNull()
+  })
+
+  it('acceptConsent refreshes the session only after the consent is recorded', async () => {
+    const { result } = await renderAuth()
+    const pending = { ...unverified, consentRequired: true }
+    auth.getSession.mockResolvedValue(pending)
+    await act(() => result.current.refresh())
+    expect(result.current.user?.consentRequired).toBe(true)
+
+    recordConsent.mockResolvedValueOnce({ success: false, errors: ['Sem conexão'] })
+    auth.getSession.mockClear()
+    await act(async () => { expect(await result.current.acceptConsent()).toEqual({ success: false, errors: ['Sem conexão'] }) })
+    expect(auth.getSession).not.toHaveBeenCalled()
+    expect(result.current.user?.consentRequired).toBe(true)
+
+    recordConsent.mockResolvedValueOnce({ success: true })
+    auth.getSession.mockResolvedValue({ ...pending, consentRequired: false })
+    await act(() => result.current.acceptConsent())
+    expect(result.current.user?.consentRequired).toBe(false)
   })
 
   it('verifyEmail confirms the token and refreshes emailVerified', async () => {

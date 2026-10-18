@@ -27,4 +27,10 @@ describe('App: Política e Termos', () => {
     render(<MemoryRouter initialEntries={['/privacidade']}><App /></MemoryRouter>)
     expect(screen.getByRole('heading', { level: 1, name: 'Política de Privacidade' })).toBeInTheDocument()
   })
+
+  it('o Palco nunca é barrado pelo re-aceite', () => {
+    auth.value.user = { id: 'u1', consentRequired: true }
+    render(<MemoryRouter initialEntries={['/stage/song/x']}><App /></MemoryRouter>)
+    expect(screen.queryByRole('heading', { name: 'Atualizamos a Política e os Termos' })).not.toBeInTheDocument()
+  })
 })

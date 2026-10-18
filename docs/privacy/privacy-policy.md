@@ -25,7 +25,7 @@ Outros membros do seu ministério veem seu nome e sua escala. Não vendemos dado
 Você pode exportar seus dados e excluir sua conta na tela Mais. Para os demais direitos previstos na LGPD (acesso, correção, informação sobre compartilhamento, revogação), fale com o controlador: [JURÍDICO: canal e prazo de resposta].
 
 ## 7. Menores de idade
-[JURÍDICO: idade mínima e regras para adolescentes.] Menores de 18 anos só entram como membros adicionados por um líder, e o e-mail deles não é exibido a quem não é líder ou administrador.
+[JURÍDICO] Regras para menores de idade (idade mínima e participação de adolescentes): em definição.
 
 ## 8. Mudanças nesta política
 Quando o texto mudar, a versão muda e pediremos um novo aceite no próximo login.

@@ -23,4 +23,15 @@ describe('ConsentGate', () => {
     expect(acceptConsent).toHaveBeenCalledTimes(1)
     expect(await screen.findByRole('alert')).toHaveTextContent('Sem conexão')
   })
+
+  it('sucesso do re-aceite não mostra erro', async () => {
+    const user = userEvent.setup()
+    acceptConsent.mockClear()
+    acceptConsent.mockResolvedValueOnce({ success: true })
+    render(<MemoryRouter><ConsentGate /></MemoryRouter>)
+    await user.click(screen.getByRole('checkbox', { name: 'Li e aceito a Política de Privacidade e os Termos de Uso' }))
+    await user.click(screen.getByRole('button', { name: 'Aceitar e continuar' }))
+    expect(acceptConsent).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

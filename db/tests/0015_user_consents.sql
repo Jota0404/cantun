@@ -92,6 +92,28 @@ select pg_temp.denied($q$delete from public.user_consents$q$, 'N9: delete direto
 select pg_temp.denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'accept_consents fora do cliente');
 reset role;
 
+-- Helpers do servidor e record_consent fora do alcance de cantum_user/cantum_anon: permission denied.
+create function pg_temp.perm_denied(p_sql text, p_label text) returns void language plpgsql
+as $$
+begin
+  begin execute p_sql;
+  exception when others then
+    if sqlerrm like 'permission denied%' then return; end if;
+    raise exception 'mensagem errada em %: %', p_label, sqlerrm;
+  end;
+  raise exception 'deveria ser negado: %', p_label;
+end $$;
+set local role cantum_user;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000c1501');
+select pg_temp.perm_denied($q$select app.consent_pending('00000000-0000-0000-0000-0000000c1501')$q$, 'cantum_user: consent_pending');
+select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'cantum_user: accept_consents');
+reset role;
+set local role cantum_anon;
+select pg_temp.perm_denied($q$select app.consent_pending('00000000-0000-0000-0000-0000000c1501')$q$, 'cantum_anon: consent_pending');
+select pg_temp.perm_denied($q$select app.accept_consents('00000000-0000-0000-0000-0000000c1501', '2026-10-17')$q$, 'cantum_anon: accept_consents');
+select pg_temp.perm_denied($q$select public.record_consent('privacy', '2026-10-17')$q$, 'cantum_anon: record_consent');
+reset role;
+
 -- Exclusão da conta apaga o aceite em cascata (só o do titular).
 delete from app.users where id = '00000000-0000-0000-0000-0000000c1501';
 select pg_temp.ok(not exists (select 1 from public.user_consents where user_id = '00000000-0000-0000-0000-0000000c1501')
