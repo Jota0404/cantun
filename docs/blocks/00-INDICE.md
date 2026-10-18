@@ -41,7 +41,7 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 | 053 | Vagas e atribuições | B4 |
 | 054 | Canal de notificação | B4 |
 | 055 | Design system | B5 |
-| 056 | Materiais e storage | B6 |
+| 056 → 064 | Materiais e storage (escrito como ADR-064, Proposed) | B6 |
 | 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
 
 ## Fluxo padrão de cada bloco

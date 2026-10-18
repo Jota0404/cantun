@@ -66,13 +66,12 @@
 | [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
 | [ADR-062](ADR-062-repertorio-pessoal.md) | Repertório pessoal e importação para a organização (revisa o ADR-022) | Accepted |
 | [ADR-063](ADR-063-saida-do-titular-e-anonimizacao.md) | Saída do titular: exclusão de conta, anonimização de autoria e exportação | Accepted |
+| [ADR-064](ADR-064-materiais-e-storage.md) | Materiais e storage de arquivos (substitui a reserva do 056) | Proposed |
 
 ## Números reservados
 
 Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, mova a linha para a tabela acima.
 
-| ADR | Tema | Bloco |
-|---|---|---|
-| 056 | Materiais e storage | B6 |
+Sem números reservados no momento (o 056 foi substituído pelo ADR-064).
 
-Próximo número livre: **ADR-064** (056 está reservado).
+Próximo número livre: **ADR-065**.
