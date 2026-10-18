@@ -4,8 +4,9 @@ import * as platformAuth from '../platform/auth'
 import type { AuthUser } from '../platform/auth'
 import { isPlatformConfigured } from '../platform/http'
 import { realtime } from '../platform/realtime'
-import { syncEngine, syncTargetDomain } from '../sync/syncService'
+import { syncEngine, syncTargetDomain, targetSyncEngine } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
+import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -18,6 +19,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ou de a sincronização enviar qualquer coisa (Blueprint §50.3, ADR-048).
   const applyUser = useCallback(async (nextUser: AuthUser | null) => {
     if (nextUser) {
+      syncEngine?.start()
+      targetSyncEngine?.start()
       try {
         await ensureLocalDataOwner(db, nextUser.id)
       } catch {
@@ -91,6 +94,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, options)
       currentUserId.current = null
       setUser(null)
+    },
+    deleteAccount: async () => {
+      const result = await deleteMyAccount()
+      if (!result.success) return result
+      // Nada pode gravar no Dexie depois da limpeza; a identidade some mesmo se o logout remoto falhar.
+      await Promise.all([syncEngine?.stop(), targetSyncEngine?.stop()])
+      try {
+        await signOutWithLocalCleanup({
+          db,
+          flushPendingChanges: async () => undefined,
+          signOutRemote: () => platformAuth.signOut().catch(() => undefined),
+        }, { discardPendingChanges: true })
+      } finally {
+        platformAuth.clearCurrentUser()
+      }
+      currentUserId.current = null
+      setUser(null)
+      return result
     },
     refresh,
     verifyEmail: async (token) => {

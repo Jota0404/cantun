@@ -9,6 +9,7 @@ const auth = vi.hoisted(() => ({
   signIn: vi.fn(),
   signUp: vi.fn(),
   signOut: vi.fn(),
+  clearCurrentUser: vi.fn(),
   verifyEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
   resendVerification: vi.fn(),
@@ -18,8 +19,16 @@ vi.mock('../platform/auth', () => auth)
 vi.mock('../platform/http', () => ({ isPlatformConfigured: true }))
 const realtime = vi.hoisted(() => ({ onSessionExpired: null as (() => void) | null }))
 vi.mock('../platform/realtime', () => ({ realtime }))
-vi.mock('../sync/syncService', () => ({ syncEngine: { bootstrap: vi.fn(), sync: vi.fn() }, syncTargetDomain: vi.fn() }))
+const engines = vi.hoisted(() => ({
+  syncEngine: { bootstrap: vi.fn(), sync: vi.fn(), start: vi.fn(), stop: vi.fn(async () => undefined) },
+  targetSyncEngine: { start: vi.fn(), stop: vi.fn(async () => undefined) },
+}))
+vi.mock('../sync/syncService', () => ({ ...engines, syncTargetDomain: vi.fn() }))
 
+const deleteMyAccount = vi.hoisted(() => vi.fn())
+vi.mock('../application/privacy/deleteMyAccount', () => ({ deleteMyAccount }))
+
+import { db } from '../db/database'
 import { AuthProvider } from './AuthContext.tsx'
 import { useAuth } from './authContext'
 
@@ -88,6 +97,30 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(result.current.user).toBeNull())
     unmount()
     expect(realtime.onSessionExpired).toBeNull()
+  })
+
+ it('deleteAccount wipes local data despite pending changes and ends the session', async () => {
+    const { result } = await renderAuth()
+    await db.syncQueue.add({ userId: 'user-1', entity: 'song', entityId: 's1', operation: 'upsert', updatedAt: 'x' } as never)
+    deleteMyAccount.mockResolvedValueOnce({ success: true })
+    auth.signOut.mockRejectedValueOnce(new Error('401'))
+
+    await act(async () => { await result.current.deleteAccount() })
+
+    expect(await db.syncQueue.count()).toBe(0)
+    expect(result.current.user).toBeNull()
+    expect(auth.clearCurrentUser).toHaveBeenCalled()
+    const stopOrder = engines.syncEngine.stop.mock.invocationCallOrder[0]
+    expect(stopOrder).toBeLessThan(auth.signOut.mock.invocationCallOrder[0])
+    expect(engines.targetSyncEngine.stop).toHaveBeenCalled()
+  })
+
+  it('deleteAccount keeps everything when the server refuses', async () => {
+    const { result } = await renderAuth()
+    deleteMyAccount.mockResolvedValueOnce({ success: false, errors: ['x'] })
+    await act(async () => { await result.current.deleteAccount() })
+    expect(result.current.user).toEqual(unverified)
+    expect(auth.signOut).not.toHaveBeenCalled()
   })
 
   it('resendVerification delegates to the server', async () => {

@@ -35,6 +35,7 @@ const SYNC_RETRY_DELAY_MS = 10000
 
 export class SyncEngine {
   private syncing = false
+  private stopped = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
 
@@ -67,7 +68,7 @@ export class SyncEngine {
   }
 
   async sync(userId: string) {
-    if (this.syncing) return
+    if (this.syncing || this.stopped) return
 
     this.syncing = true
     try {
@@ -88,8 +89,19 @@ export class SyncEngine {
     }
   }
 
+  /** Para o retry e espera o sync em andamento terminar; nada reagenda até `start()`. */
+  async stop() {
+    this.stopped = true
+    this.clearRetry()
+    while (this.syncing) await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+
+  start() {
+    this.stopped = false
+  }
+
   private scheduleRetry(userId: string) {
-    if (this.retryTimer !== undefined) return
+    if (this.stopped || this.retryTimer !== undefined) return
     this.retryTimer = window.setTimeout(() => {
       this.retryTimer = undefined
       void this.sync(userId)

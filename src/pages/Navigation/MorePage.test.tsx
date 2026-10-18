@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { PendingLocalChangesError } from '../../auth/localSession'
 import { axeViolations } from '../../test/axe'
@@ -11,7 +11,8 @@ import { MorePage } from './MorePage'
 const exportMyData = vi.hoisted(() => vi.fn())
 vi.mock('../../application/privacy/exportMyData', () => ({ exportMyData }))
 const signOut = vi.hoisted(() => vi.fn())
-vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ signOut }) }))
+const deleteAccount = vi.hoisted(() => vi.fn())
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ signOut, deleteAccount }) }))
 
 describe('MorePage', () => {
   it('offers Repertórios, Configurações and Sair, and hides Ensaios and Histórico', async () => {
@@ -67,5 +68,90 @@ describe('MorePage', () => {
     finish({ success: false, errors: ['Não foi possível exportar seus dados.'] })
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível exportar seus dados. Tente novamente.')
     expect(screen.getByRole('button', { name: 'Exportar meus dados' })).toBeEnabled()
+  })
+
+  describe('Excluir minha conta', () => {
+    function renderMore() {
+      return render(
+        <MemoryRouter initialEntries={['/more']}>
+          <Routes><Route path="/more" element={<MorePage />} /><Route path="/auth" element={<p>Tela de entrada</p>} /></Routes>
+        </MemoryRouter>,
+      )
+    }
+    async function openAndConfirm(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
+    }
+
+    it('requires the typed word before enabling the confirmation', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockClear()
+      const { baseElement } = renderMore()
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      expect(screen.getByRole('dialog')).toHaveTextContent('Ex-membro')
+      expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
+      expect(await axeViolations(baseElement)).toEqual([])
+      await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeEnabled()
+      expect(deleteAccount).not.toHaveBeenCalled()
+    })
+
+    it('blocks offline with a clear alert', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockClear()
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      renderMore()
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão')
+      await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
+      expect(deleteAccount).not.toHaveBeenCalled()
+      vi.restoreAllMocks()
+    })
+
+    it('locks the dialog while deleting, so a double click sends one request', async () => {
+      const user = userEvent.setup()
+      let finish: (value: { success: false; errors: string[] }) => void = () => undefined
+      deleteAccount.mockReset().mockReturnValueOnce(new Promise((resolve) => { finish = resolve }))
+      renderMore()
+      await openAndConfirm(user)
+      const busyButton = screen.getByRole('button', { name: 'Excluindo…' })
+      expect(busyButton).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+      await user.keyboard('{Escape}')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(deleteAccount).toHaveBeenCalledTimes(1)
+      finish({ success: false, errors: ['x'] })
+      expect(await screen.findByRole('alert')).toHaveTextContent('x')
+    })
+
+    it('reacts to going offline while the dialog is open', async () => {
+      const user = userEvent.setup()
+      renderMore()
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+      act(() => { window.dispatchEvent(new Event('offline')) })
+      expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão')
+      vi.restoreAllMocks()
+    })
+
+    it('shows the sole-owner error and stays on the page', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockResolvedValueOnce({ success: false, errors: ['Transfira a propriedade antes de excluir a conta.'] })
+      renderMore()
+      await openAndConfirm(user)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Transfira a propriedade')
+      expect(screen.queryByText('Tela de entrada')).not.toBeInTheDocument()
+    })
+
+    it('goes to /auth with the notice on success', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockResolvedValueOnce({ success: true })
+      renderMore()
+      await openAndConfirm(user)
+      expect(await screen.findByText('Tela de entrada')).toBeInTheDocument()
+    })
   })
 })
