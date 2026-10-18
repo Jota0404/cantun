@@ -53,7 +53,7 @@ function App() {
 
   if (loading) return <div className="shell"><main aria-live="polite"><p>Carregando sessão…</p></main></div>
 
-  if (!user && !isAuthRoute && !isLegalRoute) return <Navigate to="/auth" state={{ from: location.pathname + location.search }} replace />
+  if (!user && !isAuthRoute && !isLegalRoute) return <Navigate to="/auth" state={{ from: location.pathname + location.search, notice: (location.state as { notice?: string } | null)?.notice }} replace />
 
   // Palco nunca é bloqueado por consentimento (culto em andamento, mesmo offline).
   // D7: versão nova da Política/Termos exige re-aceite antes de usar o app (os próprios textos continuam legíveis).

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import App from './App'
 
-const auth = vi.hoisted(() => ({ value: { user: null as null | { id: string; consentRequired?: boolean }, loading: false, acceptConsent: vi.fn(), signOut: vi.fn() } }))
+const auth = vi.hoisted(() => ({ value: { user: null as null | { id: string; consentRequired?: boolean }, loading: false, configured: true, acceptConsent: vi.fn(), signOut: vi.fn() } }))
 vi.mock('./auth/authContext', () => ({ useAuth: () => auth.value }))
 vi.mock('./sync/syncService', () => ({ syncTargetDomain: vi.fn() }))
 vi.mock('./components/nav/AppNav', () => ({ AppNav: () => <nav>menu</nav> }))
@@ -32,5 +32,11 @@ describe('App: Política e Termos', () => {
     auth.value.user = { id: 'u1', consentRequired: true }
     render(<MemoryRouter initialEntries={['/stage/song/x']}><App /></MemoryRouter>)
     expect(screen.queryByRole('heading', { name: 'Atualizamos a Política e os Termos' })).not.toBeInTheDocument()
+  })
+
+  it('o redirect para o login preserva o aviso "Conta excluída"', async () => {
+    auth.value.user = null
+    render(<MemoryRouter initialEntries={[{ pathname: '/mais', state: { notice: 'Conta excluída' } }]}><App /></MemoryRouter>)
+    expect(await screen.findByText('Conta excluída')).toBeInTheDocument()
   })
 })
