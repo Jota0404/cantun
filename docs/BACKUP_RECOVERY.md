@@ -45,7 +45,7 @@ Nunca restaure sobre o banco de produção por este roteiro. Ele cria um banco *
    O script cria o banco `cantum_restore`, restaura e imprime: a última migration, o total de migrations e a contagem de linhas de cada tabela.
 3. **Como saber que deu certo:**
    - O script terminou com "Restore concluído" e sem `ERROR`.
-   - A última migration é a mais recente de `db/migrations/` (hoje `0015_user_consents`).
+   - A última migration é a mais recente de `db/migrations/` (hoje `0016_minimum_age`; confira a lista em `db/migrations/`).
    - `app.users` bate com o número de contas que você espera (inclui 1 linha de sistema, o usuário anônimo da ADR-063).
    - Tabelas centrais (`organizations`, `songs`, `services`) não estão zeradas se o app em produção tem dados.
 4. **Teste de login (opcional):** o servidor local contra o banco restaurado ainda não tem roteiro neste repositório; peça ao lead para subir `server/` apontando para `cantum_restore` e entre com uma conta conhecida.
@@ -78,4 +78,4 @@ A exclusão (ADR-063, RN-03) apaga o dado pessoal do banco **na hora**, mas **n�
 |---|---|---|---|---|
 | _preencher_ | Jota | | | |
 
-Teste de integridade dos scripts feito pelo planner em 2026-10-18 contra um PostgreSQL local descartável (migrations 0001–0015, sem dados reais): dump e restore OK. **Não substitui** o teste com dump real do Neon.
+Teste de integridade dos scripts feito pelo planner em 2026-10-18 contra um PostgreSQL local descartável (migrations 0001–0015, sem dados reais; a 0016 entrou depois): dump e restore OK. **Não substitui** o teste com dump real do Neon.
