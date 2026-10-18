@@ -49,20 +49,20 @@ export type TargetEntity =
   | StageSessionState
 
 // Sessão e estado do Palco só mudam por RPC (`create_target_stage_session`, `target_stage_*`);
-// o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull.
+// o `cantum_user` só tem SELECT nessas tabelas, então elas são só pull. O mesmo vale para `organization_memberships`
+// (papel e remoção por `update_organization_member_role`/`remove_organization_member`, issue #99).
 // Têm `unique` por conteúdo no banco, com id gerado no cliente: 409 no push = outro aparelho criou o mesmo.
 const UNIQUE_BY_CONTENT: readonly TargetEntityName[] = ['servicePositions', 'memberAvailability']
 
 // `organization_songs` saiu na 0007 (ADR-062): a música do Ministério é uma cópia em `songs`.
 const REMOVED_ENTITIES = ['organizationSongs'] as const
 
-const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates', 'assignments'] as const
+const READ_ONLY_ENTITIES = ['stageSessions', 'stageSessionStates', 'assignments', 'organizationMemberships'] as const
 
 export type TargetWritableEntityName = Exclude<TargetEntityName, typeof READ_ONLY_ENTITIES[number]>
 
 export type TargetWritableEntity =
   | Organization
-  | OrganizationMembership
   | Team
   | TeamMembership
   | Repertoire
@@ -120,10 +120,6 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
     case 'organizations': {
       const v = value as Organization
       return { id: v.id, name: v.name, created_at: v.createdAt, updated_at: v.updatedAt }
-    }
-    case 'organizationMemberships': {
-      const v = value as OrganizationMembership
-      return { id: v.id, organization_id: v.organizationId, user_id: v.userId, role: v.role, created_at: v.createdAt, updated_at: v.updatedAt }
     }
     case 'teams': {
       const v = value as Team
