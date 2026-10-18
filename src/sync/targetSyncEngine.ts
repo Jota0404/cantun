@@ -1,3 +1,4 @@
+import type { Table } from 'dexie'
 import type { Organization } from '../domain/organizations/organization'
 import type { OrganizationMembership } from '../domain/organizations/organizationMembership'
 import type { Team } from '../domain/teams/team'
@@ -207,6 +208,21 @@ export class TargetSyncEngine {
   async queueUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity): Promise<void> {
     await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
     await this.db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload, updatedAt: payload.updatedAt, attempts: 0 })
+    void this.sync()
+  }
+
+  /**
+   * Grava `write` e enfileira todos os `payloads` numa única transação; o sync só roda depois do commit,
+   * então nunca enxerga um lote parcial (unique de posição deferida no banco).
+   */
+  async queueUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>): Promise<void> {
+    await this.db.transaction('rw', [this.db.targetSyncQueue, ...tables], async () => {
+      await write()
+      for (const payload of payloads) {
+        await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
+        await this.db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload, updatedAt: payload.updatedAt, attempts: 0 })
+      }
+    })
     void this.sync()
   }
 

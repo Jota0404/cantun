@@ -1,3 +1,4 @@
+import type { Table } from 'dexie'
 import type { EntityName } from './types'
 import { db } from '../db/database'
 import { isPlatformConfigured } from '../platform/http'
@@ -21,6 +22,12 @@ export async function queueLocalDelete(userId: string | null, entity: EntityName
 export async function queueTargetUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity) {
   if (!targetSyncEngine) return
   await targetSyncEngine.queueUpsert(entity, payload)
+}
+
+/** Grava e enfileira em uma transação (ver `TargetSyncEngine.queueUpserts`); sem sync configurado, só grava. */
+export async function queueTargetUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>) {
+  if (!targetSyncEngine) return db.transaction('rw', tables, write)
+  await targetSyncEngine.queueUpserts(entity, payloads, tables, write)
 }
 
 export async function queueTargetDelete(entity: TargetWritableEntityName, entityId: string, updatedAt?: string) {

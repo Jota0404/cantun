@@ -10,7 +10,7 @@ vi.mock('../../application/services/applyRepertoire', () => ({
 }))
 vi.mock('../../application/repertoires/repertoireService', () => ({
   getRepertoireDetail: async () => ({ repertoire: { id: 'r1' }, items: [
-    { songId: 'a', song: { title: 'Oceano' } }, { songId: 'b', song: { title: 'Aliança' } }, { songId: 'c', song: { title: 'Santo' } },
+    { songId: 'a', song: { title: 'Oceano' } }, { songId: 'b', song: { title: 'Aliança' } }, { songId: 'c', song: { title: 'Santo' } }, { songId: 'd' },
   ] }),
 }))
 
@@ -40,6 +40,11 @@ describe('ApplyRepertoireDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Aplicar' }))
     await waitFor(() => expect(onApplied).toHaveBeenCalled())
     expect(m.apply).toHaveBeenCalledWith('s1', { repertoireId: 'r1', songIds: ['a'], afterItemId: 'i0' })
+  })
+
+  it('disables songs missing on this device', async () => {
+    await open()
+    expect(screen.getByRole('checkbox', { name: /Música indisponível/ })).toBeDisabled()
   })
 
   it('shows the error and stays open when applying fails', async () => {

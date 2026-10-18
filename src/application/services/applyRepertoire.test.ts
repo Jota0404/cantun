@@ -1,8 +1,16 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const queued = vi.hoisted(() => ({ upsert: vi.fn(), remove: vi.fn() }))
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: queued.upsert, queueTargetDelete: queued.remove }))
+// Fila real (fake-indexeddb); só o `sync` é desligado.
+vi.mock('../../sync/syncService', async () => {
+  const { db } = await import('../../db/database')
+  const { TargetSyncEngine } = await import('../../sync/targetSyncEngine')
+  const engine = new TargetSyncEngine(db)
+  engine.sync = async () => {}
+  return {
+    queueTargetUpsert: engine.queueUpsert.bind(engine), queueTargetDelete: engine.queueDelete.bind(engine), queueTargetUpserts: engine.queueUpserts.bind(engine),
+  }
+})
 vi.mock('../../platform/http', () => ({ isPlatformConfigured: false }))
 vi.mock('../../platform/rpc', () => ({ rpc: vi.fn() }))
 vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'u1', email: 'u@example.com', emailVerified: true, displayName: 'U' }) }))
@@ -12,6 +20,7 @@ import type { AccessContext } from '../../domain/access/permissions'
 import type { Service } from '../../domain/services/service'
 import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
+import { songRepository } from '../../db/repositories/songRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { duplicateRepertoire } from '../repertoires/repertoireService'
@@ -20,14 +29,13 @@ import { applyRepertoireToService, listApplicableRepertoires } from './applyRepe
 const now = '2026-10-01T00:00:00.000Z'
 const leader: AccessContext = { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active', isActiveInOrganization: true }
 const member: AccessContext = { organizationRole: 'member', teamRole: 'member', teamStatus: 'active', isActiveInOrganization: true }
-const repos = (access: AccessContext) => ({ repertoires: repertoireRepository, repertoireItems: repertoireItemRepository, items: serviceItemRepository, services: serviceRepository, access: async () => access })
+const repos = (access: AccessContext) => ({ repertoires: repertoireRepository, repertoireItems: repertoireItemRepository, items: serviceItemRepository, songs: songRepository, services: serviceRepository, access: async () => access })
 const service: Service = { id: 's1', organizationId: 'o1', teamId: 't1', name: 'Culto', startsAt: now, status: 'draft', createdByUserId: 'u1', createdAt: now, updatedAt: now }
 const song = (id: string) => ({ id, title: id, organizationId: 'o1', originalKey: 'G' as const, currentKey: 'G' as const, lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
 
 describe('applyRepertoireToService', () => {
   beforeEach(async () => {
     await Promise.all([db.services.clear(), db.serviceItems.clear(), db.repertoires.clear(), db.repertoireItems.clear(), db.songs.clear(), db.targetSyncQueue.clear()])
-    queued.upsert.mockClear()
     await db.services.put(service)
     await db.songs.bulkPut(['a', 'b', 'c'].map(song))
     await db.repertoires.bulkPut([
@@ -55,7 +63,7 @@ describe('applyRepertoireToService', () => {
     await applyRepertoireToService('s1', { repertoireId: 'r1', songIds: ['a', 'b'], afterItemId: 'i0' }, repos(leader))
     expect(await order()).toEqual(['i0', 'a', 'b', 'i1'])
     expect((await db.serviceItems.toArray()).map((i) => i.position).sort()).toEqual([0, 1, 2, 3])
-    const ids = queued.upsert.mock.calls.filter(([entity]) => entity === 'serviceItems').map(([, payload]) => payload.id)
+    const ids = (await db.targetSyncQueue.toArray()).filter((q) => q.entity === 'serviceItems').map((q) => q.entityId)
     expect(ids).toHaveLength(3)
     expect(ids).toContain('i1')
     expect(ids).not.toContain('i0')
@@ -79,9 +87,22 @@ describe('applyRepertoireToService', () => {
     expect(await order()).toEqual(['i0', 'i1'])
   })
 
+  it('is atomic: a failure mid-write leaves no duplicate positions and no partial queue', async () => {
+    const spy = vi.spyOn(db.serviceItems, 'bulkPut').mockRejectedValueOnce(new Error('boom'))
+    await expect(applyRepertoireToService('s1', { repertoireId: 'r1', songIds: ['a'], afterItemId: 'i0' }, repos(leader))).rejects.toThrow('boom')
+    spy.mockRestore()
+    expect(await order()).toEqual(['i0', 'i1'])
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('rejects songs that are not on this device', async () => {
+    await db.songs.delete('a')
+    expect(await applyRepertoireToService('s1', { repertoireId: 'r1', songIds: ['a'] }, repos(leader))).toMatchObject({ success: false })
+  })
+
   it('works offline and queues every change; lists only same-organization repertoires', async () => {
     await applyRepertoireToService('s1', { repertoireId: 'r1', songIds: ['a'], afterItemId: 'i0' }, repos(leader))
-    expect(queued.upsert.mock.calls.filter(([entity]) => entity === 'serviceItems')).toHaveLength(2)
+    expect((await db.targetSyncQueue.toArray()).filter((q) => q.entity === 'serviceItems')).toHaveLength(2)
     expect((await listApplicableRepertoires('s1')).map((r) => r.id)).toEqual(['r1'])
   })
 })

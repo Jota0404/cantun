@@ -120,8 +120,12 @@ export async function duplicateRepertoire(repertoireId: string): Promise<Reperto
   }
   const copy = await createRepertoire({ organizationId: current.organizationId, name: `Cópia de ${current.name}`, createdByUserId: user.id, version: 1 })
   const now = new Date().toISOString()
-  for (const item of await repertoireItemRepository.listByRepertoireId(repertoireId)) {
-    await repertoireItemRepository.create({ ...item, id: crypto.randomUUID(), repertoireId: copy.id, updatedAt: now })
+  const items = await repertoireItemRepository.listByRepertoireId(repertoireId)
+  try {
+    await repertoireItemRepository.createMany(items.map((item) => ({ ...item, id: crypto.randomUUID(), repertoireId: copy.id, updatedAt: now })))
+  } catch (error) {
+    await repertoireRepository.remove(copy.id)
+    throw error
   }
   return copy
 }

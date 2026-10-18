@@ -4,6 +4,7 @@ import type { ServiceItem } from '../../domain/services/serviceItem'
 import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
+import { songRepository } from '../../db/repositories/songRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { getMyAccessContext } from '../teams/teamMemberService'
@@ -12,12 +13,13 @@ export interface ApplyRepertoireRepositories {
   repertoires: typeof repertoireRepository
   repertoireItems: typeof repertoireItemRepository
   items: typeof serviceItemRepository
+  songs: typeof songRepository
   services: typeof serviceRepository
   access: (input: { organizationId: string; teamId?: string }) => Promise<AccessContext>
 }
 
 const defaults: ApplyRepertoireRepositories = {
-  repertoires: repertoireRepository, repertoireItems: repertoireItemRepository, items: serviceItemRepository, services: serviceRepository, access: getMyAccessContext,
+  repertoires: repertoireRepository, repertoireItems: repertoireItemRepository, items: serviceItemRepository, songs: songRepository, services: serviceRepository, access: getMyAccessContext,
 }
 
 export interface ApplyRepertoireInput {
@@ -38,7 +40,7 @@ export async function listApplicableRepertoires(serviceId: string, repositories 
 
 /**
  * RN-01…04: cria itens `song` a partir do repertório, sem ligá-los a ele. Músicas já na ordem são ignoradas (RN-A8).
- * Os itens seguintes são renumerados na mesma fila do serviço, que sobe como um lote só (unique de posição deferida).
+ * Criação e renumeração são gravadas e enfileiradas atomicamente (unique de posição deferida).
  */
 export async function applyRepertoireToService(serviceId: string, input: ApplyRepertoireInput, repositories = defaults): Promise<ApplyRepertoireResult> {
   const service = await repositories.services.getById(serviceId)
@@ -52,6 +54,7 @@ export async function applyRepertoireToService(serviceId: string, input: ApplyRe
   const repertoireSongIds = new Set((await repositories.repertoireItems.listByRepertoireId(repertoire.id)).map((item) => item.songId))
   if (input.songIds.some((songId) => !repertoireSongIds.has(songId))) return { success: false, errors: ['Há músicas que não pertencem ao repertório.'] }
 
+  for (const songId of input.songIds) if (!(await repositories.songs.getById(songId))) return { success: false, errors: ['Há músicas indisponíveis neste aparelho. Sincronize e tente de novo.'] }
   const current = await repositories.items.listByServiceId(service.id)
   const inOrder = new Set(current.flatMap((item) => item.type === 'song' && item.songId ? [item.songId] : []))
   const songIds = [...new Set(input.songIds)].filter((songId) => !inOrder.has(songId))
@@ -66,10 +69,8 @@ export async function applyRepertoireToService(serviceId: string, input: ApplyRe
   const now = new Date().toISOString()
   const added: ServiceItem[] = songIds.map((songId) => ({ id: crypto.randomUUID(), serviceId: service.id, type: 'song', songId, position: 0, updatedAt: now }))
   const ordered = [...current.slice(0, at), ...added, ...current.slice(at)]
-  for (const [position, item] of ordered.entries()) {
-    if (added.includes(item)) await repositories.items.create({ ...item, position })
-    else if (item.position !== position) await repositories.items.update({ ...item, position, updatedAt: now })
-  }
+  // Uma transação só: o sync nunca vê itens novos sem os antigos já renumerados.
+  await repositories.items.saveMany(ordered.flatMap((item, position) => added.includes(item) || item.position !== position ? [{ ...item, position, updatedAt: now }] : []))
   await repositories.services.update({ ...service, updatedAt: now })
   return { success: true, items: await repositories.items.listByServiceId(service.id), added: added.length }
 }
