@@ -30,7 +30,7 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - RN-07 `team_member.remove`: Owner/Admin e Líder ativo da equipe (não removem Líder; o Líder só remove `member`); apaga vínculo e atribuições futuras, mantém autoria e conta. Registra evento.
 - RN-08 Exportação inclui só dados do próprio titular; sem tokens, hashes nem dados de terceiros (nomes de outros membros fora). Cópias de música, repertórios e serviços de **autoria do titular dentro de um Ministério** ficam fora do export: o conteúdo pertence à organização (ADR-062); o export traz as músicas e os repertórios pessoais, vínculos, atribuições e disponibilidade (decisão do lead, 2026-10-17).
 - RN-09 `admin_events` registra: remoção de membro, mudança de papel, exclusão de conta, exportação. Campos sem conteúdo (sem e-mail, título, letra); append-only; leitura só Owner/Admin da organização; na exclusão o titular vira nulo.
-- RN-10 Menores: ver decisão D1. Qualquer que seja a opção, o cadastro coleta o mínimo (e-mail e nome) e não expõe e-mail de menor a quem não é Líder/Admin.
+- RN-10 Menores (D1 revisada, 2026-10-18): **idade mínima de 16 anos para ter conta própria** (ECA Digital, Lei 15.211/2025, em vigor desde 17/03/2026: contas de menores de 16 anos exigem vínculo a responsável legal; LGPD art. 14; Código Civil). O cadastro exige a declaração de que a pessoa tem 16 anos ou mais (Termos e formulário) e o servidor recusa o cadastro sem ela. **Não existe 'participante sem conta' no primeiro corte**: menores de 16 não entram no produto e o Líder não os adiciona. Contas de 16 e 17 anos são normais, com e-mail não exposto a quem não é Líder/Admin. A autodeclaração é provisória: a aferição confiável de idade depende da regulamentação da ANPD (jurídico, D6).
 - RN-11 Logs do servidor não gravam corpo de requisição de música/repertório/e-mail (NFR-008).
 - RN-12 `docs/BACKUP_RECOVERY.md`: RPO alvo 24 h, RTO alvo 4 h (proposto; D5), cópia fora do Render/Neon, restore executado e registrado com data.
 
@@ -100,7 +100,7 @@ ADR-063. `server/` só adiciona RPCs à allowlist; sem regra de permissão em TS
 | 5 | `delete_my_account` + sentinela (ADR-063 Accepted) | SQL + servidor | `feat/b8-delete-account` | backend | 4, D2 |
 | 6 | UI de exclusão + limpeza local | cliente | `feat/b8-delete-ui` | core, ui | 5 |
 | 7 | `export_my_data` + botão | SQL + cliente | `feat/b8-export` | backend, ui | — |
-| 8 | Regra de menores | conforme D1 | `feat/b8-minors` | backend, ui | D1 |
+| 8 | Idade mínima de 16 anos (declaração no cadastro, validação no servidor, Termos e Política) | SQL + servidor + UI | `feat/b8-minors` | backend, ui | D1 revisada (aprovada) |
 
 Fatias 4 e 7 são independentes das demais. Só SQL: parte de 4, 5, 7. Só doc: 1.
 
@@ -119,7 +119,7 @@ Organiza/prepara serviço? Não diretamente: é infraestrutura de confiança exi
 
 ## Decisões do Jota (jurídico/produto)
 Aprovadas em 2026-10-17, como recomendado:
-- D1 Menores: (c) menor de 18 só como membro adicionado por Líder, sem e-mail exposto, com idade mínima de 13/14 sujeita ao jurídico.
+- D1 Menores: **revisada em 2026-10-18 pelo Jota**: idade mínima de **16 anos** para conta própria, sem 'participante sem conta' no primeiro corte (substitui a opção (c) com 13/14). Motivo: ECA Digital (contas de menores de 16 vinculadas a responsável e aferição de idade), LGPD art. 14 e Código Civil. Fica para depois, se a igreja precisar, o 'participante sem conta' (só nome e função, visível ao Líder, com consentimento do responsável registrado). Validação final com o jurídico (D6): se o app é de 'acesso provável' por menores e se a autodeclaração basta até a ANPD detalhar a aferição.
 - D2 Autoria na saída: anonimizar ("Ex-membro"), não transferir ao Owner.
 - D3 Retenção pós-exclusão: apagar na hora, sem janela de desfazer.
 - D4 Único Owner: bloquear a exclusão até transferir a propriedade.
