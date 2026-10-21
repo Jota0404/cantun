@@ -137,7 +137,12 @@ export function ServiceDetailPage() {
 
   async function submitReprise(event: FormEvent, refItemId: string) {
     event.preventDefault()
-    if (await run(() => addReprise(serviceId, { type: repriseType, refItemId }))) setRepriseFor(undefined)
+    if (await run(() => addReprise(serviceId, { type: repriseType, refItemId }))) closeReprise(refItemId)
+  }
+
+  function closeReprise(itemId: string) {
+    setRepriseFor(undefined)
+    document.getElementById(`reprise-trigger-${itemId}`)?.focus()
   }
 
   async function removeItem(item: ServiceItem) {
@@ -169,6 +174,8 @@ export function ServiceDetailPage() {
   const itemLabel = (item: ServiceItem) => item.type === 'song'
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
+
+  const at = (item: ServiceItem, index: number) => item.refItemId ? ` (posição ${index + 1})` : ''
 
   const keyField = (item: ServiceItem) => {
     const song = songs.find((candidate) => candidate.id === item.songId)
@@ -236,14 +243,14 @@ export function ServiceDetailPage() {
                 {item.type === 'song' && keyField(item)}
               </div>
               {canEdit && <div className="service-actions">
-                <button type="button" aria-label={`Subir ${itemLabel(item)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>
-                <button type="button" aria-label={`Descer ${itemLabel(item)}`} disabled={index === items.length - 1} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index + 1))}>↓</button>
-                <button type="button" aria-label={`Remover ${itemLabel(item)}`} onClick={() => void removeItem(item)}>Remover</button>
-                {item.type === 'song' && <button type="button" aria-label={`Adicionar reprise/medley a ${itemLabel(item)}`} onClick={() => setRepriseFor(repriseFor === item.id ? undefined : item.id)}>Adicionar reprise/medley</button>}
+                <button type="button" aria-label={`Subir ${itemLabel(item)}${at(item, index)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>
+                <button type="button" aria-label={`Descer ${itemLabel(item)}${at(item, index)}`} disabled={index === items.length - 1} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index + 1))}>↓</button>
+                <button type="button" aria-label={`Remover ${itemLabel(item)}${at(item, index)}`} onClick={() => void removeItem(item)}>Remover</button>
+                {item.type === 'song' && <button type="button" id={`reprise-trigger-${item.id}`} aria-expanded={repriseFor === item.id} aria-label={`Adicionar reprise/medley a ${itemLabel(item)}`} onClick={() => setRepriseFor(repriseFor === item.id ? undefined : item.id)}>Adicionar reprise/medley</button>}
               </div>}
               {canEdit && repriseFor === item.id && <form className="service-form service-reprise" aria-label={`Reprise de ${itemLabel(item)}`} onSubmit={(event) => void submitReprise(event, item.id)}>
                 <label>Tipo<select value={repriseType} onChange={(event) => setRepriseType(event.target.value as 'reprise' | 'medley')}><option value="reprise">Reprise</option><option value="medley">Medley</option></select></label>
-                <div className="service-actions"><button type="submit">Adicionar à ordem</button><button type="button" onClick={() => setRepriseFor(undefined)}>Cancelar</button></div>
+                <div className="service-actions"><button type="submit">Adicionar à ordem</button><button type="button" onClick={() => closeReprise(item.id)}>Cancelar</button></div>
               </form>}
             </li>
           ))}
