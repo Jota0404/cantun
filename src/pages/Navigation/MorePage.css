@@ -1,0 +1,23 @@
+.confirm-modal__dialog label {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.confirm-modal__dialog input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.confirm-modal__dialog button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.confirm-modal__dialog input:focus-visible,
+.confirm-modal__dialog button:focus-visible,
+.delete-error:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
