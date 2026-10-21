@@ -29,12 +29,15 @@ Cookie `cantum_session`: token opaco de 256 bits, `HttpOnly`, `SameSite=Lax`, `S
 | `POST /auth/login` | `{ email, password }` | 200 `{ user }` + cookie |
 | `POST /auth/logout` | — | 204; revoga a sessão |
 | `GET /auth/session` | — | 200 `{ user }` ou 401 |
+| `POST /auth/reauth` | `{ password }` (exige sessão) | 204; confere a senha e marca `app.sessions.reauth_at = now()` só na sessão do cookie atual (ADR-065). 401 `senha incorreta` com senha errada ou conta sem senha usável; 401 sem sessão |
 | `POST /auth/verify-email` | `{ token }` | 204 |
 | `POST /auth/verify-email/resend` | — (exige sessão) | 204; se o e-mail ainda não foi verificado, invalida os links anteriores e envia um novo |
 | `POST /auth/password-reset/request` | `{ email }` | sempre 204 |
 | `POST /auth/password-reset/confirm` | `{ token, password }` | 204; derruba todas as sessões |
 
-`user = { id, email, emailVerified, displayName, consentRequired }`. `consentRequired` é `true` quando a versão vigente de Política e Termos (`app.current_consent_version()`) ainda não foi aceita; o cliente chama `POST /rpc/record_consent` (`p_document` `privacy` e `terms`, `p_version`) e relê `/auth/session`. O nome muda por `POST /rpc/set_my_display_name`; os nomes dos membros de uma organização vêm de `POST /rpc/get_organization_member_profiles` (sem e-mail). As rotas de autenticação aceitam 10 requisições por minuto por IP.
+`user = { id, email, emailVerified, displayName, consentRequired }`. `consentRequired` é `true` quando a versão vigente de Política e Termos (`app.current_consent_version()`) ainda não foi aceita; o cliente chama `POST /rpc/record_consent` (`p_document` `privacy` e `terms`, `p_version`) e relê `/auth/session`. O nome muda por `POST /rpc/set_my_display_name`; os nomes dos membros de uma organização vêm de `POST /rpc/get_organization_member_profiles` (sem e-mail). As rotas de autenticação (inclusive `/auth/reauth`) aceitam 10 requisições por minuto por IP.
+
+**Reautenticação (ADR-065).** `POST /rpc/delete_my_account` só passa se a sessão reautenticou nos últimos 5 minutos (janela fixa, sem renovação por uso; vale só para a sessão que enviou a senha). Senão responde `403 { "error": "reauth_required" }` (distinto do `403 acesso negado`); o cliente pede a senha, chama `/auth/reauth` e repete. O servidor só repassa o fato ao banco como `app.session_reauth_at` (`set_config` local à transação, vazio sem reauth ou fora do `/rpc`); a regra e o erro `42501 recent authentication required` são do banco.
 
 ### RPC
 

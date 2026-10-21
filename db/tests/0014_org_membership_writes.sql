@@ -160,6 +160,7 @@ select pg_temp.ok(exists (select 1 from public.organization_memberships where or
 
 -- Cascade não depende do grant revogado: sair da conta (delete_my_account) e apagar a organização.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1407');
+select set_config('app.session_reauth_at', now()::text, true);  -- reauth em dia (ADR-065)
 select public.delete_my_account();
 select pg_temp.ok(not exists (select 1 from public.organization_memberships where user_id = '00000000-0000-0000-0000-0000000d1407'), 'delete_my_account apaga o vínculo em cascade');
 select pg_temp.as_user('00000000-0000-0000-0000-0000000d1406');

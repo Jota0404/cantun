@@ -25,11 +25,14 @@ export async function transaction<T>(pool: Pool, fn: (client: Client) => Promise
 /**
  * Transação de uma requisição: papel e usuário locais à transação.
  * Quem decide o acesso é a RLS e as funções do banco (ADR-049, ADR-059).
+ *
+ * `reauthAt`: quando a sessão da requisição provou a senha (ADR-065). Vira `app.session_reauth_at`, local à
+ * transação; vazio quando a sessão nunca reautenticou ou o caminho não tem sessão (o banco nega, falha fechada).
  */
-export function asUser<T>(pool: Pool, userId: string | null, fn: (client: Client) => Promise<T>): Promise<T> {
+export function asUser<T>(pool: Pool, userId: string | null, fn: (client: Client) => Promise<T>, reauthAt: Date | null = null): Promise<T> {
   return transaction(pool, async (client) => {
     await client.query(userId ? 'set local role cantum_user' : 'set local role cantum_anon')
-    await client.query("select set_config('app.user_id', $1, true)", [userId ?? ''])
+    await client.query("select set_config('app.user_id', $1, true), set_config('app.session_reauth_at', $2, true)", [userId ?? '', reauthAt?.toISOString() ?? ''])
     return fn(client)
   })
 }
@@ -47,7 +50,8 @@ export class HttpError extends Error {
 export function fromPgError(error: unknown): HttpError | null {
   const code = (error as { code?: unknown }).code
   if (typeof code !== 'string') return null
-  if (code === '42501') return new HttpError(403, 'acesso negado')
+  // Só o par 42501 + mensagem de delete_my_account; o cliente usa o código para pedir a senha.
+  if (code === '42501') return new HttpError(403, (error as Error).message === 'recent authentication required' ? 'reauth_required' : 'acesso negado')
   if (code === 'P0001') return new HttpError(400, (error as Error).message)
   if (code.startsWith('23')) return new HttpError(409, 'conflito de dados')
   if (code.startsWith('22')) return new HttpError(400, 'dados inválidos')

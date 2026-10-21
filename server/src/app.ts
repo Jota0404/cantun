@@ -4,7 +4,7 @@ import rateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
 import Fastify from 'fastify'
 import type { FastifyServerOptions } from 'fastify'
-import { authRoutes, SESSION_COOKIE, sessionUserId } from './auth.ts'
+import { authRoutes, SESSION_COOKIE, sessionContext } from './auth.ts'
 import { loadCatalog } from './catalog.ts'
 import { dataRoutes } from './data.ts'
 import type { Pool } from './db.ts'
@@ -18,6 +18,8 @@ import { inviteHook, scheduleRoutes } from './schedule.ts'
 declare module 'fastify' {
   interface FastifyRequest {
     userId: string | null
+    /** Última reautenticação da sessão da requisição (ADR-065). */
+    reauthAt: Date | null
   }
 }
 
@@ -65,6 +67,7 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
   await app.register(rateLimit, { max: 300, timeWindow: '1 minute' })
 
   app.decorateRequest('userId', null)
+  app.decorateRequest('reauthAt', null)
 
   app.addHook('onRequest', async (request) => {
     // Defesa contra CSRF além do SameSite=Lax: escrita só da origem do app.
@@ -73,7 +76,11 @@ export async function buildApp({ pool, appOrigin, mailer, logger = true, realtim
       throw new HttpError(403, 'origem não permitida')
     }
     // Arquivos do front não consultam a sessão no banco.
-    if (SESSION_PREFIX.test(request.url)) request.userId = await sessionUserId(pool, request.cookies[SESSION_COOKIE])
+    if (SESSION_PREFIX.test(request.url)) {
+      const session = await sessionContext(pool, request.cookies[SESSION_COOKIE])
+      request.userId = session?.userId ?? null
+      request.reauthAt = session?.reauthAt ?? null
+    }
   })
 
   app.setErrorHandler((error, request, reply) => {
