@@ -317,6 +317,19 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     expect((await db.repertoires.where('organizationId').equals('org-1').toArray()).map((r) => r.id)).toEqual(['r1'])
   })
 
+  it('keeps old service items readable and stores refItemId without a new version (RN-10)', async () => {
+    await seedVersion10()
+    db = new SalmodiaDatabase()
+    await db.open()
+    await db.serviceItems.bulkPut([
+      { id: 'i1', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now },
+      { id: 'r1', serviceId: 's1', type: 'reprise', title: 'Reprise: a', refItemId: 'i1', position: 1, updatedAt: now },
+    ])
+    expect(db.verno).toBe(18)
+    expect((await db.serviceItems.get('r1'))?.refItemId).toBe('i1')
+    expect((await db.serviceItems.get('i1'))?.refItemId).toBeUndefined()
+  })
+
   it('reads service items saved before the key field and stores the key without a new version', async () => {
     await seedVersion10()
     db = new SalmodiaDatabase()

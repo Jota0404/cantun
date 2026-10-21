@@ -5,6 +5,7 @@ import { listSongs } from '../../application/songs/listSongs'
 import { listOrganizationSongs } from '../../application/songs/listOrganizationSongs'
 import { OFFLINE_COPY_MESSAGE } from '../../application/songs/copySongToOrganization'
 import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
+import { addReprise } from '../../application/services/addReprise'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { setServiceItemKey } from '../../application/services/applyRepertoire'
 import { useAuth } from '../../auth/authContext'
@@ -16,7 +17,7 @@ import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
 import { MAJOR_KEYS, MINOR_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
 import type { Service } from '../../domain/services/service'
-import { SERVICE_ITEM_TYPES, effectiveKey, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
+import { SERVICE_ITEM_TYPES, countDependents, effectiveKey, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
 import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
 import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
@@ -44,6 +45,8 @@ export function ServiceDetailPage() {
   const [itemMinutes, setItemMinutes] = useState('')
   const [itemNotes, setItemNotes] = useState('')
   const [applying, setApplying] = useState(false)
+  const [repriseFor, setRepriseFor] = useState<string>()
+  const [repriseType, setRepriseType] = useState<'reprise' | 'medley'>('reprise')
   const [dragged, setDragged] = useState<string>()
   const [error, setError] = useState('')
 
@@ -132,6 +135,22 @@ export function ServiceDetailPage() {
     if (await run(() => addServiceItem(serviceId, input))) { setItemSongId(''); setItemTitle(''); setItemMinutes(''); setItemNotes('') }
   }
 
+  async function submitReprise(event: FormEvent, refItemId: string) {
+    event.preventDefault()
+    if (await run(() => addReprise(serviceId, { type: repriseType, refItemId }))) closeReprise(refItemId)
+  }
+
+  function closeReprise(itemId: string) {
+    setRepriseFor(undefined)
+    document.getElementById(`reprise-trigger-${itemId}`)?.focus()
+  }
+
+  async function removeItem(item: ServiceItem) {
+    const dependents = countDependents(items, item.id)
+    if (dependents > 0 && !window.confirm(`Excluir "${itemLabel(item)}" também apaga ${dependents} ${dependents === 1 ? 'reprise/medley que volta' : 'reprises/medleys que voltam'} a esta música. Continuar?`)) return
+    await run(() => removeServiceItem(item.id))
+  }
+
   function dropOn(event: DragEvent, toIndex: number) {
     event.preventDefault()
     if (dragged) void run(() => moveServiceItem(serviceId, dragged, toIndex))
@@ -155,6 +174,8 @@ export function ServiceDetailPage() {
   const itemLabel = (item: ServiceItem) => item.type === 'song'
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
+
+  const at = (item: ServiceItem, index: number) => item.refItemId ? ` (posição ${index + 1})` : ''
 
   const keyField = (item: ServiceItem) => {
     const song = songs.find((candidate) => candidate.id === item.songId)
@@ -217,15 +238,20 @@ export function ServiceDetailPage() {
             <li key={item.id} draggable={canEdit} onDragStart={() => setDragged(item.id)} onDragOver={(event) => canEdit && event.preventDefault()} onDrop={(event) => dropOn(event, index)}>
               <div>
                 <strong>{index + 1}. {itemLabel(item)}</strong>
-                <span>{SERVICE_ITEM_TYPE_LABEL[item.type]}{item.durationMinutes && <> · {item.durationMinutes} min</>}</span>
+                <span>{item.refItemId ? `volta da posição ${items.findIndex((other) => other.id === item.refItemId) + 1}` : SERVICE_ITEM_TYPE_LABEL[item.type]}{item.durationMinutes && <> · {item.durationMinutes} min</>}</span>
                 {item.notes && <span>{item.notes}</span>}
                 {item.type === 'song' && keyField(item)}
               </div>
               {canEdit && <div className="service-actions">
-                <button type="button" aria-label={`Subir ${itemLabel(item)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>
-                <button type="button" aria-label={`Descer ${itemLabel(item)}`} disabled={index === items.length - 1} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index + 1))}>↓</button>
-                <button type="button" aria-label={`Remover ${itemLabel(item)}`} onClick={() => void run(() => removeServiceItem(item.id))}>Remover</button>
+                <button type="button" aria-label={`Subir ${itemLabel(item)}${at(item, index)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>
+                <button type="button" aria-label={`Descer ${itemLabel(item)}${at(item, index)}`} disabled={index === items.length - 1} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index + 1))}>↓</button>
+                <button type="button" aria-label={`Remover ${itemLabel(item)}${at(item, index)}`} onClick={() => void removeItem(item)}>Remover</button>
+                {item.type === 'song' && <button type="button" id={`reprise-trigger-${item.id}`} aria-expanded={repriseFor === item.id} aria-label={`Adicionar reprise/medley a ${itemLabel(item)}`} onClick={() => setRepriseFor(repriseFor === item.id ? undefined : item.id)}>Adicionar reprise/medley</button>}
               </div>}
+              {canEdit && repriseFor === item.id && <form className="service-form service-reprise" aria-label={`Reprise de ${itemLabel(item)}`} onSubmit={(event) => void submitReprise(event, item.id)}>
+                <label>Tipo<select value={repriseType} onChange={(event) => setRepriseType(event.target.value as 'reprise' | 'medley')}><option value="reprise">Reprise</option><option value="medley">Medley</option></select></label>
+                <div className="service-actions"><button type="submit">Adicionar à ordem</button><button type="button" onClick={() => closeReprise(item.id)}>Cancelar</button></div>
+              </form>}
             </li>
           ))}
         </ol>
@@ -235,7 +261,7 @@ export function ServiceDetailPage() {
       {canEdit && <form className="service-form" onSubmit={(event) => void addItem(event)} aria-label="Adicionar item">
         <label>Tipo
           <select value={itemType} onChange={(event) => setItemType(event.target.value as ServiceItemType)}>
-            {SERVICE_ITEM_TYPES.map((type) => <option key={type} value={type}>{SERVICE_ITEM_TYPE_LABEL[type]}</option>)}
+            {SERVICE_ITEM_TYPES.filter((type) => type !== 'reprise' && type !== 'medley').map((type) => <option key={type} value={type}>{SERVICE_ITEM_TYPE_LABEL[type]}</option>)}
           </select>
         </label>
         {itemType === 'song'
