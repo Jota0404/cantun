@@ -21,11 +21,13 @@ const m = vi.hoisted(() => ({
   removeServiceItem: vi.fn(),
   deleteService: vi.fn(),
   setServiceItemKey: vi.fn(),
+  addReprise: vi.fn(),
   orgSongs: [] as unknown[],
 }))
 vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => m.orgSongs }))
 vi.mock('../../application/songs/copySongToOrganization', () => ({ OFFLINE_COPY_MESSAGE: 'Sem conexão: tente de novo quando estiver online.' }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor', currentKey: 'C', originalKey: 'C' }] }))
+vi.mock('../../application/services/addReprise', () => ({ addReprise: m.addReprise }))
 vi.mock('../../application/services/applyRepertoire', () => ({ setServiceItemKey: m.setServiceItemKey }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))
@@ -47,9 +49,9 @@ const items: ServiceItem[] = [
 ]
 const leader: AccessContext = { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active', isActiveLeaderInOrganization: true }
 
-function renderWith(service: Partial<Service>, access: AccessContext) {
+function renderWith(service: Partial<Service>, access: AccessContext, list: ServiceItem[] = items) {
   m.service = { ...base, ...service }
-  m.items = items
+  m.items = list
   m.access = access
   render(<MemoryRouter initialEntries={['/services/sv1']}><Routes><Route path="/services/:serviceId" element={<ServiceDetailPage />} /></Routes></MemoryRouter>)
 }
@@ -139,6 +141,27 @@ describe('ServiceDetailPage', () => {
   it('owner starts the stage on an open service', async () => {
     renderWith({ status: 'ready' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+  })
+
+  it('adds a reprise to a song item (RN-10)', async () => {
+    m.addReprise.mockReset().mockResolvedValue({ success: true })
+    renderWith({}, leader)
+    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar reprise/medley a Grande é o Senhor' }))
+    await userEvent.selectOptions(screen.getByLabelText('Tipo', { selector: '.service-reprise select' }), 'medley')
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar à ordem' }))
+    expect(m.addReprise).toHaveBeenCalledWith('sv1', { type: 'medley', refItemId: 'i2' })
+  })
+
+  it('shows "volta da posição N" and confirms deleting a song with reprises (RN-11)', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderWith({}, leader, [...items, { id: 'i3', serviceId: 'sv1', type: 'reprise', title: 'Reprise: Grande é o Senhor', refItemId: 'i2', position: 2, updatedAt: '' }])
+    expect(await screen.findByText('volta da posição 2')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Grande é o Senhor' }))
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('1 reprise/medley'))
+    expect(m.removeServiceItem).not.toHaveBeenCalled()
+    confirm.mockReturnValue(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Grande é o Senhor' }))
+    expect(m.removeServiceItem).toHaveBeenCalledWith('i2')
   })
 
   it('does not list a personal song twice once its Ministry copy exists', async () => {

@@ -29,6 +29,8 @@ export const SERVICE_TRANSITION_LABEL: Record<ServiceStatus, string> = {
 
 export const SERVICE_ITEM_TYPE_LABEL: Record<ServiceItemType, string> = {
   song: 'Música',
+  reprise: 'Reprise',
+  medley: 'Medley',
   opening: 'Abertura',
   prayer: 'Oração',
   preaching: 'Pregação',

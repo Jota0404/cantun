@@ -10,3 +10,5 @@
 .service-status { padding: .1rem .55rem; border: 1px solid var(--color-border); border-radius: 999px; font-size: .85rem; font-weight: 700; }
 .service-status--ready, .service-status--in_progress { border-color: var(--color-primary); }
 .service-status--cancelled { text-decoration: line-through; }
+.service-order button:focus-visible, .service-reprise select:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+.service-reprise { flex-basis: 100%; }
