@@ -114,7 +114,8 @@ select pg_temp.as_user('00000000-0000-0000-0000-000000001901');
 select pg_temp.fails($q$insert into public.service_items (service_id, type, title, ref_item_id, position) values ('60000000-0000-0000-0000-000000001903', 'reprise', 'R', '61000000-0000-0000-0000-000000001905', 9)$q$, 'N-B7 completed cria', '42501');
 
 -- RN-11: excluir o alvo apaga as reprises/medleys dele; as de outro alvo ficam.
-select pg_temp.as_user('00000000-0000-0000-0000-000000001902');
+-- Como o MD da sessão (o alvo é o item atual do Palco: a FK current_service_item_id zera e só o MD pode mutar o estado).
+select pg_temp.as_user('00000000-0000-0000-0000-000000001901');
 select pg_temp.affects($q$insert into public.service_items (id, service_id, type, title, ref_item_id, position) values ('61000000-0000-0000-0000-000000001914', '60000000-0000-0000-0000-000000001901', 'reprise', 'Reprise: Outra', '61000000-0000-0000-0000-000000001902', 6)$q$, 1, 'reprise de outro alvo');
 select pg_temp.affects($q$delete from public.service_items where id = '61000000-0000-0000-0000-000000001901'$q$, 1, 'RN-11 exclui o alvo');
 select pg_temp.ok((select count(*) = 0 from public.service_items where id in ('61000000-0000-0000-0000-000000001911', '61000000-0000-0000-0000-000000001912')), 'RN-11 cascata apaga reprise e medley');
