@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AccessContext } from '../../domain/access/permissions'
 import type { Service } from '../../domain/services/service'
 import type { ServiceItem } from '../../domain/services/serviceItem'
+import { MAJOR_KEYS } from '../../domain/music/musicalKey'
 import { ServiceDetailPage } from './ServiceDetailPage'
 
 const m = vi.hoisted(() => ({
@@ -19,11 +20,13 @@ const m = vi.hoisted(() => ({
   moveServiceItem: vi.fn(),
   removeServiceItem: vi.fn(),
   deleteService: vi.fn(),
+  setServiceItemKey: vi.fn(),
   orgSongs: [] as unknown[],
 }))
 vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => m.orgSongs }))
 vi.mock('../../application/songs/copySongToOrganization', () => ({ OFFLINE_COPY_MESSAGE: 'Sem conexão: tente de novo quando estiver online.' }))
-vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor' }] }))
+vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor', currentKey: 'C', originalKey: 'C' }] }))
+vi.mock('../../application/services/applyRepertoire', () => ({ setServiceItemKey: m.setServiceItemKey }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
@@ -52,7 +55,7 @@ function renderWith(service: Partial<Service>, access: AccessContext) {
 }
 
 describe('ServiceDetailPage', () => {
-  beforeEach(() => { [m.transitionService, m.addServiceItem, m.moveServiceItem, m.removeServiceItem].forEach((fn) => fn.mockReset().mockResolvedValue({ success: true, items: [] })) })
+  beforeEach(() => { m.setServiceItemKey.mockReset().mockResolvedValue({ success: true }); [m.transitionService, m.addServiceItem, m.moveServiceItem, m.removeServiceItem].forEach((fn) => fn.mockReset().mockResolvedValue({ success: true, items: [] })) })
 
   it('shows status in text and only allowed transitions', async () => {
     renderWith({}, leader)
@@ -143,5 +146,44 @@ describe('ServiceDetailPage', () => {
     renderWith({}, leader)
     expect(await screen.findAllByRole('option', { name: 'Grande é o Senhor' })).toHaveLength(1)
     m.orgSongs = []
+  })
+
+  describe('tom neste serviço', () => {
+    it('sets and clears the key on song items only', async () => {
+      const user = userEvent.setup()
+      renderWith({}, leader)
+      const select = await screen.findByLabelText('Tom neste serviço')
+      expect(screen.getAllByLabelText('Tom neste serviço')).toHaveLength(1)
+      expect(within(select).getAllByRole('option')).toHaveLength(MAJOR_KEYS.length + 1)
+      await user.selectOptions(select, 'D')
+      expect(m.setServiceItemKey).toHaveBeenCalledWith('i2', 'D')
+      await user.selectOptions(select, 'Tom da música (C)')
+      expect(m.setServiceItemKey).toHaveBeenCalledWith('i2', undefined)
+    })
+
+    it('shows the use case error as alert', async () => {
+      m.setServiceItemKey.mockResolvedValue({ success: false, errors: ['Tom inválido.'] })
+      renderWith({}, leader)
+      await userEvent.setup().selectOptions(await screen.findByLabelText('Tom neste serviço'), 'D')
+      expect(await screen.findByRole('alert')).toHaveTextContent('Tom inválido.')
+    })
+
+    it('is text only for a plain member', async () => {
+      renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
+      expect(await screen.findByText('Tom: C')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Tom neste serviço')).toBeNull()
+    })
+
+    it('offers only same-mode keys of the song', async () => {
+      renderWith({}, leader)
+      const select = await screen.findByLabelText('Tom neste serviço')
+      expect(within(select).queryByRole('option', { name: 'Am' })).toBeNull()
+    })
+
+    it('is read-only when the service is completed', async () => {
+      renderWith({ status: 'completed' }, leader)
+      expect(await screen.findByText('Tom: C')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Tom neste serviço')).toBeNull()
+    })
   })
 })

@@ -1,3 +1,4 @@
+import { effectiveKey } from '../../domain/services/serviceItem'
 import { MUSICAL_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
@@ -63,7 +64,7 @@ async function getLocalServiceStageSongs(stageSessionId: string): Promise<Servic
       title: song.title,
       artist: song.artist,
       originalKey: song.originalKey,
-      currentKey: song.currentKey,
+      currentKey: effectiveKey(item, song),
       lyrics: song.lyrics,
       notes: song.notes,
       bpm: song.bpm,

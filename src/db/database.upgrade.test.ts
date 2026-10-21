@@ -316,4 +316,16 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     expect(mine.filter((r) => !r.organizationId).map((r) => r.id)).toEqual(['p1'])
     expect((await db.repertoires.where('organizationId').equals('org-1').toArray()).map((r) => r.id)).toEqual(['r1'])
   })
+
+  it('reads service items saved before the key field and stores the key without a new version', async () => {
+    await seedVersion10()
+    db = new SalmodiaDatabase()
+    await db.open()
+    await db.serviceItems.put({ id: 'old', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now })
+    await db.serviceItems.put({ id: 'new', serviceId: 's1', type: 'song', songId: 'b', position: 1, key: 'A', updatedAt: now })
+    expect(db.verno).toBe(18)
+    expect((await db.serviceItems.get('old'))?.key).toBeUndefined()
+    expect((await db.serviceItems.get('new'))?.key).toBe('A')
+    expect((await db.serviceItems.where('serviceId').equals('s1').sortBy('position')).map((i) => i.id)).toEqual(['old', 'new'])
+  })
 })

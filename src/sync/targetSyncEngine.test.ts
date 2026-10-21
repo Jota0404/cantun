@@ -99,6 +99,29 @@ describe('TargetSyncEngine services (VS-02)', () => {
     await Promise.all([db.targetSyncQueue.clear(), db.services.clear(), db.serviceItems.clear()])
   })
 
+  it('pushes and pulls the item key (B6 / RN-06)', async () => {
+    await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'i1', operation: 'upsert', payload: { ...item('i1', 0), key: 'A' }, updatedAt: now, attempts: 0 } as TargetSyncQueueItem)
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows.mock.calls[0][1][0]).toMatchObject({ key: 'A' })
+
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items'
+      ? [{ id: 'i1', service_id: 'svc-1', type: 'song', song_id: 'song-1', position: 0, key: 'Bb', updated_at: now }, { id: 'i2', service_id: 'svc-1', type: 'song', song_id: 'song-2', position: 1, key: null, updated_at: now }]
+      : table === 'services' ? [{ ...service, id: 'svc-1', organization_id: 'org-1', team_id: 'team-1', starts_at: now, created_by_user_id: 'u', created_at: now, updated_at: now }] : [])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.serviceItems.get('i1'))?.key).toBe('Bb')
+    expect((await db.serviceItems.get('i2'))?.key).toBeUndefined()
+  })
+
+  it('does not retry a rejected item key (403, 409, 400)', async () => {
+    for (const status of [403, 409, 400]) {
+      await db.targetSyncQueue.clear()
+      remote.upsertRows.mockRejectedValue(new ApiError(status, 'service item key must have the same mode as the song original key'))
+      await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'i1', operation: 'upsert', payload: { ...item('i1', 0), key: 'Am' }, updatedAt: now, attempts: 0 } as TargetSyncQueueItem)
+      await new TargetSyncEngine(db).sync()
+      expect((await db.targetSyncQueue.toArray())[0]).toMatchObject({ status: 'failed' })
+    }
+  })
+
   it('pushes services without status and the items of one service in a single batch', async () => {
     await db.targetSyncQueue.bulkAdd([
       { entity: 'services', entityId: 'svc-1', operation: 'upsert', payload: service, updatedAt: now, attempts: 0 },

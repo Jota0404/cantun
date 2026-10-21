@@ -24,7 +24,7 @@ import { songRepository } from '../../db/repositories/songRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { duplicateRepertoire } from '../repertoires/repertoireService'
-import { applyRepertoireToService, listApplicableRepertoires } from './applyRepertoire'
+import { applyRepertoireToService, listApplicableRepertoires, setServiceItemKey } from './applyRepertoire'
 
 const now = '2026-10-01T00:00:00.000Z'
 const leader: AccessContext = { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active', isActiveInOrganization: true }
@@ -129,5 +129,40 @@ describe('duplicateRepertoire', () => {
     await expect(duplicateRepertoire('r1')).rejects.toThrow('permissão')
     await db.organizationMemberships.put({ id: 'm1', organizationId: 'o1', userId: 'u1', role: 'member', createdAt: now, updatedAt: now } as never)
     expect(await duplicateRepertoire('r1')).toMatchObject({ organizationId: 'o1', name: 'Cópia de Domingo', createdByUserId: 'u1' })
+  })
+})
+
+describe('setServiceItemKey', () => {
+  beforeEach(async () => {
+    await Promise.all([db.services.clear(), db.serviceItems.clear(), db.songs.clear(), db.targetSyncQueue.clear()])
+    await db.services.put(service)
+    await db.songs.put(song('a'))
+    await db.serviceItems.bulkPut([
+      { id: 'i1', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now },
+      { id: 'i2', serviceId: 's1', type: 'prayer', title: 'Oração', position: 1, updatedAt: now },
+    ])
+  })
+
+  it('sets the key, queues the item and leaves the song untouched', async () => {
+    const result = await setServiceItemKey('i1', 'A', repos(leader))
+    expect(result).toMatchObject({ success: true, item: { key: 'A' } })
+    expect((await db.serviceItems.get('i1'))?.key).toBe('A')
+    expect(await db.targetSyncQueue.count()).toBe(1)
+    expect(await db.songs.get('a')).toMatchObject({ originalKey: 'G', currentKey: 'G' })
+  })
+
+  it('clears the key with undefined', async () => {
+    await setServiceItemKey('i1', 'A', repos(leader))
+    await setServiceItemKey('i1', undefined, repos(leader))
+    expect(await db.serviceItems.get('i1')).not.toHaveProperty('key')
+  })
+
+  it('refuses another mode, a non-song item, a member and a final service', async () => {
+    expect(await setServiceItemKey('i1', 'Am', repos(leader))).toMatchObject({ success: false })
+    expect(await setServiceItemKey('i2', 'C', repos(leader))).toMatchObject({ success: false })
+    expect(await setServiceItemKey('i1', 'A', repos(member))).toMatchObject({ success: false })
+    await db.services.put({ ...service, status: 'completed' })
+    expect(await setServiceItemKey('i1', 'A', repos(leader))).toMatchObject({ success: false })
+    expect((await db.serviceItems.get('i1'))?.key).toBeUndefined()
   })
 })

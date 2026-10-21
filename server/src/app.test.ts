@@ -300,6 +300,15 @@ describe('dados sob RLS', () => {
     const items = await app.inject({ method: 'GET', url: `/sync/service_items?service_id=${serviceId}`, headers: { cookie: ana } })
     assert.deepEqual(items.json().map((item: { type: string; position: number }) => [item.type, item.position]).sort((a: [string, number], b: [string, number]) => a[1] - b[1]), [['prayer', 0], ['opening', 1]])
 
+    const personalId = crypto.randomUUID()
+    const songRow = { user_id: anaId, id: personalId, title: 'Rocha', original_key: 'C', current_key: 'C', lyrics: 'x', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/songs', headers: { cookie: ana }, payload: { rows: [songRow] } })).statusCode, 200)
+    const songId = (await app.inject({ method: 'POST', url: '/rpc/copy_song_to_organization', headers: { cookie: ana }, payload: { p_song_id: personalId, p_organization_id: orgId } })).json().id
+    const songItem = { id: crypto.randomUUID(), service_id: serviceId, type: 'song', song_id: songId, position: 2 }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/service_items', headers: { cookie: ana }, payload: { rows: [{ ...songItem, key: 'Bb' }] } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'GET', url: `/sync/service_items?service_id=${serviceId}`, headers: { cookie: ana } })).json().find((i: { id: string }) => i.id === songItem.id).key, 'Bb')
+    assert.notEqual((await app.inject({ method: 'POST', url: '/sync/service_items', headers: { cookie: ana }, payload: { rows: [{ ...songItem, key: 'Am' }] } })).statusCode, 200)
+
     const withStatus = await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: ana }, payload: { rows: [{ ...service, status: 'completed' }] } })
     assert.equal(withStatus.statusCode, 403)
     const ready = await app.inject({ method: 'POST', url: '/rpc/transition_service', headers: { cookie: ana }, payload: { p_service_id: serviceId, p_to: 'ready' } })
