@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
-import { ApiError } from '../../platform/http'
 import { exportMyData } from '../../application/privacy/exportMyData'
 import { useOnline } from '../../components/schedule/useOnline'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
@@ -10,6 +9,12 @@ import { labels } from '../../ui/labels'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
 import './NavigationPages.css'
 import './MorePage.css'
+
+const REAUTH_ERRORS = {
+  wrong_password: 'Senha incorreta.',
+  session_expired: 'Sua sessão expirou. Entre novamente.',
+  network: 'Não foi possível confirmar sua senha. Verifique a conexão e tente novamente.',
+}
 
 // Apêndice B. Tarefa: acessar o que não é do dia a dia. Prioridade: Repertórios e configurações.
 // Ação óbvia: Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem (RN-01).
@@ -19,7 +24,9 @@ export function MorePage() {
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [password, setPassword] = useState('')
+  const confirmRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
+  const focusPasswordOnError = useRef(false)
   const errorRef = useRef<HTMLParagraphElement>(null)
   const [deleteError, setDeleteError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -79,11 +86,14 @@ export function MorePage() {
   }, [busy])
 
   useEffect(() => {
-    if (deleting) passwordRef.current?.focus()
+    if (deleting) confirmRef.current?.focus()
   }, [deleting])
 
   useEffect(() => {
-    if (deleteError) errorRef.current?.focus()
+    if (!deleteError) return
+    if (focusPasswordOnError.current) passwordRef.current?.focus()
+    else errorRef.current?.focus()
+    focusPasswordOnError.current = false
   }, [deleteError])
 
   async function handleDelete() {
@@ -95,20 +105,19 @@ export function MorePage() {
     setDeleteError('')
     setBusy(true)
     try {
-      try {
-        await reauth(password)
-      } catch (cause) {
-        setDeleteError(cause instanceof ApiError && cause.status === 401
-          ? 'Senha incorreta.'
-          : 'Não foi possível confirmar sua senha. Verifique a conexão e tente novamente.')
+      const auth = await reauth(password)
+      if (!auth.success) {
+        if (auth.reason === 'wrong_password') {
+          setPassword('')
+          focusPasswordOnError.current = true
+        }
+        setDeleteError(REAUTH_ERRORS[auth.reason])
         return
       }
       const result = await deleteAccount()
       if (result.success) navigate('/auth', { replace: true, state: { notice: 'Conta excluída' } })
       else {
-        if (result.reauthRequired) {
-          setPassword('')
-        }
+        if (result.reauthRequired) setPassword('')
         setDeleteError(result.errors[0])
       }
     } catch {
@@ -153,11 +162,11 @@ export function MorePage() {
         onCancel={closeDelete}
       >
         <div className="delete-account">
-        <label>Digite EXCLUIR para confirmar <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
-        <label>Senha <input ref={passwordRef} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" disabled={busy} /></label>
-        {busy && <p role="status">Confirmando…</p>}
-        {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
-        {deleteError && online && <p role="alert" ref={errorRef} tabIndex={-1} className="delete-error">{deleteError}</p>}
+          <label>Digite EXCLUIR para confirmar <input ref={confirmRef} value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
+          <label>Senha <input ref={passwordRef} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" disabled={busy} /></label>
+          <p role="status">{busy ? 'Confirmando…' : ''}</p>
+          {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
+          {deleteError && online && <p role="alert" ref={errorRef} tabIndex={-1} className="delete-error">{deleteError}</p>}
         </div>
       </ConfirmModal>
       {error && <p role="alert" className="organization-error">{error}</p>}

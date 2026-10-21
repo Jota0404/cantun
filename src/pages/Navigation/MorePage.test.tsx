@@ -5,7 +5,6 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PendingLocalChangesError } from '../../auth/localSession'
-import { ApiError } from '../../platform/http'
 import { axeViolations } from '../../test/axe'
 import { MorePage } from './MorePage'
 
@@ -87,16 +86,16 @@ describe('MorePage', () => {
       await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
     }
 
-    beforeEach(() => { reauth.mockReset().mockResolvedValue(undefined) })
+    beforeEach(() => { reauth.mockReset().mockResolvedValue({ success: true }) })
 
-    it('focuses the password field and needs word and password to enable', async () => {
+    it('focuses the first field and needs word and password to enable', async () => {
       const user = userEvent.setup()
       renderMore()
       await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
       const field = screen.getByLabelText('Senha')
       expect(field).toHaveAttribute('type', 'password')
       expect(field).toHaveAttribute('autocomplete', 'current-password')
-      expect(field).toHaveFocus()
+      expect(screen.getByLabelText(/Digite EXCLUIR/)).toHaveFocus()
       await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
       expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
     })
@@ -104,23 +103,27 @@ describe('MorePage', () => {
     it('shows "Senha incorreta." and deletes nothing when the password is wrong', async () => {
       const user = userEvent.setup()
       deleteAccount.mockClear()
-      reauth.mockRejectedValueOnce(new ApiError(401, 'senha incorreta'))
+      reauth.mockResolvedValueOnce({ success: false, reason: 'wrong_password' })
       renderMore()
       await openAndConfirm(user)
-      const alert = await screen.findByRole('alert')
-      expect(alert).toHaveTextContent('Senha incorreta.')
-      expect(alert).toHaveFocus()
+      expect(await screen.findByRole('alert')).toHaveTextContent('Senha incorreta.')
+      expect(screen.getByLabelText('Senha')).toHaveValue('')
+      expect(screen.getByLabelText('Senha')).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
       expect(deleteAccount).not.toHaveBeenCalled()
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
-    it('shows a network error without deleting', async () => {
+    it.each([
+      ['network', 'Não foi possível confirmar sua senha'],
+      ['session_expired', 'Sua sessão expirou. Entre novamente.'],
+    ])('shows the %s error without deleting', async (reason, text) => {
       const user = userEvent.setup()
       deleteAccount.mockClear()
-      reauth.mockRejectedValueOnce(new Error('Failed to fetch'))
+      reauth.mockResolvedValueOnce({ success: false, reason })
       renderMore()
       await openAndConfirm(user)
-      expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível confirmar sua senha')
+      expect(await screen.findByRole('alert')).toHaveTextContent(text)
       expect(deleteAccount).not.toHaveBeenCalled()
     })
 
