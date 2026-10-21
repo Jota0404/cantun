@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { db } from '../db/database'
 import * as platformAuth from '../platform/auth'
 import type { AuthUser } from '../platform/auth'
-import { isPlatformConfigured } from '../platform/http'
+import { ApiError, isPlatformConfigured } from '../platform/http'
 import { realtime } from '../platform/realtime'
 import { syncEngine, syncTargetDomain, targetSyncEngine } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
@@ -114,7 +114,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       return result
     },
-    reauth: platformAuth.reauth,
+    reauth: async (password) => {
+      try {
+        await platformAuth.reauth(password)
+        return { success: true }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          if (error.message === 'senha incorreta') return { success: false, reason: 'wrong_password' }
+          if (error.message === 'sessão inválida') {
+            await refresh().catch(() => undefined)
+            return { success: false, reason: 'session_expired' }
+          }
+        }
+        return { success: false, reason: 'network' }
+      }
+    },
     acceptConsent: async () => {
       const result = await recordConsent()
       if (result.success) await refresh()

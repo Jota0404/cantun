@@ -17,7 +17,7 @@ const auth = vi.hoisted(() => ({
   confirmPasswordReset: vi.fn(),
 }))
 vi.mock('../platform/auth', () => auth)
-vi.mock('../platform/http', () => ({ isPlatformConfigured: true }))
+vi.mock('../platform/http', async (importOriginal) => ({ ...await importOriginal<typeof import('../platform/http')>(), isPlatformConfigured: true }))
 const realtime = vi.hoisted(() => ({ onSessionExpired: null as (() => void) | null }))
 vi.mock('../platform/realtime', () => ({ realtime }))
 const engines = vi.hoisted(() => ({
@@ -33,6 +33,7 @@ const recordConsent = vi.hoisted(() => vi.fn())
 vi.mock('../application/privacy/recordConsent', () => ({ recordConsent }))
 
 import { db } from '../db/database'
+import { ApiError } from '../platform/http'
 import { AuthProvider } from './AuthContext.tsx'
 import { useAuth } from './authContext'
 
@@ -146,10 +147,35 @@ describe('AuthProvider', () => {
     expect(auth.signOut).not.toHaveBeenCalled()
   })
 
-  it('reauth delegates to the server', async () => {
+  it('reauth succeeds', async () => {
     const { result } = await renderAuth()
-    await act(() => result.current.reauth('password1'))
+    auth.reauth.mockResolvedValueOnce(undefined)
+    await expect(act(() => result.current.reauth('password1'))).resolves.toEqual({ success: true })
     expect(auth.reauth).toHaveBeenCalledWith('password1')
+  })
+
+  it('reauth maps a wrong password without refreshing', async () => {
+    const { result } = await renderAuth()
+    const calls = auth.getSession.mock.calls.length
+    auth.reauth.mockRejectedValueOnce(new ApiError(401, 'senha incorreta'))
+    await expect(act(() => result.current.reauth('x'))).resolves.toEqual({ success: false, reason: 'wrong_password' })
+    expect(auth.getSession.mock.calls.length).toBe(calls)
+  })
+
+  it('reauth maps an invalid session and re-queries it', async () => {
+    const { result } = await renderAuth()
+    const calls = auth.getSession.mock.calls.length
+    auth.reauth.mockRejectedValueOnce(new ApiError(401, 'sessão inválida'))
+    await expect(act(() => result.current.reauth('x'))).resolves.toEqual({ success: false, reason: 'session_expired' })
+    expect(auth.getSession.mock.calls.length).toBe(calls + 1)
+  })
+
+  it('reauth maps network and server errors', async () => {
+    const { result } = await renderAuth()
+    auth.reauth.mockRejectedValueOnce(new ApiError(0, 'Sem conexão'))
+    await expect(act(() => result.current.reauth('x'))).resolves.toEqual({ success: false, reason: 'network' })
+    auth.reauth.mockRejectedValueOnce(new ApiError(500, 'Erro 500 do servidor.'))
+    await expect(act(() => result.current.reauth('x'))).resolves.toEqual({ success: false, reason: 'network' })
   })
 
   it('resendVerification delegates to the server', async () => {
