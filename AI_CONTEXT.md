@@ -1,7 +1,7 @@
 # CANTUM — AI Context
 
 > Contexto operacional para agentes de IA que trabalham no CANTUM. Curto de propósito: carregue sempre; consulte os documentos-fonte para detalhes.
-> Última revisão: 2026-10-17 (FIX-01 concluída; B5 em andamento).
+> Última revisão: 2026-10-21 (B5 e B8 concluídos; B6 na fatia 3).
 
 ## 1. Identidade
 
@@ -24,8 +24,9 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 - **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras; **B0 Fundação** (CI em `main`, isolamento local ADR-048, portabilidade ADR-049, governança da IA ADR-050/058, templates, plano de blocos); spec do **B2 Equipe** (VS-01, ADR-051, `docs/PERMISSIONS.md`).
 - **Concluído também:** **B1 Backend próprio** (ADR-059): PostgreSQL (`db/`) + servidor Node.js (`server/`), cliente em `src/platform`, legado removido, Supabase fora do projeto.
 - **Concluído também:** **B2 Equipe**, **B3 Serviço** e **B4 Escala**; **FIX-01 jornada musical** (spec `docs/specs/FIX-01-jornada-musical.md`, ADR-062): música do Ministério é cópia, repertório pessoal e importação para o Ministério, tons menores, sync confiável com erro permanente tratado, Líder inicia o Palco (`stage.start`), Palco do serviço no tom atual (RN-C4). Banco em produção: aplicar as migrations 0007–0010 só depois de confirmar que há apenas dados de teste.
-- **Em andamento:** **B5 Navegação/Design System** (tokens e tema entregues; faltam navegação e Início). Hospedagem de produção ainda não definida (owner, antes do primeiro usuário real). Follow-up: issue #87 (timeout de sessão com servidor travado).
-- **Próximo:** B6 Música no serviço + Ensaio; B8 Privacidade antes de qualquer usuário real (inclui `songs.user_id` em cascade apagando cópias do autor ao excluir conta).
+- **Concluído também:** **B5 Navegação/Design System** (tokens, tema, navegação e Início contextual; PRs #92–#94) e **B8 Privacidade** (consentimento, exportação, exclusão de conta, remoção de membro, idade mínima 16, backup/restore e checklist de go-live; PRs #95–#112; textos legais ainda dependem de revisão jurídica).
+- **Em andamento:** **B6 Música no serviço + Ensaio** (spec `docs/specs/VS-04-05-preparacao.md`): fatias 1 (aplicar repertório, #108) e 2 (tom por serviço, #113, migration 0017) feitas; próxima a fatia 3 (reprise, migration 0018), depois 4 a 7; a 8 (upload) espera a D10 (storage). Hospedagem de produção ainda não definida (owner, antes do primeiro usuário real). Follow-up: issue #87 (timeout de sessão com servidor travado).
+- **Próximo:** B7 Execução & Histórico.
 - **Legado:** `Band*`/`Setlist*`, `BandSyncEngine`, `bandStageRealtime` e as rotas `/bands*`, `/stage/setlist`, `/stage/session` foram **removidos** no B1 (ADR-059), não portados. Não recriar.
 
 ## 4. Stack

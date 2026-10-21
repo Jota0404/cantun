@@ -1,6 +1,6 @@
 # CANTUM — Blocos de entrega: índice
 
-> v1.0 · 2026-10-01 · status atualizado em 2026-10-08 (`main` @ `a005ba4`)
+> v1.0 · 2026-10-01 · status atualizado em 2026-10-21 (`main` @ `2ceaf8e`)
 > Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`. Plano consolidado: `docs/DELIVERY_PLAN.md`.
 
 Cada bloco tem um documento próprio com: objetivo, estado atual no código, requisitos do Blueprint, escopo, entregáveis por PR, mudanças de dados, critérios de aceite, testes, riscos e dependências.
@@ -8,14 +8,14 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 | Bloco | Documento | Fase | Depende de | Status |
 |---|---|---|---|---|
 | B0 | `B0-fundacao.md` | 0 | — | ✅ concluído |
-| B1 | `B1-portabilidade-postgres.md` (backend próprio) | 0/1 (ADR-059) | B0 | ▶ próximo: baseline SQL |
-| B2 | `B2-equipe-vs01.md` | 1 | B0; SQL após baseline do B1 | spec aceita (#56); implementação #57–#60 |
-| B3 | `B3-servico-vs02.md` | 1 | B2 | — |
-| B4 | `B4-escala-vs03.md` | 1 | B3 | — |
-| B5 | `B5-navegacao-design-system.md` | 1 | B0 (paralelo ao B2) | — |
-| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | — |
+| B1 | `B1-portabilidade-postgres.md` (backend próprio) | 0/1 (ADR-059) | B0 | ✅ concluído |
+| B2 | `B2-equipe-vs01.md` | 1 | B0; SQL após baseline do B1 | ✅ concluído |
+| B3 | `B3-servico-vs02.md` | 1 | B2 | ✅ concluído |
+| B4 | `B4-escala-vs03.md` | 1 | B3 | ✅ concluído |
+| B5 | `B5-navegacao-design-system.md` | 1 | B0 (paralelo ao B2) | ✅ concluído |
+| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | ▶ em andamento: fatias 1–2 feitas, próxima a 3 (reprise) |
 | B7 | `B7-execucao-historico.md` | 2/3 | B6 | — |
-| B8 | `B8-privacidade-minima.md` | 0/1 | B2 | antes de usuários reais |
+| B8 | `B8-privacidade-minima.md` | 0/1 | B2 | ✅ concluído (jurídico pendente; antes de usuários reais) |
 | B9 | `B9-backend-proprio.md` | — | — | absorvido pelo B1 |
 | B10 | `B10-network.md` | 5 | validação do core | hipótese |
 
