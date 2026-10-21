@@ -194,6 +194,7 @@ export function ServiceDetailPage() {
     <header>
       <Link to={`/organizations/${service.organizationId}`}>{labels.backToOrganization}</Link>
       <span>SERVIÇO</span>
+      <Link className="service-prepare-link" to={`/services/${service.id}/prepare`}>Preparar</Link>
       <h2>{service.name}</h2>
       <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>
       <p>Status: <Badge tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Badge></p>

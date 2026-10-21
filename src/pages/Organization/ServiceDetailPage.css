@@ -12,3 +12,5 @@
 .service-status--cancelled { text-decoration: line-through; }
 .service-order button:focus-visible, .service-reprise select:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
 .service-reprise { flex-basis: 100%; }
+
+.service-prepare-link { min-height: 44px; display: inline-flex; align-items: center; }

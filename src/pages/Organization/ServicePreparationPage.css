@@ -1,0 +1,7 @@
+.prep { display: grid; gap: 0.75rem; max-width: 40rem; margin: 0 auto; padding: 1rem; }
+.prep a { display: inline-flex; align-items: center; min-height: 44px; }
+.prep a:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+.prep__function { font-weight: 700; }
+.prep__items { display: grid; gap: 0.75rem; padding-left: 1.5rem; }
+.prep__items li { min-height: 44px; overflow-wrap: anywhere; }
+.prep__items p { margin: 0.25rem 0 0; }
