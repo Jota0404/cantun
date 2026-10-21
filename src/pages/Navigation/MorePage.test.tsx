@@ -3,7 +3,7 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PendingLocalChangesError } from '../../auth/localSession'
 import { axeViolations } from '../../test/axe'
 import { MorePage } from './MorePage'
@@ -12,7 +12,8 @@ const exportMyData = vi.hoisted(() => vi.fn())
 vi.mock('../../application/privacy/exportMyData', () => ({ exportMyData }))
 const signOut = vi.hoisted(() => vi.fn())
 const deleteAccount = vi.hoisted(() => vi.fn())
-vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ signOut, deleteAccount }) }))
+const reauth = vi.hoisted(() => vi.fn())
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ signOut, deleteAccount, reauth }) }))
 
 describe('MorePage', () => {
   it('offers Repertórios, Configurações and Sair, and hides Ensaios and Histórico', async () => {
@@ -81,8 +82,60 @@ describe('MorePage', () => {
     async function openAndConfirm(user: ReturnType<typeof userEvent.setup>) {
       await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
       await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      await user.type(screen.getByLabelText('Senha'), 'password1')
       await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
     }
+
+    beforeEach(() => { reauth.mockReset().mockResolvedValue({ success: true }) })
+
+    it('focuses the first field and needs word and password to enable', async () => {
+      const user = userEvent.setup()
+      renderMore()
+      await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
+      const field = screen.getByLabelText('Senha')
+      expect(field).toHaveAttribute('type', 'password')
+      expect(field).toHaveAttribute('autocomplete', 'current-password')
+      expect(screen.getByLabelText(/Digite EXCLUIR/)).toHaveFocus()
+      await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
+    })
+
+    it('shows "Senha incorreta." and deletes nothing when the password is wrong', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockClear()
+      reauth.mockResolvedValueOnce({ success: false, reason: 'wrong_password' })
+      renderMore()
+      await openAndConfirm(user)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Senha incorreta.')
+      expect(screen.getByLabelText('Senha')).toHaveValue('')
+      expect(screen.getByLabelText('Senha')).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
+      expect(deleteAccount).not.toHaveBeenCalled()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it.each([
+      ['network', 'Não foi possível confirmar sua senha'],
+      ['session_expired', 'Sua sessão expirou. Entre novamente.'],
+    ])('shows the %s error without deleting', async (reason, text) => {
+      const user = userEvent.setup()
+      deleteAccount.mockClear()
+      reauth.mockResolvedValueOnce({ success: false, reason })
+      renderMore()
+      await openAndConfirm(user)
+      expect(await screen.findByRole('alert')).toHaveTextContent(text)
+      expect(deleteAccount).not.toHaveBeenCalled()
+    })
+
+    it('reopens the password step when the reauth window expired', async () => {
+      const user = userEvent.setup()
+      deleteAccount.mockResolvedValueOnce({ success: false, errors: ['Confirme sua senha para excluir a conta.'], reauthRequired: true })
+      renderMore()
+      await openAndConfirm(user)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Confirme sua senha para excluir a conta.')
+      expect(screen.getByLabelText('Senha')).toHaveValue('')
+      expect(screen.queryByText('Tela de entrada')).not.toBeInTheDocument()
+    })
 
     it('requires the typed word before enabling the confirmation', async () => {
       const user = userEvent.setup()
@@ -93,6 +146,7 @@ describe('MorePage', () => {
       expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeDisabled()
       expect(await axeViolations(baseElement)).toEqual([])
       await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      await user.type(screen.getByLabelText('Senha'), 'password1')
       expect(screen.getByRole('button', { name: 'Excluir definitivamente' })).toBeEnabled()
       expect(deleteAccount).not.toHaveBeenCalled()
     })
@@ -105,7 +159,9 @@ describe('MorePage', () => {
       await user.click(screen.getByRole('button', { name: 'Excluir minha conta' }))
       expect(screen.getByRole('alert')).toHaveTextContent('Sem conexão')
       await user.type(screen.getByLabelText(/Digite EXCLUIR/), 'EXCLUIR')
+      await user.type(screen.getByLabelText('Senha'), 'password1')
       await user.click(screen.getByRole('button', { name: 'Excluir definitivamente' }))
+      expect(reauth).not.toHaveBeenCalled()
       expect(deleteAccount).not.toHaveBeenCalled()
       vi.restoreAllMocks()
     })

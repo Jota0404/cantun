@@ -20,6 +20,16 @@ describe('deleteMyAccount', () => {
     expect(SOLE_OWNER_MESSAGE).toMatch(/único Owner/)
   })
 
+  it('flags an expired reauthentication window', async () => {
+    rpc.mockRejectedValue(new ApiError(403, 'reauth_required'))
+    expect(await deleteMyAccount()).toEqual({ success: false, errors: ['Confirme sua senha para excluir a conta.'], reauthRequired: true })
+  })
+
+  it('does not treat a plain access denial as reauth', async () => {
+    rpc.mockRejectedValue(new ApiError(403, 'acesso negado'))
+    expect(await deleteMyAccount()).toEqual({ success: false, errors: ['Não foi possível excluir sua conta.'] })
+  })
+
   it('hides raw server errors behind a friendly message', async () => {
     rpc.mockRejectedValue(new Error('boom'))
     expect(await deleteMyAccount()).toEqual({ success: false, errors: ['Não foi possível excluir sua conta.'] })

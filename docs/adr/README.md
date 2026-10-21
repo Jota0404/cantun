@@ -67,6 +67,7 @@
 | [ADR-062](ADR-062-repertorio-pessoal.md) | Repertório pessoal e importação para a organização (revisa o ADR-022) | Accepted |
 | [ADR-063](ADR-063-saida-do-titular-e-anonimizacao.md) | Saída do titular: exclusão de conta, anonimização de autoria e exportação | Accepted |
 | [ADR-064](ADR-064-materiais-e-storage.md) | Materiais e storage de arquivos (substitui a reserva do 056) | Proposed |
+| [ADR-065](ADR-065-reautenticacao-acoes-destrutivas.md) | Reautenticação para ações destrutivas (exclusão de conta; #101) | Accepted |
 
 ## Números reservados
 
@@ -74,4 +75,4 @@ Fonte: [`docs/blocks/00-INDICE.md`](../blocks/00-INDICE.md). Ao escrever o ADR, 
 
 Sem números reservados no momento (o 056 foi substituído pelo ADR-064).
 
-Próximo número livre: **ADR-065**.
+Próximo número livre: **ADR-066**.

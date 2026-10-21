@@ -92,6 +92,11 @@ export function requestPasswordReset(email: string): Promise<void> {
   return apiRequest('POST', '/auth/password-reset/request', { email })
 }
 
+/** Reautentica com a senha (ADR-065); 401 "senha incorreta" lança `ApiError`. */
+export function reauth(password: string): Promise<void> {
+  return apiRequest('POST', '/auth/reauth', { password })
+}
+
 /** Derruba todas as sessões da conta no servidor. */
 export async function confirmPasswordReset(token: string, password: string): Promise<void> {
   await apiRequest<void>('POST', '/auth/password-reset/confirm', { token, password })

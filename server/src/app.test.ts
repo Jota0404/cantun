@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { after, before, describe, test } from 'node:test'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from './app.ts'
-import { hashPassword, verifyPassword } from './auth.ts'
+import { hashPassword, newToken, verifyPassword } from './auth.ts'
 import { createPool } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
@@ -775,5 +775,113 @@ describe('consentimento (B8, RN-01/D7)', () => {
     }
     const session = await app.inject({ method: 'GET', url: '/auth/session', headers: { cookie } })
     assert.equal(session.json().user.consentRequired, false)
+  })
+})
+
+describe('reautenticação para excluir a conta (B8, ADR-065)', () => {
+  const PASSWORD = 'senha-forte-123'
+  // IPs próprios: o limite de /auth/* (10/min por IP) não interfere nos outros testes.
+  const reauthIp = '10.0.0.120'
+  const create = async (email: string) => {
+    const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.121', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: PASSWORD, displayName: 'Reauth' } })
+    assert.equal(response.statusCode, 201, response.body)
+    return { cookie: cookieOf(response), id: response.json().user.id as string }
+  }
+  const login = async (email: string) => cookieOf(await app.inject({ method: 'POST', url: '/auth/login', remoteAddress: '10.0.0.122', payload: { email, password: PASSWORD } }))
+  const reauth = (cookie: string, password = PASSWORD, remoteAddress = reauthIp) =>
+    app.inject({ method: 'POST', url: '/auth/reauth', remoteAddress, headers: { cookie }, payload: { password } })
+  const deleteAccount = (cookie: string) => app.inject({ method: 'POST', url: '/rpc/delete_my_account', headers: { cookie }, payload: {} })
+  const exists = async (id: string) => (await pool.query('select 1 from app.users where id = $1', [id])).rowCount === 1
+
+  test('R1/R2/R5: sem reauth, com senha errada ou expirada o banco recusa; com senha certa a exclusão funciona', async () => {
+    const { cookie, id } = await create('reauth.fluxo@teste.local')
+    const never = await deleteAccount(cookie)
+    assert.equal(never.statusCode, 403)
+    assert.equal(never.json().error, 'reauth_required')
+    assert.equal(await exists(id), true)
+
+    const wrong = await reauth(cookie, 'senha-errada-123')
+    assert.equal(wrong.statusCode, 401)
+    assert.equal((await pool.query('select reauth_at from app.sessions where user_id = $1', [id])).rows[0].reauth_at, null)
+    assert.equal((await deleteAccount(cookie)).statusCode, 403)
+
+    assert.equal((await reauth(cookie)).statusCode, 204)
+    // Janela de 5 min fixa: reauth_at antigo (relógio do banco) volta a exigir a senha.
+    await pool.query(`update app.sessions set reauth_at = now() - interval '5 minutes 1 second' where user_id = $1`, [id])
+    const expired = await deleteAccount(cookie)
+    assert.equal(expired.statusCode, 403)
+    assert.equal(expired.json().error, 'reauth_required')
+    assert.equal(await exists(id), true)
+
+    assert.equal((await reauth(cookie)).statusCode, 204)
+    assert.equal((await deleteAccount(cookie)).statusCode, 200)
+    assert.equal(await exists(id), false)
+  })
+
+  test('R3: anônimo, sessão revogada e sessão expirada recebem 401', async () => {
+    assert.equal((await app.inject({ method: 'POST', url: '/auth/reauth', remoteAddress: reauthIp, payload: { password: PASSWORD } })).statusCode, 401)
+    const { cookie, id } = await create('reauth.revogada@teste.local')
+    await app.inject({ method: 'POST', url: '/auth/logout', headers: { cookie } })
+    assert.equal((await reauth(cookie)).statusCode, 401)
+    const second = await login('reauth.revogada@teste.local')
+    await pool.query(`update app.sessions set expires_at = now() - interval '1 second', created_at = now() - interval '1 day' where user_id = $1`, [id])
+    assert.equal((await reauth(second)).statusCode, 401)
+    assert.equal((await deleteAccount(second)).statusCode, 401)
+  })
+
+  test('R4: o reauth de um usuário não vale para outro', async () => {
+    const a = await create('reauth.a@teste.local')
+    const b = await create('reauth.b@teste.local')
+    assert.equal((await reauth(a.cookie)).statusCode, 204)
+    const denied = await deleteAccount(b.cookie)
+    assert.equal(denied.statusCode, 403)
+    assert.equal(denied.json().error, 'reauth_required')
+    assert.equal(await exists(b.id), true)
+    assert.equal(await exists(a.id), true)
+  })
+
+  test('R6: o reauth vale só para a sessão que reautenticou (outro aparelho do mesmo usuário)', async () => {
+    const one = await create('reauth.aparelhos@teste.local')
+    const two = await login('reauth.aparelhos@teste.local')
+    assert.equal((await reauth(one.cookie)).statusCode, 204)
+    const other = await deleteAccount(two)
+    assert.equal(other.statusCode, 403)
+    assert.equal(other.json().error, 'reauth_required')
+    assert.equal(await exists(one.id), true)
+    assert.equal((await deleteAccount(one.cookie)).statusCode, 200)
+    assert.equal(await exists(one.id), false)
+  })
+
+  test('R7: o cliente não forja o contexto pelo /rpc, e a configuração não vaza entre requisições', async () => {
+    const { cookie, id } = await create('reauth.forja@teste.local')
+    for (const payload of [{ 'app.session_reauth_at': new Date().toISOString() }, { p_reauth_at: new Date().toISOString() }]) {
+      const forged = await app.inject({ method: 'POST', url: '/rpc/delete_my_account', headers: { cookie }, payload })
+      assert.equal(forged.statusCode, 400)
+    }
+    assert.equal((await deleteAccount(cookie)).statusCode, 403)
+    // Sessão reautenticada e outra não: requisições alternadas no mesmo pool não herdam o fato uma da outra.
+    const other = await create('reauth.vazamento@teste.local')
+    assert.equal((await reauth(cookie, PASSWORD, '10.0.0.125')).statusCode, 204)
+    for (let i = 0; i < 6; i++) {
+      assert.equal((await deleteAccount(other.cookie)).statusCode, 403, `rodada ${i}`)
+      assert.equal(await exists(other.id), true)
+    }
+    assert.equal(await exists(id), true)
+  })
+
+  test('R9: a 11ª tentativa por minuto em /auth/reauth leva 429', async () => {
+    const { cookie } = await create('reauth.limite@teste.local')
+    const ip = '10.0.0.123'
+    for (let i = 0; i < 10; i++) assert.equal((await reauth(cookie, 'senha-errada-123', ip)).statusCode, 401, `tentativa ${i + 1}`)
+    assert.equal((await reauth(cookie, 'senha-errada-123', ip)).statusCode, 429)
+  })
+
+  test('R10: usuário sem senha (sentinela "Ex-membro") nunca passa', async () => {
+    const token = newToken()
+    const { rows } = await pool.query<{ id: string }>('select app.deleted_user_id() as id')
+    await pool.query(`insert into app.sessions (token_hash, user_id, expires_at) values ($1, $2, now() + interval '1 day')`, [token.hash, rows[0].id])
+    const cookie = `cantum_session=${token.token}`
+    for (const password of ['x', 'qualquer-senha-123']) assert.equal((await reauth(cookie, password, '10.0.0.124')).statusCode, 401)
+    assert.equal((await pool.query('select reauth_at from app.sessions where token_hash = $1', [token.hash])).rows[0].reauth_at, null)
   })
 })

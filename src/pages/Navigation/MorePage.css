@@ -1,0 +1,17 @@
+.delete-account label {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.delete-account input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.delete-account input:focus-visible,
+.delete-account .delete-error:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}

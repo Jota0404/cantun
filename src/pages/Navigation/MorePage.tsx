@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
@@ -8,14 +8,26 @@ import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { labels } from '../../ui/labels'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
 import './NavigationPages.css'
+import './MorePage.css'
+
+const REAUTH_ERRORS = {
+  wrong_password: 'Senha incorreta.',
+  session_expired: 'Sua sessão expirou. Entre novamente.',
+  network: 'Não foi possível confirmar sua senha. Verifique a conexão e tente novamente.',
+}
 
 // Apêndice B. Tarefa: acessar o que não é do dia a dia. Prioridade: Repertórios e configurações.
 // Ação óbvia: Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem (RN-01).
 export function MorePage() {
-  const { signOut, deleteAccount } = useAuth()
+  const { signOut, deleteAccount, reauth } = useAuth()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
+  const [password, setPassword] = useState('')
+  const confirmRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const focusPasswordOnError = useRef(false)
+  const errorRef = useRef<HTMLParagraphElement>(null)
   const [deleteError, setDeleteError] = useState('')
   const [busy, setBusy] = useState(false)
   const online = useOnline()
@@ -69,8 +81,20 @@ export function MorePage() {
     if (busy) return
     setDeleting(false)
     setConfirmText('')
+    setPassword('')
     setDeleteError('')
   }, [busy])
+
+  useEffect(() => {
+    if (deleting) confirmRef.current?.focus()
+  }, [deleting])
+
+  useEffect(() => {
+    if (!deleteError) return
+    if (focusPasswordOnError.current) passwordRef.current?.focus()
+    else errorRef.current?.focus()
+    focusPasswordOnError.current = false
+  }, [deleteError])
 
   async function handleDelete() {
     if (busy) return
@@ -81,9 +105,21 @@ export function MorePage() {
     setDeleteError('')
     setBusy(true)
     try {
+      const auth = await reauth(password)
+      if (!auth.success) {
+        if (auth.reason === 'wrong_password') {
+          setPassword('')
+          focusPasswordOnError.current = true
+        }
+        setDeleteError(REAUTH_ERRORS[auth.reason])
+        return
+      }
       const result = await deleteAccount()
       if (result.success) navigate('/auth', { replace: true, state: { notice: 'Conta excluída' } })
-      else setDeleteError(result.errors[0])
+      else {
+        if (result.reauthRequired) setPassword('')
+        setDeleteError(result.errors[0])
+      }
     } catch {
       setDeleteError('Não foi possível limpar os dados deste aparelho. Tente sair da conta.')
     } finally {
@@ -120,14 +156,18 @@ export function MorePage() {
         title="Excluir minha conta"
         message={`O que você criou para ${labels.organizationDefinite} continua lá, como “Ex-membro”. Seus dados pessoais, vínculos e escalas são apagados agora, inclusive alterações deste aparelho ainda não sincronizadas. Isso não pode ser desfeito.`}
         confirmLabel={busy ? 'Excluindo…' : 'Excluir definitivamente'}
-        confirmDisabled={confirmText !== 'EXCLUIR' || busy}
+        confirmDisabled={confirmText !== 'EXCLUIR' || !password || busy}
         cancelDisabled={busy}
         onConfirm={() => void handleDelete()}
         onCancel={closeDelete}
       >
-        <label>Digite EXCLUIR para confirmar <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
-        {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
-        {deleteError && online && <p role="alert">{deleteError}</p>}
+        <div className="delete-account">
+          <label>Digite EXCLUIR para confirmar <input ref={confirmRef} value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
+          <label>Senha <input ref={passwordRef} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" disabled={busy} /></label>
+          <p role="status">{busy ? 'Confirmando…' : ''}</p>
+          {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
+          {deleteError && online && <p role="alert" ref={errorRef} tabIndex={-1} className="delete-error">{deleteError}</p>}
+        </div>
       </ConfirmModal>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>

@@ -50,6 +50,19 @@ describe('platform auth', () => {
     expect(apiRequest).toHaveBeenCalledWith('POST', '/auth/verify-email/resend')
   })
 
+  it('reauthenticates with the password', async () => {
+    apiRequest.mockResolvedValueOnce(undefined)
+    const auth = await loadAuth()
+    await auth.reauth('password1')
+    expect(apiRequest).toHaveBeenCalledWith('POST', '/auth/reauth', { password: 'password1' })
+  })
+
+  it('rejects a wrong password with the server error', async () => {
+    apiRequest.mockRejectedValueOnce(new ApiError(401, 'senha incorreta'))
+    const auth = await loadAuth()
+    await expect(auth.reauth('x')).rejects.toThrow('senha incorreta')
+  })
+
   it('keeps the user when logout cannot reach the server', async () => {
     apiRequest.mockResolvedValueOnce({ user })
     const auth = await loadAuth()

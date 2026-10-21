@@ -4,7 +4,7 @@
 begin;
 
 create function pg_temp.as_user(p_id text) returns void language sql
-as $$ select set_config('app.user_id', coalesce(p_id, ''), true) $$;
+as $$ select set_config('app.user_id', coalesce(p_id, ''), true), set_config('app.session_reauth_at', now()::text, true) $$;  -- reauth em dia (ADR-065); a recência é testada em 0019
 
 create function pg_temp.ok(p_condition boolean, p_label text) returns void language plpgsql
 as $$ begin if not coalesce(p_condition, false) then raise exception 'falhou: %', p_label; end if; end $$;

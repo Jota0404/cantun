@@ -63,6 +63,7 @@ export async function dataRoutes(app: FastifyInstance, { pool, catalog, afterRpc
 
     const { rows } = await asUser(pool, userId, (client) =>
       client.query(`select * from public.${ident(fn.name)}(${args.join(', ')})`, params),
+      request.reauthAt,
     )
     if (afterRpc) {
       try {

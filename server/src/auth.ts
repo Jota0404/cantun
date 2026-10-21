@@ -42,16 +42,26 @@ export function tokenHash(token: string): Buffer {
   return createHash('sha256').update(token).digest()
 }
 
-export async function sessionUserId(pool: Pool, token: string | undefined): Promise<string | null> {
-  return token ? userIdForSessionHash(pool, tokenHash(token)) : null
+export interface SessionContext {
+  userId: string
+  /** Quando a sessão provou a senha pela última vez (ADR-065); nulo se nunca. */
+  reauthAt: Date | null
+}
+
+export async function sessionContext(pool: Pool, token: string | undefined): Promise<SessionContext | null> {
+  return token ? sessionForHash(pool, tokenHash(token)) : null
+}
+
+export async function sessionForHash(pool: Pool, hash: Buffer): Promise<SessionContext | null> {
+  const { rows } = await pool.query<{ user_id: string; reauth_at: Date | null }>(
+    'select user_id, reauth_at from app.sessions where token_hash = $1 and revoked_at is null and expires_at > now()',
+    [hash],
+  )
+  return rows[0] ? { userId: rows[0].user_id, reauthAt: rows[0].reauth_at } : null
 }
 
 export async function userIdForSessionHash(pool: Pool, hash: Buffer): Promise<string | null> {
-  const { rows } = await pool.query<{ user_id: string }>(
-    'select user_id from app.sessions where token_hash = $1 and revoked_at is null and expires_at > now()',
-    [hash],
-  )
-  return rows[0]?.user_id ?? null
+  return (await sessionForHash(pool, hash))?.userId ?? null
 }
 
 interface UserRow {
@@ -180,6 +190,26 @@ export async function authRoutes(app: FastifyInstance, { pool, mailer, appOrigin
     const token = request.cookies[SESSION_COOKIE]
     if (token) await pool.query('update app.sessions set revoked_at = now() where token_hash = $1 and revoked_at is null', [tokenHash(token)])
     reply.clearCookie(SESSION_COOKIE, { path: '/' })
+    return reply.code(204).send()
+  })
+
+  // Reautenticação (ADR-065): prova a senha na sessão atual; o banco aplica a janela de 5 min em delete_my_account.
+  app.post<{ Body: { password: string } }>('/auth/reauth', {
+    config: authLimit,
+    schema: { body: { type: 'object', required: ['password'], additionalProperties: false, properties: { password: { type: 'string', minLength: 1, maxLength: 128 } } } },
+  }, async (request, reply) => {
+    const token = request.cookies[SESSION_COOKIE]
+    if (!request.userId || !token) throw new HttpError(401, 'sessão inválida')
+    const { rows } = await pool.query<{ password_hash: string | null }>('select password_hash from app.users where id = $1', [request.userId])
+    // Sem senha usável (ex.: sentinela "Ex-membro") nunca passa; compara com o hash fixo para igualar o tempo.
+    const stored = rows[0]?.password_hash
+    const valid = await verifyPassword(request.body.password, stored ?? (await DUMMY_HASH))
+    if (!stored || !valid) throw new HttpError(401, 'senha incorreta')
+    const { rowCount } = await pool.query(
+      'update app.sessions set reauth_at = now() where token_hash = $1 and revoked_at is null and expires_at > now()',
+      [tokenHash(token)],
+    )
+    if (!rowCount) throw new HttpError(401, 'sessão inválida')
     return reply.code(204).send()
   })
 

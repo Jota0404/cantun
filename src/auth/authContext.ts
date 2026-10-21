@@ -4,6 +4,8 @@ import type { DeleteMyAccountResult } from '../application/privacy/deleteMyAccou
 import type { RecordConsentResult } from '../application/privacy/recordConsent'
 import type { SignOutOptions } from './localSession'
 
+export type ReauthResult = { success: true } | { success: false; reason: 'wrong_password' | 'session_expired' | 'network' }
+
 export interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
@@ -14,6 +16,8 @@ export interface AuthContextValue {
   signOut: (options?: SignOutOptions) => Promise<void>
   /** Exclui a conta no servidor e, só em caso de sucesso, apaga os dados locais e encerra a sessão (ADR-063). */
   deleteAccount: () => Promise<DeleteMyAccountResult>
+  /** Confirma a senha por 5 min para ações destrutivas (ADR-065). Nunca lança. */
+  reauth: (password: string) => Promise<ReauthResult>
   /** Registra o aceite da versão vigente de Política e Termos (D7) e atualiza `user.consentRequired`. */
   acceptConsent: () => Promise<RecordConsentResult>
   /** Reconsulta a sessão no servidor; 401 deixa `user = null`. Sem rede, mantém o usuário. */
