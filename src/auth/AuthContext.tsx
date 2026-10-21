@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       return result
     },
+    reauth: platformAuth.reauth,
     acceptConsent: async () => {
       const result = await recordConsent()
       if (result.success) await refresh()

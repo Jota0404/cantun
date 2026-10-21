@@ -13,6 +13,7 @@ const auth = vi.hoisted(() => ({
   verifyEmail: vi.fn(),
   requestPasswordReset: vi.fn(),
   resendVerification: vi.fn(),
+  reauth: vi.fn(),
   confirmPasswordReset: vi.fn(),
 }))
 vi.mock('../platform/auth', () => auth)
@@ -143,6 +144,12 @@ describe('AuthProvider', () => {
     await act(async () => { await result.current.deleteAccount() })
     expect(result.current.user).toEqual(unverified)
     expect(auth.signOut).not.toHaveBeenCalled()
+  })
+
+  it('reauth delegates to the server', async () => {
+    const { result } = await renderAuth()
+    await act(() => result.current.reauth('password1'))
+    expect(auth.reauth).toHaveBeenCalledWith('password1')
   })
 
   it('resendVerification delegates to the server', async () => {

@@ -14,6 +14,8 @@ export interface AuthContextValue {
   signOut: (options?: SignOutOptions) => Promise<void>
   /** Exclui a conta no servidor e, só em caso de sucesso, apaga os dados locais e encerra a sessão (ADR-063). */
   deleteAccount: () => Promise<DeleteMyAccountResult>
+  /** Confirma a senha por 5 min para ações destrutivas (ADR-065). Lança `ApiError` (401) se a senha estiver incorreta. */
+  reauth: (password: string) => Promise<void>
   /** Registra o aceite da versão vigente de Política e Termos (D7) e atualiza `user.consentRequired`. */
   acceptConsent: () => Promise<RecordConsentResult>
   /** Reconsulta a sessão no servidor; 401 deixa `user = null`. Sem rede, mantém o usuário. */
