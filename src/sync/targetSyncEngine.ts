@@ -146,7 +146,7 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
     }
     case 'serviceItems': {
       const v = value as ServiceItem
-      return { id: v.id, service_id: v.serviceId, type: v.type, song_id: v.songId ?? null, title: v.title ?? null, notes: v.notes ?? null, duration_minutes: v.durationMinutes ?? null, position: v.position, repertoire_id: v.repertoireId ?? null, key: v.key ?? null, updated_at: v.updatedAt }
+      return { id: v.id, service_id: v.serviceId, type: v.type, song_id: v.songId ?? null, title: v.title ?? null, notes: v.notes ?? null, duration_minutes: v.durationMinutes ?? null, position: v.position, repertoire_id: v.repertoireId ?? null, key: v.key ?? null, ref_item_id: v.refItemId ?? null, updated_at: v.updatedAt }
     }
     case 'servicePositions': {
       const v = value as ServicePosition
@@ -168,7 +168,7 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'repertoires': return { id: String(row.id), organizationId: row.organization_id ? String(row.organization_id) : undefined, name: String(row.name), createdByUserId: String(row.created_by_user_id), version: Number(row.version), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'repertoireItems': return { id: String(row.id), repertoireId: String(row.repertoire_id), songId: String(row.song_id), position: Number(row.position), updatedAt: String(row.updated_at) }
     case 'services': return { id: String(row.id), organizationId: String(row.organization_id), teamId: row.team_id ? String(row.team_id) : null, name: String(row.name), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, status: row.status as Service['status'], createdByUserId: String(row.created_by_user_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
-    case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), type: (row.type ?? 'song') as ServiceItem['type'], songId: row.song_id ? String(row.song_id) : undefined, title: row.title ? String(row.title) : undefined, notes: row.notes ? String(row.notes) : undefined, durationMinutes: row.duration_minutes == null ? undefined : Number(row.duration_minutes), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, key: row.key ? String(row.key) as ServiceItem['key'] : undefined, updatedAt: String(row.updated_at) }
+    case 'serviceItems': return { id: String(row.id), serviceId: String(row.service_id), type: (row.type ?? 'song') as ServiceItem['type'], songId: row.song_id ? String(row.song_id) : undefined, title: row.title ? String(row.title) : undefined, notes: row.notes ? String(row.notes) : undefined, durationMinutes: row.duration_minutes == null ? undefined : Number(row.duration_minutes), position: Number(row.position), repertoireId: row.repertoire_id ? String(row.repertoire_id) : undefined, key: row.key ? String(row.key) as ServiceItem['key'] : undefined, refItemId: row.ref_item_id ? String(row.ref_item_id) : undefined, updatedAt: String(row.updated_at) }
     case 'assignments': return toAssignment(row)
     case 'servicePositions': return { id: String(row.id), serviceId: String(row.service_id), musicalFunction: String(row.musical_function), quantity: Number(row.quantity), notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'memberAvailability': return { id: String(row.id), userId: String(row.user_id), organizationId: String(row.organization_id), date: String(row.date).slice(0, 10), status: row.status as MemberAvailability['status'], note: row.note ? String(row.note) : undefined, createdAt: String(row.created_at ?? row.updated_at), updatedAt: String(row.updated_at) }
@@ -302,8 +302,11 @@ export class TargetSyncEngine {
           const key = batchKey(item)
           const batch = pending.filter((p) => !done.has(p.id) && p.entity === item.entity && p.operation === 'upsert' && batchKey(p) === key)
           for (const p of batch) done.add(p.id)
+          // RN-10: reprise/medley só depois do item que referenciam (a FK é checada por linha); sort estável.
+          const refs = (p: TargetSyncQueueItem) => (p.payload && 'refItemId' in p.payload && p.payload.refItemId ? 1 : 0)
+          const rows = [...batch].sort((a, b) => refs(a) - refs(b)).map((p) => toRemoteRow(item.entity, p.payload!))
           try {
-            await upsertRows(tables[item.entity], batch.map((p) => toRemoteRow(item.entity, p.payload!)))
+            await upsertRows(tables[item.entity], rows)
             await this.db.targetSyncQueue.bulkDelete(batch.flatMap((p) => p.id === undefined ? [] : [p.id]))
           } catch (error) {
             // 4xx permanente recusa o lote inteiro (uma transação): não dá para separar itens da mesma ordem

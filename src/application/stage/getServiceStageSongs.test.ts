@@ -37,4 +37,13 @@ describe('getServiceStageSongs key (RN-08)', () => {
     const online = await getServiceStageSongs('st1')
     expect(online.map((s) => s.currentKey)).toEqual(offline.map((s) => s.currentKey))
   })
+
+  it('ignores reprise and medley items in the Stage order (D6)', async () => {
+    platform.configured = false
+    await db.serviceItems.bulkPut([
+      { id: 'r1', serviceId: 's1', type: 'reprise', title: 'Reprise: a', refItemId: 'i1', position: 2, updatedAt: now },
+      { id: 'm1', serviceId: 's1', type: 'medley', title: 'Medley: b', refItemId: 'i2', position: 3, updatedAt: now },
+    ])
+    expect((await getServiceStageSongs('st1')).map((s) => s.songId)).toEqual(['a', 'b'])
+  })
 })

@@ -1,6 +1,6 @@
 import { MUSICAL_KEYS, type MusicalKey } from '../music/musicalKey'
 
-export const SERVICE_ITEM_TYPES = ['song', 'opening', 'prayer', 'preaching', 'announcement', 'offering', 'closing', 'other'] as const
+export const SERVICE_ITEM_TYPES = ['song', 'opening', 'prayer', 'preaching', 'announcement', 'offering', 'closing', 'other', 'reprise', 'medley'] as const
 export type ServiceItemType = typeof SERVICE_ITEM_TYPES[number]
 
 export interface ServiceItem {
@@ -15,14 +15,19 @@ export interface ServiceItem {
   durationMinutes?: number
   position: number
   repertoireId?: string
+  /** RN-10: só em `reprise`/`medley`; aponta para um item `song` do mesmo serviço. */
+  refItemId?: string
   /** RN-06: tom de execução neste serviço; ausente = herda o tom atual da música. Só em `song`. */
   key?: MusicalKey
   updatedAt: string
 }
 
-export type ServiceItemInput = Pick<ServiceItem, 'type' | 'songId' | 'title' | 'notes' | 'durationMinutes'>
+export type ServiceItemInput = Pick<ServiceItem, 'type' | 'songId' | 'title' | 'notes' | 'durationMinutes' | 'refItemId'>
 
-/** RN-04. Retorna as mensagens de erro (vazio = válido). */
+/** RN-10: reprise e medley são itens não musicais que voltam a uma música da ordem. */
+const isRepriseType = (type: ServiceItemType) => type === 'reprise' || type === 'medley'
+
+/** RN-04, RN-10. Retorna as mensagens de erro (vazio = válido). */
 export function validateServiceItem(input: ServiceItemInput): string[] {
   const errors: string[] = []
   if (!SERVICE_ITEM_TYPES.includes(input.type)) errors.push('Tipo de item inválido.')
@@ -33,9 +38,27 @@ export function validateServiceItem(input: ServiceItemInput): string[] {
     const title = input.title?.trim() ?? ''
     if (title.length < 1 || title.length > 120) errors.push('Informe um título de 1 a 120 caracteres.')
   }
+  if (isRepriseType(input.type) && !input.refItemId) errors.push('Escolha a música da reprise.')
+  if (!isRepriseType(input.type) && input.refItemId) errors.push('Só reprise e medley apontam para outro item.')
   const minutes = input.durationMinutes
   if (minutes !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > 600)) errors.push('A duração deve ser de 1 a 600 minutos.')
   return errors
+}
+
+/** RN-10: o alvo precisa ser um item `song` do mesmo serviço. */
+export function validateRepriseTarget(serviceId: string, refItemId: string, items: Pick<ServiceItem, 'id' | 'serviceId' | 'type'>[]): string[] {
+  const target = items.find((item) => item.id === refItemId)
+  return target && target.serviceId === serviceId && target.type === 'song' ? [] : ['A reprise deve voltar a uma música deste serviço.']
+}
+
+/** RN-10: título auto-gerado, dentro do limite de 120 caracteres. */
+export function repriseTitle(type: 'reprise' | 'medley', songTitle: string): string {
+  return `${type === 'reprise' ? 'Reprise' : 'Medley'}: ${songTitle}`.slice(0, 120)
+}
+
+/** RN-11: quantas reprises/medleys somem junto com o item (para a confirmação de exclusão). */
+export function countDependents(items: Pick<ServiceItem, 'refItemId'>[], itemId: string): number {
+  return items.filter((item) => item.refItemId === itemId).length
 }
 
 /** RN-05: posições contíguas a partir de 0, na ordem recebida. Devolve só os itens que mudaram. */

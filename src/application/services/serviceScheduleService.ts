@@ -62,6 +62,8 @@ export async function addServiceItem(
   if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === songId)) {
     return { success: false, errors: [`${songTitle ? `"${songTitle}"` : 'Essa música'} já está na ordem.`] }
   }
+  // Reprise/medley nascem por `addReprise` (título e alvo validados lá).
+  if (input.type === 'reprise' || input.type === 'medley') return { success: false, errors: ['Use "Adicionar reprise" para criar reprise ou medley.'] }
   const song = input.type === 'song'
   const item: ServiceItem = {
     id, serviceId, type: input.type, position: items.length, updatedAt: new Date().toISOString(),
@@ -90,6 +92,9 @@ export async function removeServiceItem(serviceItemId: string, repositories = de
   if (!item) return { success: false, errors: ['Item não encontrado.'] }
   const blocked = await editableError(item.serviceId, repositories)
   if (blocked) return { success: false, errors: [blocked] }
+  // RN-11: o banco apaga as reprises/medleys do alvo em cascata; o Dexie acompanha (e a fila não sobe reprise órfã).
+  const dependents = (await repositories.items.listByServiceId(item.serviceId)).filter((other) => other.refItemId === serviceItemId)
+  for (const dependent of dependents) await repositories.items.remove(dependent.id)
   await repositories.items.remove(serviceItemId)
   const remaining = await repositories.items.listByServiceId(item.serviceId)
   return { success: true, items: await saveRenumbered(item.serviceId, renumber(remaining), repositories) }
