@@ -1,6 +1,7 @@
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
-import type { ServiceItem } from '../../domain/services/serviceItem'
+import type { MusicalKey } from '../../domain/music/musicalKey'
+import { validateServiceItemKey, type ServiceItem } from '../../domain/services/serviceItem'
 import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { repertoireItemRepository } from '../../db/repositories/repertoireItemRepository'
 import { repertoireRepository } from '../../db/repositories/repertoireRepository'
@@ -73,4 +74,29 @@ export async function applyRepertoireToService(serviceId: string, input: ApplyRe
   await repositories.items.saveMany(ordered.flatMap((item, position) => added.includes(item) || item.position !== position ? [{ ...item, position, updatedAt: now }] : []))
   await repositories.services.update({ ...service, updatedAt: now })
   return { success: true, items: await repositories.items.listByServiceId(service.id), added: added.length }
+}
+
+/** RN-06…09: define (ou limpa, com `undefined`) o tom do item neste serviço; não toca a música. */
+export async function setServiceItemKey(
+  itemId: string,
+  key: MusicalKey | undefined,
+  repositories = defaults,
+): Promise<{ success: true; item: ServiceItem } | { success: false; errors: string[] }> {
+  const item = await repositories.items.getById(itemId)
+  if (!item) return { success: false, errors: ['Item não encontrado.'] }
+  const service = await repositories.services.getById(item.serviceId)
+  if (!service) return { success: false, errors: ['Serviço não encontrado.'] }
+  if (isFinalStatus(service.status)) return { success: false, errors: ['Serviço encerrado não pode ser editado.'] }
+  const access = await repositories.access({ organizationId: service.organizationId, teamId: service.teamId ?? undefined })
+  if (!hasPermission(access, 'service.edit')) return { success: false, errors: ['Você não tem permissão para editar a ordem deste serviço.'] }
+  if (key) {
+    const song = item.songId ? await repositories.songs.getById(item.songId) : undefined
+    if (item.type === 'song' && !song) return { success: false, errors: ['Música indisponível neste aparelho. Sincronize e tente de novo.'] }
+    const errors = validateServiceItemKey(item, key, song ?? { originalKey: key })
+    if (errors.length) return { success: false, errors }
+  }
+  const next: ServiceItem = { ...item, key, updatedAt: new Date().toISOString() }
+  if (!key) delete next.key
+  await repositories.items.update(next)
+  return { success: true, item: next }
 }

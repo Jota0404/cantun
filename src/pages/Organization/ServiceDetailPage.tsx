@@ -6,6 +6,7 @@ import { listOrganizationSongs } from '../../application/songs/listOrganizationS
 import { OFFLINE_COPY_MESSAGE } from '../../application/songs/copySongToOrganization'
 import { deleteService, getService, transitionService, updateServiceInfo } from '../../application/services/serviceService'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
+import { setServiceItemKey } from '../../application/services/applyRepertoire'
 import { useAuth } from '../../auth/authContext'
 import { Badge } from '../../components/ui/Badge'
 import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
@@ -13,8 +14,9 @@ import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
+import { MAJOR_KEYS, MINOR_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
 import type { Service } from '../../domain/services/service'
-import { SERVICE_ITEM_TYPES, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
+import { SERVICE_ITEM_TYPES, effectiveKey, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
 import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
 import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
@@ -154,6 +156,19 @@ export function ServiceDetailPage() {
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
 
+  const keyField = (item: ServiceItem) => {
+    const song = songs.find((candidate) => candidate.id === item.songId)
+    const effective = song ? effectiveKey(item, song) : item.key
+    if (!canEdit) return effective ? <span>Tom: {effective}</span> : null
+    const options: readonly MusicalKey[] = song?.originalKey.endsWith('m') ? MINOR_KEYS : MAJOR_KEYS
+    return <><label>Tom neste serviço
+      <select value={item.key ?? ''} onChange={(event) => void run(() => setServiceItemKey(item.id, (event.target.value || undefined) as MusicalKey | undefined))}>
+        <option value="">{song ? `Tom da música (${song.currentKey})` : 'Tom da música'}</option>
+        {options.map((key) => <option key={key} value={key}>{key}</option>)}
+      </select></label>
+      {effective && <span>Tom: {effective}</span>}</>
+  }
+
   return <main className="organization-page"><section className="organization-card">
     <header>
       <Link to={`/organizations/${service.organizationId}`}>{labels.backToOrganization}</Link>
@@ -204,6 +219,7 @@ export function ServiceDetailPage() {
                 <strong>{index + 1}. {itemLabel(item)}</strong>
                 <span>{SERVICE_ITEM_TYPE_LABEL[item.type]}{item.durationMinutes && <> · {item.durationMinutes} min</>}</span>
                 {item.notes && <span>{item.notes}</span>}
+                {item.type === 'song' && keyField(item)}
               </div>
               {canEdit && <div className="service-actions">
                 <button type="button" aria-label={`Subir ${itemLabel(item)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>

@@ -96,7 +96,7 @@ Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-02-se
 | Capacidade | Escopo | Owner | Admin | Líder | Membro | Notas |
 |---|---|:-:|:-:|:-:|:-:|---|
 | `service.create` | equipe | ✅ | ✅ | **L** | ❌ | Nasce `draft`. |
-| `service.edit` | equipe | ✅ | ✅ | **L** | ❌ | Informações e ordem (`service_items`). Negado em `completed`/`cancelled`. |
+| `service.edit` | equipe | ✅ | ✅ | **L** | ❌ | Informações, ordem e tom por serviço (`service_items.key`, mesmo modo do `original_key`, só em itens `song`). Negado em `completed`/`cancelled`. O Membro vê o tom, não edita. |
 | `service.transition` | equipe | ✅ | ✅ | **L** | ❌ | Só pela RPC `transition_service`; `status` protegido por trigger de guarda. |
 | `service.delete` | equipe | ✅ | ✅ | **L** (só `draft`) | ❌ | Fora de `draft`, o Líder cancela (decisão do owner, 2026-10-09). |
 
