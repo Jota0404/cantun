@@ -127,6 +127,18 @@ describe('TargetSyncEngine services (VS-02)', () => {
     expect(await db.serviceItems.get('r1')).toMatchObject({ type: 'reprise', refItemId: 'i1' })
   })
 
+  it('drops an orphan reprise (target deleted elsewhere) so it does not poison the batch', async () => {
+    await db.serviceItems.bulkPut([item('i2', 0), { ...item('r1', 1), type: 'reprise' as const, songId: undefined, title: 'Reprise: a', refItemId: 'gone' }] as never)
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'serviceItems', entityId: 'r1', operation: 'upsert', payload: { ...item('r1', 1), type: 'reprise', songId: undefined, title: 'Reprise: a', refItemId: 'gone' }, updatedAt: now, attempts: 0 },
+      { entity: 'serviceItems', entityId: 'i2', operation: 'upsert', payload: item('i2', 0), updatedAt: now, attempts: 0 },
+    ] as unknown as TargetSyncQueueItem[])
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows.mock.calls[0][1].map((row: { id: string }) => row.id)).toEqual(['i2'])
+    expect(await db.serviceItems.get('r1')).toBeUndefined()
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
   it('does not retry a rejected item key (403, 409, 400)', async () => {
     for (const status of [403, 409, 400]) {
       await db.targetSyncQueue.clear()

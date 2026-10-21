@@ -5,6 +5,7 @@ import { songRepository } from '../../db/repositories/songRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import type { AccessContext } from '../../domain/access/permissions'
+import { queueTargetDelete } from '../../sync/syncService'
 import { addReprise, type AddRepriseRepositories } from './addReprise'
 import { removeServiceItem } from './serviceScheduleService'
 
@@ -46,9 +47,12 @@ describe('addReprise (RN-10, RN-11)', () => {
   })
 
   it('removing the target removes its reprises and renumbers', async () => {
-    await addReprise('s1', { type: 'reprise', refItemId: 'i1' }, repositories())
+    const added = await addReprise('s1', { type: 'reprise', refItemId: 'i1' }, repositories())
+    vi.mocked(queueTargetDelete).mockClear()
     const result = await removeServiceItem('i1')
     expect(result).toMatchObject({ success: true })
+    // Reprises primeiro, depois o alvo (RN-11): a fila nunca apaga o alvo com reprise viva.
+    expect(vi.mocked(queueTargetDelete).mock.calls.map(([, id]) => id)).toEqual([added.success ? added.item.id : '', 'i1'])
     expect((await db.serviceItems.toArray()).map((i) => [i.id, i.position])).toEqual([['i2', 0]])
   })
 })

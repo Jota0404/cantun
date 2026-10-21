@@ -317,7 +317,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     expect((await db.repertoires.where('organizationId').equals('org-1').toArray()).map((r) => r.id)).toEqual(['r1'])
   })
 
-  it('indexes refItemId (v19) and keeps existing service items', async () => {
+  it('keeps old service items readable and stores refItemId without a new version (RN-10)', async () => {
     await seedVersion10()
     db = new SalmodiaDatabase()
     await db.open()
@@ -325,7 +325,8 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
       { id: 'i1', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now },
       { id: 'r1', serviceId: 's1', type: 'reprise', title: 'Reprise: a', refItemId: 'i1', position: 1, updatedAt: now },
     ])
-    expect((await db.serviceItems.where('refItemId').equals('i1').toArray()).map((i) => i.id)).toEqual(['r1'])
+    expect(db.verno).toBe(18)
+    expect((await db.serviceItems.get('r1'))?.refItemId).toBe('i1')
     expect((await db.serviceItems.get('i1'))?.refItemId).toBeUndefined()
   })
 
@@ -335,7 +336,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     await db.open()
     await db.serviceItems.put({ id: 'old', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now })
     await db.serviceItems.put({ id: 'new', serviceId: 's1', type: 'song', songId: 'b', position: 1, key: 'A', updatedAt: now })
-    expect(db.verno).toBe(19)
+    expect(db.verno).toBe(18)
     expect((await db.serviceItems.get('old'))?.key).toBeUndefined()
     expect((await db.serviceItems.get('new'))?.key).toBe('A')
     expect((await db.serviceItems.where('serviceId').equals('s1').sortBy('position')).map((i) => i.id)).toEqual(['old', 'new'])

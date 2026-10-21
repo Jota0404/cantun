@@ -235,10 +235,6 @@ export class SalmodiaDatabase extends Dexie {
     this.version(18).stores({
       repertoires: 'id, organizationId, createdByUserId, updatedAt',
     })
-    // B6 (RN-10): `refItemId` indexado para achar as reprises/medleys de um item; sem transformação.
-    this.version(19).stores({
-      serviceItems: 'id, serviceId, songId, refItemId, position, updatedAt, [serviceId+position]',
-    })
   }
 }
 

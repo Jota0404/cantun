@@ -300,10 +300,21 @@ export class TargetSyncEngine {
         // Itens do mesmo serviço (ou repertório) sobem num só lote (uma transação no servidor; unique de posição deferida).
         if ((BATCHED_ENTITIES as readonly string[]).includes(item.entity) && item.operation === 'upsert') {
           const key = batchKey(item)
-          const batch = pending.filter((p) => !done.has(p.id) && p.entity === item.entity && p.operation === 'upsert' && batchKey(p) === key)
-          for (const p of batch) done.add(p.id)
-          // RN-10: reprise/medley só depois do item que referenciam (a FK é checada por linha); sort estável.
+          const all = pending.filter((p) => !done.has(p.id) && p.entity === item.entity && p.operation === 'upsert' && batchKey(p) === key)
+          for (const p of all) done.add(p.id)
           const refs = (p: TargetSyncQueueItem) => (p.payload && 'refItemId' in p.payload && p.payload.refItemId ? 1 : 0)
+          // RN-10/11: reprise cujo alvo sumiu (apagado em outro aparelho; o pull não apaga) seria recusada e envenenaria o lote.
+          const inBatch = new Set(all.map((p) => p.entityId))
+          const batch: TargetSyncQueueItem[] = []
+          for (const p of all) {
+            const ref = p.payload && 'refItemId' in p.payload ? p.payload.refItemId : undefined
+            if (ref && !inBatch.has(ref) && !(await this.db.serviceItems.get(ref))) {
+              await this.db.serviceItems.delete(p.entityId)
+              if (p.id !== undefined) await this.db.targetSyncQueue.delete(p.id)
+            } else batch.push(p)
+          }
+          if (batch.length === 0) continue
+          // Reprise/medley só depois do item que referenciam (a FK é checada por linha); sort estável.
           const rows = [...batch].sort((a, b) => refs(a) - refs(b)).map((p) => toRemoteRow(item.entity, p.payload!))
           try {
             await upsertRows(tables[item.entity], rows)
