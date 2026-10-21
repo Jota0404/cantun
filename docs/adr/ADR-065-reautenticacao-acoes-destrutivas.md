@@ -1,6 +1,6 @@
 # ADR-065 — Reautenticação com senha para ações destrutivas (exclusão de conta)
 
-- **Status:** Proposed
+- **Status:** Accepted (opção A aprovada pelo owner em 2026-10-21)
 - **Data:** 2026-10-21
 - **Bloco / spec:** B8 · `docs/specs/VS-07-privacidade.md` (RN-04, fatia 9) · issue #101
 - **Relaciona-se a:** ADR-059 (servidor próprio), ADR-063 (exclusão de conta), ADR-049 (autorização no banco), Blueprint NFR-005
