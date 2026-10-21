@@ -121,7 +121,7 @@ ADR-063. `server/` só adiciona RPCs à allowlist; sem regra de permissão em TS
 | 6 | UI de exclusão + limpeza local | cliente | `feat/b8-delete-ui` | core, ui | 5 |
 | 7 | `export_my_data` + botão | SQL + cliente | `feat/b8-export` | backend, ui | — |
 | 8 | Idade mínima de 16 anos (declaração no cadastro, validação no servidor, Termos e Política) | SQL + servidor + UI | `feat/b8-minors` | backend, ui | D1 revisada (aprovada) |
-| 9 | Reautenticação com senha antes de excluir a conta (RN-13, ADR-065 Proposed, issue #101) | SQL + servidor + cliente + UI | `feat/b8-reauth-delete` | backend, core, ui | 5, 6 |
+| 9 | Reautenticação com senha antes de excluir a conta (RN-13, ADR-065 Accepted, issue #101) | SQL + servidor + cliente + UI | `feat/b8-reauth-delete` | backend, core, ui | 5, 6 |
 
 Fatias 4 e 7 são independentes das demais. Só SQL: parte de 4, 5, 7. Só doc: 1.
 
