@@ -1,6 +1,6 @@
 # CANTUM — Plano de entrega em blocos
 
-> v1.0 · 2026-10-01 (status atualizado em 2026-10-21: B0–B5 e B8 concluídos; B6 em andamento, fatias 1–2 feitas, ver `docs/specs/VS-04-05-preparacao.md`. As caixas de B2–B5 e B8 abaixo são o plano original e não foram marcadas uma a uma) · Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`
+> v1.0 · 2026-10-01 (status atualizado em 2026-10-21: B0–B5 e B8 concluídos; B6 em andamento, fatias 1–3 feitas, ver `docs/specs/VS-04-05-preparacao.md`. As caixas de B2–B5 e B8 abaixo são o plano original e não foram marcadas uma a uma) · Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`
 > Arquitetura: `docs/CANTUM_ARCHITECTURE.md` + `docs/adr/` · Migração de backend: `docs/BACKEND_MIGRATION_PLAN.md` (ADR-059)
 > Documentos por bloco: `docs/blocks/` (índice em `docs/blocks/00-INDICE.md`)
 
