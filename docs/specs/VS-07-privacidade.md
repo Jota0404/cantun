@@ -24,7 +24,7 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - RN-01 Cadastro (e login, se a versão mudou) exige aceite de Política e Termos da versão vigente; registro em `user_consents` (`user_id`, `document`, `version`, `accepted_at`), append-only.
 - RN-02 Páginas `/privacidade` e `/termos` são públicas, funcionam sem sessão e mostram versão e data. Conteúdo vem de `docs/privacy/` (revisado pelo jurídico).
 - RN-03 Excluir conta (ADR-063): bloqueia se for o único Owner de uma organização; conteúdo da organização (cópias de música, repertórios, serviços) é **reatribuído ao usuário anônimo**, não apagado; conteúdo pessoal, vínculos, atribuições, sessões e tokens são apagados.
-- RN-04 Exclusão exige confirmação digitada e sessão recente; encerra todas as sessões; no cliente apaga o banco Dexie do usuário (ADR-048) e a fila de sync.
+- RN-04 Exclusão exige confirmação digitada e **reautenticação com senha nos 5 minutos anteriores, na mesma sessão** (ADR-065, fatia 9; o banco recusa sem ela); encerra todas as sessões; no cliente apaga o banco Dexie do usuário (ADR-048) e a fila de sync.
 - RN-05 Estado do Palco ativo: se o excluído é o MD, o MD é liberado (`md_user_id` nulo, já `set null`); a sessão não é apagada.
 - RN-06 Todas as atribuições do excluído (futuras e passadas) são apagadas em cascata (D3, apagar na hora); a vaga (`service_position`) fica aberta e o histórico passado deixa de listar a pessoa. Não há `replacement_needed` nem aviso ao Líder (decisão do lead, 2026-10-17); avisar o Líder quando a vaga abrir por exclusão de conta é follow-up (B4/B6).
 - RN-07 `team_member.remove`: Owner/Admin e Líder ativo da equipe (não removem Líder; o Líder só remove `member`); apaga vínculo e atribuições futuras, mantém autoria e conta. Registra evento.
@@ -33,6 +33,9 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - RN-10 Menores (D1 revisada, 2026-10-18): **idade mínima de 16 anos para ter conta própria** (ECA Digital, Lei 15.211/2025, em vigor desde 17/03/2026: contas de menores de 16 anos exigem vínculo a responsável legal; LGPD art. 14; Código Civil). O cadastro exige a declaração de que a pessoa tem 16 anos ou mais (Termos e formulário) e o servidor recusa o cadastro sem ela. **Não existe 'participante sem conta' no primeiro corte**: menores de 16 não entram no produto e o Líder não os adiciona. Contas de 16 e 17 anos são normais, com e-mail não exposto a quem não é Líder/Admin. A autodeclaração é provisória: a aferição confiável de idade depende da regulamentação da ANPD (jurídico, D6).
 - RN-11 Logs do servidor não gravam corpo de requisição de música/repertório/e-mail (NFR-008).
 - RN-12 `docs/BACKUP_RECOVERY.md`: RPO alvo 24 h, RTO alvo 4 h (proposto; D5), cópia fora do Render/Neon, restore executado e registrado com data.
+
+- RN-13 Reautenticação (fatia 9, ADR-065): `POST /auth/reauth {password}` (sessão válida, `authLimit`) confere a senha e grava `app.sessions.reauth_at = now()` **só na sessão do cookie**. `asUser` repassa o valor ao banco (`app.session_reauth_at`). `delete_my_account()` exige `now() - reauth_at <= 5 min`; senão `insufficient_privilege` 'recent authentication required', que o servidor devolve como 403 `reauth_required`. Sem sessão deslizante; o login não preenche `reauth_at`; sessões antigas (nulas) precisam reautenticar. Exportar e outras ações ficam fora (sem reauth).
+- NFR-RN13 Nenhuma regra de recência em TypeScript: o servidor só repassa o fato; a senha nunca vai ao SQL nem aos logs.
 
 ## Acceptance Criteria
 - [ ] Cadastro sem aceite é recusado no servidor (não só na UI); com aceite grava `user_consents` com a versão vigente.
@@ -47,6 +50,23 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - [ ] `admin_events` gravado nas ações de RN-09 e sem campos de conteúdo; Membro não lê.
 - [ ] Restore documentado e executado ao menos uma vez; data e resultado no `BACKUP_RECOVERY.md`.
 - [ ] Regra de menores implementada conforme decisão registrada.
+- [ ] (Fatia 9) `delete_my_account` sem reauth recente na sessão é recusada pelo banco e nada muda; com `POST /auth/reauth` correto e a exclusão dentro de 5 min, funciona.
+- [ ] (Fatia 9) A UI pede a senha, reutiliza a reautenticação na janela e reabre o passo ao receber `reauth_required`; senha errada mostra erro sem excluir.
+
+### Fatia 9 — casos negativos obrigatórios (SQL/servidor/UI)
+| # | Caso | Esperado |
+|---|---|---|
+| R1 | Excluir sem nunca ter reautenticado (`reauth_at` nulo) | 403 `reauth_required`, conta intacta |
+| R2 | `/auth/reauth` com senha errada | 401 genérico; `reauth_at` inalterado; excluir segue negado |
+| R3 | `/auth/reauth` anônimo ou sessão revogada/expirada | 401 |
+| R4 | Reauth do usuário A não vale para B (cada sessão/usuário tem o seu) | B segue negado |
+| R5 | Janela expirada (> 5 min, `reauth_at` antigo no teste SQL) | 403 `reauth_required` |
+| R6 | Reauth na sessão do dispositivo 1; excluir pela sessão do dispositivo 2 do mesmo usuário | negado |
+| R7 | Cliente tenta forjar `app.session_reauth_at` (parâmetro de RPC ou SET via `/rpc`) | sem efeito; teste SQL como `cantum_user` |
+| R8 | Anônimo chama `delete_my_account` | negado (N1 mantém) |
+| R9 | Rate limit: 11 tentativas/min em `/auth/reauth` | 429 |
+| R10 | Sentinela "Ex-membro" / usuário sem senha em `/auth/reauth` | nunca passa |
+Testes: SQL (`scripts/db`) R1, R5, R7 e caminho feliz, definindo `app.session_reauth_at` por `set_config`; servidor (integração) R2–R4, R6, R9; core `reauth` e mapeamento de `reauth_required`; UI (`getByLabelText('Senha')`) fluxo feliz, senha errada e reabertura.
 
 ## Casos negativos de permissão
 | # | Caso | Esperado |
@@ -101,6 +121,7 @@ ADR-063. `server/` só adiciona RPCs à allowlist; sem regra de permissão em TS
 | 6 | UI de exclusão + limpeza local | cliente | `feat/b8-delete-ui` | core, ui | 5 |
 | 7 | `export_my_data` + botão | SQL + cliente | `feat/b8-export` | backend, ui | — |
 | 8 | Idade mínima de 16 anos (declaração no cadastro, validação no servidor, Termos e Política) | SQL + servidor + UI | `feat/b8-minors` | backend, ui | D1 revisada (aprovada) |
+| 9 | Reautenticação com senha antes de excluir a conta (RN-13, ADR-065 Proposed, issue #101) | SQL + servidor + cliente + UI | `feat/b8-reauth-delete` | backend, core, ui | 5, 6 |
 
 Fatias 4 e 7 são independentes das demais. Só SQL: parte de 4, 5, 7. Só doc: 1.
 
