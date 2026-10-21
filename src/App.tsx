@@ -22,6 +22,7 @@ import { OrganizationPage } from './pages/Organization/OrganizationPage'
 import { OrganizationDetailPage } from './pages/Organization/OrganizationDetailPage'
 import { TeamPage } from './pages/Organization/TeamPage'
 import { OrganizationInvitePage } from './pages/Organization/OrganizationInvitePage'
+import { ServicePreparationPage } from './pages/Organization/ServicePreparationPage'
 import { ServiceDetailPage } from './pages/Organization/ServiceDetailPage'
 import { syncTargetDomain } from './sync/syncService'
 import { AppNav } from './components/nav/AppNav'
@@ -79,7 +80,7 @@ function App() {
         <Route path="/songs" element={<SongLibraryPage />} /><Route path="/repertoires" element={<RepertoireListPage />} /><Route path="/repertoires/:repertoireId" element={<RepertoireDetailPage />} /><Route path="/organizations/:organizationId/repertoires/:repertoireId" element={<RepertoireDetailPage />} />
         <Route path="/stage/song/:songId" element={<StagePage />} /><Route path="/stage/service-session/:stageSessionId" element={<ServiceStagePage />} /><Route path="/stage/service-session/:stageSessionId/musician" element={<ServiceStageMusicianPage />} />
         <Route path="/songs/new" element={<NewSongPage />} /><Route path="/songs/import" element={<ImportSongPage />} /><Route path="/songs/:songId/edit" element={<EditSongPage />} /><Route path="/songs/:songId" element={<SongDetailPage />} />
-        <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/servicos" element={<ServicesPage tab="mine" />} /><Route path="/meus-servicos" element={<ServicesPage tab="mine" />} /><Route path="/servicos/todos" element={<ServicesPage tab="all" />} /><Route path="/bandas" element={<TeamsPage />} /><Route path="/mais" element={<MorePage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
+        <Route path="/organizations" element={<OrganizationPage />} /><Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} /><Route path="/servicos" element={<ServicesPage tab="mine" />} /><Route path="/meus-servicos" element={<ServicesPage tab="mine" />} /><Route path="/servicos/todos" element={<ServicesPage tab="all" />} /><Route path="/bandas" element={<TeamsPage />} /><Route path="/mais" element={<MorePage />} /><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/services/:serviceId/prepare" element={<ServicePreparationPage />} /><Route path="/organizations/:organizationId/teams/:teamId" element={<TeamPage />} /><Route path="/organization/invite/:token" element={<OrganizationInvitePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </div>
