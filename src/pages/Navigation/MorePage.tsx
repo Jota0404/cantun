@@ -108,7 +108,6 @@ export function MorePage() {
       else {
         if (result.reauthRequired) {
           setPassword('')
-          passwordRef.current?.focus()
         }
         setDeleteError(result.errors[0])
       }
@@ -153,11 +152,13 @@ export function MorePage() {
         onConfirm={() => void handleDelete()}
         onCancel={closeDelete}
       >
+        <div className="delete-account">
         <label>Digite EXCLUIR para confirmar <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} autoComplete="off" /></label>
         <label>Senha <input ref={passwordRef} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" disabled={busy} /></label>
         {busy && <p role="status">Confirmando…</p>}
         {!online && <p role="alert">Sem conexão: conecte-se à internet para excluir sua conta.</p>}
         {deleteError && online && <p role="alert" ref={errorRef} tabIndex={-1} className="delete-error">{deleteError}</p>}
+        </div>
       </ConfirmModal>
       {error && <p role="alert" className="organization-error">{error}</p>}
       <button type="button" onClick={() => void handleSignOut()}>Sair</button>
