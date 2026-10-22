@@ -144,11 +144,11 @@ export function useServiceStageSession(sessionId: string) {
     })
   }
 
-  async function saveAnnotation() {
+  async function saveAnnotation(text = annotationDraft) {
     try {
       setBusy(true)
       setError('')
-      const result = await service.setAnnotation(sessionId, annotationDraft)
+      const result = await service.setAnnotation(sessionId, text)
       const next = await service.getSnapshot(sessionId)
       applySnapshot({ session: snapshot!.session, state: next.state })
       execution.applySnapshot({ session: snapshot!.session, state: result.state })

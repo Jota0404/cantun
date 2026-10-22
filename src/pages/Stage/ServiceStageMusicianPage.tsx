@@ -13,6 +13,8 @@ import { StagePresencePanel } from '../../components/stage/StagePresencePanel'
 import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import { labels } from '../../ui/labels'
+import { useScrollTopOnChange } from './useScrollTopOnChange'
+import { useWakeLock } from './useWakeLock'
 import './ServiceStageMusicianPage.css'
 
 type ReadMode = 'scroll' | 'pages'
@@ -106,6 +108,8 @@ export function ServiceStageMusicianPage() {
   // `currentIndex` é a `position` do item no serviço (itens não musicais ficam de fora de `songs`).
   const activeIndex = Math.max(0, songs.findIndex((song) => song.position === executionState?.currentIndex))
   const activeSong = songs[activeIndex]
+  useScrollTopOnChange(activeSong?.position)
+  useWakeLock()
   const experience = getStageMusicalRoleExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''

@@ -7,6 +7,9 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceStageMusicianPage } from './ServiceStageMusicianPage'
 import { ServiceStagePage } from './ServiceStagePage'
+import { useWakeLock } from './useWakeLock'
+
+vi.mock('./useWakeLock', () => ({ useWakeLock: vi.fn() }))
 
 type Exec = Record<string, unknown>
 const h = vi.hoisted(() => {
@@ -227,9 +230,7 @@ describe('ServiceStagePage (MD) - caracterização', () => {
     expect(screen.getByRole('textbox')).toHaveValue('cortar bateria')
     expect(screen.getByRole('button', { name: 'Atualizar nota' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Limpar' }))
-    // comportamento atual: setAnnotationDraft('') e saveAnnotation() no mesmo tick;
-    // o closure ainda enxerga o rascunho antigo (limitação/bug caracterizado).
-    expect(s.setAnnotation).toHaveBeenCalledWith('st1', 'cortar bateria')
+    expect(s.setAnnotation).toHaveBeenCalledWith('st1', '')
   })
 
   it('falha ao salvar anotação mostra alerta e re-sincroniza', async () => {
@@ -570,5 +571,32 @@ describe('ServiceStageMusicianPage - caracterização', () => {
     expect(writes).toEqual([])
     mount(<ServiceStageMusicianPage />)
     expect(await screen.findByRole('slider', { name: 'Tamanho da fonte' })).toHaveValue('22')
+  })
+})
+
+describe.each([
+  ['MD', ServiceStagePage],
+  ['Músico', ServiceStageMusicianPage],
+])('Palco do serviço (%s) - correções #132', (_name, Page) => {
+  it('trocar de música volta ao topo; mount não rola; wake lock ativo', async () => {
+    const scrollTo = vi.fn()
+    vi.stubGlobal('scrollTo', scrollTo)
+    vi.mocked(useWakeLock).mockClear()
+    mount(<Page />)
+    await screen.findByRole('heading', { level: 1 })
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(useWakeLock).toHaveBeenCalled()
+    act(() => h.state.listener?.(exec({ currentIndex: 2 })))
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ top: 0 }))
+  })
+})
+
+describe('ServiceStageMusicianPage - nota limpa', () => {
+  it('a nota some quando o MD publica vazio', async () => {
+    h.state.exec = exec({ mdAnnotation: 'cortar bateria' })
+    mount(<ServiceStageMusicianPage />)
+    expect(await screen.findByText('cortar bateria')).toBeInTheDocument()
+    act(() => h.state.listener?.(exec({ mdAnnotation: '' })))
+    expect(screen.queryByText('cortar bateria')).not.toBeInTheDocument()
   })
 })
