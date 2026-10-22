@@ -45,6 +45,15 @@ describe('ServicePreparationPage', () => {
     expect(screen.getByText(/volta da posição 2/)).toBeTruthy()
   })
 
+  it('mostra o ensaio com músicas em foco', async () => {
+    m.get.mockResolvedValue(view({ rehearsals: [{ id: 'r1', serviceId: 's1', startsAt: '2026-10-30T20:00:00.000Z', location: 'Sala 2', notes: 'Trazer capo', songs: [{ serviceItemId: 'i1', title: 'Grande é o Senhor', position: 1 }] }] }))
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Ensaio' })).toBeTruthy()
+    expect(screen.getByText(/Sala 2/)).toBeTruthy()
+    expect(screen.getByText('Trazer capo')).toBeTruthy()
+    expect(screen.getByText('Músicas em foco: Grande é o Senhor')).toBeTruthy()
+  })
+
   it('sem escala', async () => {
     m.get.mockResolvedValue(view({ myFunction: null }))
     renderPage()

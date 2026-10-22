@@ -12,6 +12,8 @@ import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
 import type { ServicePreparation } from '../domain/services/servicePreparation'
 import type { StageSession } from '../domain/stage/stageSession'
+import type { Rehearsal, RehearsalSong } from '../domain/services/rehearsal'
+import { rehearsalSongId } from '../domain/services/rehearsal'
 import { preparationId } from '../domain/services/servicePreparation'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
@@ -34,6 +36,8 @@ export type TargetEntityName =
   | 'servicePositions'
   | 'memberAvailability'
   | 'servicePreparations'
+  | 'rehearsals'
+  | 'rehearsalSongs'
   | 'stageSessions'
   | 'stageSessionStates'
 
@@ -50,6 +54,8 @@ export type TargetEntity =
   | ServicePosition
   | MemberAvailability
   | ServicePreparation
+  | Rehearsal
+  | RehearsalSong
   | StageSession
   | StageSessionState
 
@@ -77,6 +83,8 @@ export type TargetWritableEntity =
   | ServicePosition
   | MemberAvailability
   | ServicePreparation
+  | Rehearsal
+  | RehearsalSong
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -118,9 +126,15 @@ const tables: Record<TargetEntityName, string> = {
   servicePositions: 'service_positions',
   memberAvailability: 'member_availability',
   servicePreparations: 'service_preparations',
+  rehearsals: 'rehearsals',
+  rehearsalSongs: 'rehearsal_songs',
   stageSessions: 'stage_sessions',
   stageSessionStates: 'stage_session_states',
 }
+
+// `rehearsalSongs` não tem `id`/`updatedAt` (chave composta): a fila usa `rehearsalId:serviceItemId`.
+const queueId = (payload: TargetWritableEntity) => 'rehearsalId' in payload ? rehearsalSongId(payload.rehearsalId, payload.serviceItemId) : payload.id
+const queueUpdatedAt = (payload: TargetWritableEntity) => 'updatedAt' in payload ? payload.updatedAt : new Date().toISOString()
 
 function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEntity) {
   switch (entity) {
@@ -162,6 +176,14 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
       const v = value as ServicePreparation
       return { service_id: v.serviceId, user_id: v.userId, prepared_at: v.preparedAt, updated_at: v.updatedAt }
     }
+    case 'rehearsals': {
+      const v = value as Rehearsal
+      return { id: v.id, organization_id: v.organizationId, service_id: v.serviceId, starts_at: v.startsAt, location: v.location ?? null, notes: v.notes ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
+    }
+    case 'rehearsalSongs': {
+      const v = value as RehearsalSong
+      return { rehearsal_id: v.rehearsalId, service_item_id: v.serviceItemId }
+    }
     case 'memberAvailability': {
       const v = value as MemberAvailability
       return { id: v.id, user_id: v.userId, organization_id: v.organizationId, date: v.date, status: v.status, note: v.note ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
@@ -183,12 +205,15 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'servicePositions': return { id: String(row.id), serviceId: String(row.service_id), musicalFunction: String(row.musical_function), quantity: Number(row.quantity), notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'memberAvailability': return { id: String(row.id), userId: String(row.user_id), organizationId: String(row.organization_id), date: String(row.date).slice(0, 10), status: row.status as MemberAvailability['status'], note: row.note ? String(row.note) : undefined, createdAt: String(row.created_at ?? row.updated_at), updatedAt: String(row.updated_at) }
     case 'servicePreparations': return { id: preparationId(String(row.service_id), String(row.user_id)), serviceId: String(row.service_id), userId: String(row.user_id), preparedAt: String(row.prepared_at), updatedAt: String(row.updated_at ?? row.prepared_at) }
+    case 'rehearsals': return { id: String(row.id), organizationId: String(row.organization_id), serviceId: String(row.service_id), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
+    case 'rehearsalSongs': return { rehearsalId: String(row.rehearsal_id), serviceItemId: String(row.service_item_id) }
     case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
   }
 }
 
-function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
+// `rehearsalSongs` tem chave composta e sem `updatedAt`; os usos genéricos abaixo só olham `id`/`updatedAt`.
+function localTable(db: SalmodiaDatabase, entity: TargetEntityName): Table<{ updatedAt: string }, string> {
   const map = {
     organizations: db.organizations,
     organizationMemberships: db.organizationMemberships,
@@ -202,11 +227,15 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
     servicePositions: db.servicePositions,
     memberAvailability: db.memberAvailability,
     servicePreparations: db.servicePreparations,
+    rehearsals: db.rehearsals,
+    rehearsalSongs: db.rehearsalSongs,
     stageSessions: db.stageSessions,
     stageSessionStates: db.stageSessionStates,
   }
-  return map[entity]
+  return map[entity] as unknown as Table<{ updatedAt: string }, string>
 }
+
+export type QueueExtra = { deleteSongIds?: string[]; upsertSongs?: RehearsalSong[] }
 
 export class TargetSyncEngine {
   private syncing = false
@@ -218,8 +247,8 @@ export class TargetSyncEngine {
   }
 
   async queueUpsert(entity: TargetWritableEntityName, payload: TargetWritableEntity): Promise<void> {
-    await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
-    await this.db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload, updatedAt: payload.updatedAt, attempts: 0 })
+    await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, queueId(payload)]).delete()
+    await this.db.targetSyncQueue.add({ entity, entityId: queueId(payload), operation: 'upsert', payload, updatedAt: queueUpdatedAt(payload), attempts: 0 })
     void this.sync()
   }
 
@@ -227,12 +256,18 @@ export class TargetSyncEngine {
    * Grava `write` e enfileira todos os `payloads` numa única transação; o sync só roda depois do commit,
    * então nunca enxerga um lote parcial (unique de posição deferida no banco).
    */
-  async queueUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>): Promise<void> {
+  async queueUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>, also: QueueExtra = {}): Promise<void> {
     await this.db.transaction('rw', [this.db.targetSyncQueue, ...tables], async () => {
       await write()
       for (const payload of payloads) {
-        await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, payload.id]).delete()
-        await this.db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload, updatedAt: payload.updatedAt, attempts: 0 })
+        await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, queueId(payload)]).delete()
+        await this.db.targetSyncQueue.add({ entity, entityId: queueId(payload), operation: 'upsert', payload, updatedAt: queueUpdatedAt(payload), attempts: 0 })
+      }
+      for (const entityId of also.deleteSongIds ?? []) await this.db.targetSyncQueue.where('[entity+entityId]').equals(['rehearsalSongs', entityId]).delete()
+      for (const entityId of also.deleteSongIds ?? []) await this.db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId, operation: 'delete', updatedAt: new Date().toISOString(), attempts: 0 })
+      for (const song of also.upsertSongs ?? []) {
+        await this.db.targetSyncQueue.where('[entity+entityId]').equals(['rehearsalSongs', queueId(song)]).delete()
+        await this.db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: queueId(song), operation: 'upsert', payload: song, updatedAt: queueUpdatedAt(song), attempts: 0 })
       }
     })
     void this.sync()
@@ -255,6 +290,8 @@ export class TargetSyncEngine {
     await this.db.transaction('rw', [this.db.targetSyncQueue, ...tables], async () => {
       await write()
       await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
+      // Ensaio criado e excluído offline: as músicas pendentes não podem subir (o ensaio nunca existiu no servidor).
+      if (entity === 'rehearsals') await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && i.entityId.startsWith(`${entityId}:`)).delete()
       await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt: new Date().toISOString(), attempts: 0 })
     })
     void this.sync()
@@ -274,10 +311,24 @@ export class TargetSyncEngine {
   async discardFailed(): Promise<void> {
     const failed = await this.db.targetSyncQueue.filter((i) => i.status === 'failed').toArray()
     for (const item of failed) {
-      if (item.operation === 'upsert') await localTable(this.db, item.entity).delete(item.entityId)
+      if (item.operation === 'upsert') await this.deleteLocal(item.entity, item.entityId)
       if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
     }
     void this.sync()
+  }
+
+  private async deleteLocal(entity: TargetEntityName, entityId: string): Promise<void> {
+    if (entity === 'rehearsalSongs') {
+      const [rehearsalId, serviceItemId] = entityId.split(':')
+      await this.db.rehearsalSongs.delete([rehearsalId, serviceItemId])
+      return
+    }
+    await localTable(this.db, entity).delete(entityId)
+    if (entity === 'rehearsals') {
+      // Sem o ensaio, o foco local e o pendente na fila falhariam (ensaio inexistente).
+      await this.db.rehearsalSongs.where('rehearsalId').equals(entityId).delete()
+      await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && i.entityId.startsWith(`${entityId}:`)).delete()
+    }
   }
 
   async createOrganization(value: Organization): Promise<void> {
@@ -352,7 +403,8 @@ export class TargetSyncEngine {
           const table = tables[item.entity]
           if (item.operation === 'delete') {
             const [serviceId, userId] = item.entityId.split(':')
-            await deleteRows(table, item.entity === 'servicePreparations' ? { service_id: serviceId, user_id: userId } : { id: item.entityId })
+            await deleteRows(table, item.entity === 'servicePreparations' ? { service_id: serviceId, user_id: userId }
+              : item.entity === 'rehearsalSongs' ? { rehearsal_id: serviceId, service_item_id: userId } : { id: item.entityId })
           } else if (item.entity === 'organizations') {
             const organization = item.payload as Organization
             const [existing] = await selectRows(table, { id: item.entityId })
@@ -371,7 +423,7 @@ export class TargetSyncEngine {
           // Descarta o item e o registro local órfão; o próximo pull traz o equivalente.
           if (error instanceof ApiError && error.status === 409 && item.operation === 'upsert' && UNIQUE_BY_CONTENT.includes(item.entity)) {
             await this.db.targetSyncQueue.delete(item.id)
-            await localTable(this.db, item.entity).delete(item.entityId)
+            await this.deleteLocal(item.entity, item.entityId)
             continue
           }
           await this.db.targetSyncQueue.update(item.id, this.failure(item, error))
@@ -389,11 +441,26 @@ export class TargetSyncEngine {
             if (!remoteIds.has(local.id) && await this.isSent('servicePreparations', local.id)) await this.db.servicePreparations.delete(local.id)
           }
         }
+        if (entity === 'rehearsals' || entity === 'rehearsalSongs') {
+          // Apagado em outro aparelho: o pull não apaga; só preserva o que ainda está na fila.
+          const remoteIds = new Set(rows.map((r) => entity === 'rehearsals' ? String(r.id) : rehearsalSongId(String(r.rehearsal_id), String(r.service_item_id))))
+          const locals: { id: string; rowId: string | [string, string] }[] = entity === 'rehearsals'
+            ? (await this.db.rehearsals.toArray()).map((l) => ({ id: l.id, rowId: l.id }))
+            : (await this.db.rehearsalSongs.toArray()).map((l) => ({ id: rehearsalSongId(l.rehearsalId, l.serviceItemId), rowId: [l.rehearsalId, l.serviceItemId] }))
+          for (const local of locals) {
+            if (!remoteIds.has(local.id) && await this.isSent(entity, local.id)) await (table as unknown as Table<unknown, string | [string, string]>).delete(local.rowId)
+          }
+        }
         for (const row of rows) {
           const value = fromRemoteRow(entity, row)
+          if (entity === 'rehearsalSongs') {
+            const song = value as RehearsalSong
+            if (await this.isSent('rehearsalSongs', rehearsalSongId(song.rehearsalId, song.serviceItemId))) await this.db.rehearsalSongs.put(song)
+            continue
+          }
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId
-            : (value as Exclude<TargetEntity, StageSessionState>).id
+            : (value as Exclude<TargetEntity, StageSessionState | RehearsalSong>).id
           if (entity === 'services') {
             // `status` é do servidor: sobrescreve sem LWW; demais campos seguem LWW.
             const remote = value as Service
@@ -411,7 +478,7 @@ export class TargetSyncEngine {
             continue
           }
           const local = await table.get(valueId)
-          if (local && local.updatedAt > value.updatedAt) continue
+          if (local && local.updatedAt > (value as { updatedAt: string }).updatedAt) continue
           await table.put(value as never)
         }
       }

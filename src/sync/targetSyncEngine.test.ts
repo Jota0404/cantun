@@ -393,3 +393,87 @@ describe('TargetSyncEngine service preparations (B6 / RN-15…18)', () => {
     expect((await db.targetSyncQueue.toArray())[0]).toMatchObject({ operation: 'delete', entityId: prep.id })
   })
 })
+
+describe('TargetSyncEngine rehearsals (RN-19…21)', () => {
+  const reh = { id: 'r1', organizationId: 'o1', serviceId: 's1', startsAt: now, location: 'Sala', createdAt: now, updatedAt: now }
+  const song = { rehearsalId: 'r1', serviceItemId: 'i1' }
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    remote.deleteRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.rehearsals.clear(), db.rehearsalSongs.clear()])
+  })
+
+  it('pushes upserts and deletes (ensaio, then foco with composite key)', async () => {
+    const engine = new TargetSyncEngine(db)
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'rehearsals', entityId: 'r1', operation: 'upsert', payload: reh, updatedAt: now, attempts: 0 },
+      { entity: 'rehearsalSongs', entityId: 'r1:i1', operation: 'upsert', payload: song, updatedAt: now, attempts: 0 },
+      { entity: 'rehearsalSongs', entityId: 'r1:i1', operation: 'delete', updatedAt: now, attempts: 0 },
+    ])
+    await engine.sync()
+    expect(remote.upsertRows).toHaveBeenCalledWith('rehearsals', [{ id: 'r1', organization_id: 'o1', service_id: 's1', starts_at: now, location: 'Sala', notes: null, created_at: now, updated_at: now }])
+    expect(remote.deleteRows).toHaveBeenCalledWith('rehearsal_songs', { rehearsal_id: 'r1', service_item_id: 'i1' })
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('does not retry 403/409', async () => {
+    remote.upsertRows.mockRejectedValue(new ApiError(403, 'recusado'))
+    const engine = new TargetSyncEngine(db)
+    await db.targetSyncQueue.add({ entity: 'rehearsals', entityId: 'r1', operation: 'upsert', payload: reh, updatedAt: now, attempts: 0 })
+    await engine.sync()
+    remote.upsertRows.mockClear()
+    await engine.sync()
+    expect(remote.upsertRows).not.toHaveBeenCalled()
+    expect((await engine.getStatus()).failed).toHaveLength(1)
+  })
+
+  it('pulls both tables, drops what vanished remotely but keeps what is queued', async () => {
+    await db.rehearsals.bulkPut([{ ...reh, id: 'gone' }, { ...reh, id: 'queued' }])
+    await db.rehearsalSongs.put({ rehearsalId: 'gone', serviceItemId: 'x' })
+    await db.targetSyncQueue.add({ entity: 'rehearsals', entityId: 'queued', operation: 'upsert', payload: { ...reh, id: 'queued' }, updatedAt: now, attempts: 0, status: 'failed' })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'rehearsals'
+      ? [{ id: 'r1', organization_id: 'o1', service_id: 's1', starts_at: now, location: null, notes: null, created_at: now, updated_at: now }]
+      : table === 'rehearsal_songs' ? [{ rehearsal_id: 'r1', service_item_id: 'i1' }] : [])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.rehearsals.toArray()).map((r) => r.id).sort()).toEqual(['queued', 'r1'])
+    expect(await db.rehearsalSongs.toArray()).toEqual([song])
+  })
+
+  it('saves ensaio and foco atomically in the queue (also deletes)', async () => {
+    await db.rehearsalSongs.put({ rehearsalId: 'r1', serviceItemId: 'old' })
+    await new TargetSyncEngine(db).queueUpserts('rehearsals', [reh], [db.rehearsals, db.rehearsalSongs], async () => {
+      await db.rehearsals.put(reh)
+    }, { deleteSongIds: ['r1:old'], upsertSongs: [song] })
+    const q = (await db.targetSyncQueue.toArray()).map((x) => `${x.entity}:${x.entityId}:${x.operation}`)
+    expect(q).toEqual(['rehearsals:r1:upsert', 'rehearsalSongs:r1:old:delete', 'rehearsalSongs:r1:i1:upsert'])
+  })
+
+  it('does not pull over a pending rehearsalSongs row and clears queued songs when the ensaio is removed', async () => {
+    await db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: 'r1:i1', operation: 'delete', updatedAt: now, attempts: 0, status: 'failed' })
+    remote.selectRows.mockImplementation(async (t: string) => t === 'rehearsal_songs' ? [{ rehearsal_id: 'r1', service_item_id: 'i1' }] : [])
+    const engine = new TargetSyncEngine(db)
+    await engine.sync()
+    expect(await db.rehearsalSongs.count()).toBe(0)
+    await db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: 'r2:i1', operation: 'upsert', payload: { rehearsalId: 'r2', serviceItemId: 'i1' }, updatedAt: now, attempts: 0, status: 'failed' })
+    await engine.queueDeleteAtomic('rehearsals', 'r2', [db.rehearsals, db.rehearsalSongs], async () => undefined)
+    expect((await db.targetSyncQueue.toArray()).filter((x) => x.entityId.startsWith('r2:'))).toEqual([])
+  })
+
+  it('discardFailed removes the composite-key row', async () => {
+    await db.rehearsalSongs.put(song)
+    await db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: 'r1:i1', operation: 'upsert', payload: song, updatedAt: now, attempts: 1, status: 'failed' })
+    await new TargetSyncEngine(db).discardFailed()
+    expect(await db.rehearsalSongs.count()).toBe(0)
+  })
+
+  it('discardFailed of a rehearsal also drops its focus rows and queued songs', async () => {
+    await db.rehearsalSongs.put(song)
+    await db.targetSyncQueue.add({ entity: 'rehearsals', entityId: 'r1', operation: 'upsert', payload: { id: 'r1', organizationId: 'o', serviceId: 's', startsAt: now, createdAt: now, updatedAt: now }, updatedAt: now, attempts: 1, status: 'failed' })
+    await db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: 'r1:i1', operation: 'upsert', payload: song, updatedAt: now, attempts: 0 })
+    await new TargetSyncEngine(db).discardFailed()
+    expect(await db.rehearsalSongs.count()).toBe(0)
+    expect((await db.targetSyncQueue.toArray()).filter((x) => x.entityId.startsWith('r1'))).toEqual([])
+  })
+})

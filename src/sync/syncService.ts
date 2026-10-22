@@ -4,7 +4,7 @@ import { db } from '../db/database'
 import { isPlatformConfigured } from '../platform/http'
 import { getCurrentUser } from '../platform/auth'
 import { SyncEngine } from './syncEngine'
-import { TargetSyncEngine, type TargetWritableEntity, type TargetWritableEntityName } from './targetSyncEngine'
+import { TargetSyncEngine, type QueueExtra, type TargetWritableEntity, type TargetWritableEntityName } from './targetSyncEngine'
 
 export const syncEngine = isPlatformConfigured ? new SyncEngine(db) : null
 export const targetSyncEngine = isPlatformConfigured ? new TargetSyncEngine(db) : null
@@ -25,9 +25,9 @@ export async function queueTargetUpsert(entity: TargetWritableEntityName, payloa
 }
 
 /** Grava e enfileira em uma transação (ver `TargetSyncEngine.queueUpserts`); sem sync configurado, só grava. */
-export async function queueTargetUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>) {
+export async function queueTargetUpserts(entity: TargetWritableEntityName, payloads: TargetWritableEntity[], tables: Table[], write: () => Promise<void>, also?: QueueExtra) {
   if (!targetSyncEngine) return db.transaction('rw', tables, write)
-  await targetSyncEngine.queueUpserts(entity, payloads, tables, write)
+  await targetSyncEngine.queueUpserts(entity, payloads, tables, write, also)
 }
 
 export async function queueTargetDelete(entity: TargetWritableEntityName, entityId: string, updatedAt?: string) {

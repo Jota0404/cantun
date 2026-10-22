@@ -9,12 +9,13 @@ import { songRepository } from '../../db/repositories/songRepository'
 import type { AccessContext } from '../../domain/access/permissions'
 import { getMemberPreparationView, type MemberPreparationRepositories } from './memberPreparationView'
 
+import { defaultRehearsalRepositories } from './rehearsalService'
 vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn() }))
 
 const now = '2026-10-01T12:00:00Z'
 const service = { id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, notes: 'Chegar cedo', status: 'draft' as const, createdByUserId: 'u1', createdAt: now, updatedAt: now }
 const repos = (access: AccessContext = { organizationRole: 'member' } as AccessContext): MemberPreparationRepositories => ({
-  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository, access: async () => access, currentUserId: () => 'me',
+  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository, access: async () => access, currentUserId: () => 'me', rehearsals: defaultRehearsalRepositories,
 })
 const assignment = (status: 'invited' | 'declined', userId = 'me') => ({ id: `a-${status}-${userId}`, serviceId: 's1', positionId: 'p1', userId, musicalFunction: 'Vocal', status, createdAt: now, updatedAt: now })
 
@@ -76,5 +77,15 @@ describe('getMemberPreparationView (RN-12…14)', () => {
     const after = await getMemberPreparationView('s1', repos())
     expect(after.success && after.view.prepared).toBe(true)
     await db.servicePreparations.clear()
+  })
+
+  it('includes the service rehearsals with their focus songs in service order', async () => {
+    await db.rehearsals.clear(); await db.rehearsalSongs.clear()
+    await db.rehearsals.put({ id: 'r1', organizationId: 'org-1', serviceId: 's1', startsAt: now, location: 'Sala 2', createdAt: now, updatedAt: now })
+    await db.rehearsalSongs.bulkPut([{ rehearsalId: 'r1', serviceItemId: 'i2' }, { rehearsalId: 'r1', serviceItemId: 'i1' }])
+    const result = await getMemberPreparationView('s1', repos())
+    expect(result.success && result.view.rehearsals).toEqual([
+      { id: 'r1', serviceId: 's1', startsAt: now, location: 'Sala 2', notes: undefined, songs: [{ serviceItemId: 'i1', title: 'Grande', position: 1 }, { serviceItemId: 'i2', title: 'Outra', position: 2 }] },
+    ])
   })
 })
