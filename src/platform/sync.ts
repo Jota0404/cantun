@@ -9,6 +9,10 @@ function path(table: string, filters?: RowFilters) {
   return `/sync/${encodeURIComponent(table)}${query}`
 }
 
+/**
+ * Invariante: GET /sync/:tabela sem filtro devolve o conjunto COMPLETO do escopo do usuário (sem paginação nem limite).
+ * O espelho do TargetSyncEngine (MIRRORED_ENTITIES) apaga localmente o que não veio; resposta parcial apagaria dados.
+ */
 export function selectRows<T = RemoteRow>(table: string, filters?: RowFilters): Promise<T[]> {
   return apiRequest<T[]>('GET', path(table, filters))
 }

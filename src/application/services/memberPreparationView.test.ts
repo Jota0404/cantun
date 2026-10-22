@@ -11,7 +11,7 @@ import { getMemberPreparationView, type MemberPreparationRepositories } from './
 
 import { materialRepository } from '../../db/repositories/materialRepository'
 import { defaultRehearsalRepositories } from './rehearsalService'
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn() }))
+vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn(async (_e: string, _i: unknown, _t: unknown, write: () => Promise<void>) => write()) }))
 
 const now = '2026-10-01T12:00:00Z'
 const service = { id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, notes: 'Chegar cedo', status: 'draft' as const, createdByUserId: 'u1', createdAt: now, updatedAt: now }
@@ -97,5 +97,13 @@ describe('getMemberPreparationView (RN-12…14)', () => {
     expect(result.success && result.view.rehearsals).toEqual([
       { id: 'r1', serviceId: 's1', startsAt: now, location: 'Sala 2', notes: undefined, songs: [{ serviceItemId: 'i1', title: 'Grande', position: 1 }, { serviceItemId: 'i2', title: 'Outra', position: 2 }] },
     ])
+  })
+
+  it('canPrepare: only active team members on a non-final service', async () => {
+    const can = async (access: Partial<AccessContext>) => { const r = await getMemberPreparationView('s1', repos({ organizationRole: 'member', ...access } as AccessContext)); return r.success && r.view.canPrepare }
+    expect(await can({ teamRole: 'member', teamStatus: 'active' })).toBe(true)
+    expect(await can({})).toBe(false)
+    await db.services.put({ ...service, status: 'completed' })
+    expect(await can({ teamRole: 'member', teamStatus: 'active' })).toBe(false)
   })
 })

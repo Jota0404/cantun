@@ -2,7 +2,7 @@ import type { Service } from '../../domain/services/service'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
 import { MaterialRepository } from './materialRepository'
-import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
+import { queueTargetDeleteAtomic, queueTargetUpsert } from '../../sync/syncService'
 
 export class ServiceRepository {
   private readonly db: SalmodiaDatabase
@@ -21,8 +21,7 @@ export class ServiceRepository {
     const rehearsalIds = (await this.db.rehearsals.where('serviceId').equals(id).primaryKeys()) as string[]
     await materials.removeLocalByOwner('rehearsalId', rehearsalIds)
     await materials.removeLocalByOwner('serviceId', [id])
-    await this.db.services.delete(id)
-    await queueTargetDelete('services', id)
+    await queueTargetDeleteAtomic('services', id, [this.db.services], async () => { await this.db.services.delete(id) })
   }
 }
 export const serviceRepository = new ServiceRepository()

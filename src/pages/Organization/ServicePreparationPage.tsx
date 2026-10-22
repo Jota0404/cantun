@@ -5,6 +5,7 @@ import { getMemberPreparationView, type MemberPreparationResult } from '../../ap
 import { MaterialLink, MaterialsHint } from '../../components/service/MaterialsPanel'
 import { SERVICE_ITEM_TYPE_LABEL, formatServiceDate } from '../../components/service/serviceLabels'
 import { getPreparationSummary, setPreparation, type PreparationSummary } from '../../application/services/servicePreparationService'
+import { musicalFunctionLabel } from '../../components/team/musicalFunctions'
 import './ServicePreparationPage.css'
 
 export function ServicePreparationPage() {
@@ -56,8 +57,9 @@ export function ServicePreparationPage() {
       {back}
       <h2>{view.serviceName}</h2>
       <p>{formatServiceDate(view.startsAt)}</p>
-      <p className="prep__function">{view.myFunction ? `Sua função: ${view.myFunction}` : 'Sem escala neste serviço'}</p>
-      <button type="button" className="prep__done" aria-pressed={isPrepared} disabled={busy} onClick={() => void toggle()}><span aria-hidden="true">{isPrepared ? '✓ ' : ''}</span>Preparado</button>
+      <p className="prep__function">{view.myFunction ? `Sua função: ${musicalFunctionLabel(view.myFunction)}` : 'Sem escala neste serviço'}</p>
+      <button type="button" className="prep__done" aria-pressed={isPrepared} aria-describedby={view.canPrepare ? undefined : "prep-unavailable"} disabled={busy || !view.canPrepare} onClick={() => void toggle()}><span aria-hidden="true">{isPrepared ? '✓ ' : ''}</span>Preparado</button>
+      {!view.canPrepare && <p id="prep-unavailable" role="note">Preparação indisponível: serviço encerrado ou você não está na equipe.</p>}
       <p className="prep__status">{isPrepared ? 'Você já marcou como preparado' : 'Ainda não marcado'}</p>
       {prepError && <p role="alert">{prepError}</p>}
       {team && (

@@ -1,6 +1,6 @@
 import type { Organization } from '../../domain/organizations/organization'
 import { db as defaultDb, type SalmodiaDatabase } from '../database'
-import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
+import { queueTargetDeleteAtomic, queueTargetUpsert } from '../../sync/syncService'
 
 export class OrganizationRepository {
   private readonly db: SalmodiaDatabase
@@ -11,7 +11,7 @@ export class OrganizationRepository {
   async getById(id: string) { return this.db.organizations.get(id) }
   async list() { return this.db.organizations.orderBy('updatedAt').reverse().toArray() }
   async update(value: Organization) { await this.db.organizations.put(value); await queueTargetUpsert('organizations', value) }
-  async remove(id: string) { await this.db.organizations.delete(id); await queueTargetDelete('organizations', id) }
+  async remove(id: string) { await queueTargetDeleteAtomic('organizations', id, [this.db.organizations], async () => { await this.db.organizations.delete(id) }) }
 }
 
 /** Só leitura: o vínculo muda por RPC no servidor (issue #99), nunca por escrita direta. */

@@ -529,3 +529,115 @@ describe('TargetSyncEngine materials (RN-22…25)', () => {
     expect((await db.materials.toArray()).map((m) => m.id).sort()).toEqual(['m1', 'queued'])
   })
 })
+
+describe('TargetSyncEngine delete consistency (issue #116)', () => {
+  const item = (id: string, position: number, refItemId?: string) => ({ id, serviceId: 'svc-1', type: refItemId ? 'reprise' : 'song', songId: 's', position, refItemId, updatedAt: now })
+  const row = (id: string, position: number, ref: string | null = null) => ({ id, service_id: 'svc-1', type: ref ? 'reprise' : 'song', song_id: 's', title: null, notes: null, duration_minutes: null, position, repertoire_id: null, key: null, ref_item_id: ref, updated_at: now })
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    remote.deleteRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.serviceItems.clear(), db.rehearsalSongs.clear(), db.servicePositions.clear()])
+  })
+
+  it('does not resurrect a row with a pending delete on pull', async () => {
+    remote.deleteRows.mockRejectedValue(new Error('offline'))
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items' ? [row('a', 0)] : [])
+    const engine = new TargetSyncEngine(db)
+    await db.serviceItems.put(item('a', 0) as never)
+    await engine.queueDeleteAtomic('serviceItems', 'a', [db.serviceItems], async () => { await db.serviceItems.delete('a') })
+    await engine.stop(); engine.start(); await engine.sync()
+    expect(await db.serviceItems.get('a')).toBeUndefined()
+  })
+
+  it('deletes dependents first, atomically, so a pull in between cannot bring them back', async () => {
+    const engine = new TargetSyncEngine(db)
+    await db.serviceItems.bulkPut([item('t', 0), item('r1', 1, 't'), item('r2', 2, 't')] as never)
+    const server = new Set(['t', 'r1', 'r2'])
+    remote.deleteRows.mockImplementation(async (_t: string, f: { id: string }) => { server.delete(f.id); return { count: 1 } })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items' ? [...server].map((id) => row(id, 0)) : [])
+    await engine.queueDeleteAtomic('serviceItems', ['r1', 'r2', 't'], [db.serviceItems], async () => { await db.serviceItems.bulkDelete(['r1', 'r2', 't']) })
+    await engine.stop(); engine.start(); await engine.sync()
+    expect(remote.deleteRows.mock.calls.map(([, f]) => f.id)).toEqual(['r1', 'r2', 't'])
+    expect(await db.serviceItems.count()).toBe(0)
+  })
+
+  it('removes rows (and their rehearsal songs) deleted on another device after a full pull', async () => {
+    await db.serviceItems.bulkPut([item('t', 0), item('r1', 1, 't')] as never)
+    await db.rehearsalSongs.put({ rehearsalId: 'rh', serviceItemId: 'r1' })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items' ? [] : [])
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.count()).toBe(0)
+    expect(await db.rehearsalSongs.count()).toBe(0)
+  })
+
+  it('keeps everything when the pull fails, or when the entity has pending queue items', async () => {
+    await db.serviceItems.bulkPut([item('t', 0), item('n', 1)] as never)
+    remote.selectRows.mockRejectedValue(new Error('offline'))
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.count()).toBe(2)
+
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockRejectedValue(new Error('offline'))
+    await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'n', operation: 'upsert', payload: item('n', 1) as never, updatedAt: now, attempts: 0 })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.count()).toBe(2)
+  })
+
+  it('does not remove rows created after the pull started', async () => {
+    await db.servicePositions.put({ id: 'new', serviceId: 'svc-1', musicalFunction: 'vocals', quantity: 1, createdAt: '2999-01-01T00:00:00Z', updatedAt: '2999-01-01T00:00:00Z' })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.servicePositions.count()).toBe(1)
+  })
+
+  const position = (id: string) => ({ id, serviceId: 'svc-1', musicalFunction: 'vocals', quantity: 1, createdAt: now, updatedAt: now })
+
+  it('lets the server win when a delete was refused (failed): the pull restores the row', async () => {
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items' ? [row('a', 0)] : [])
+    await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'a', operation: 'delete', updatedAt: now, attempts: 1, status: 'failed' })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.get('a')).toBeDefined()
+  })
+
+  it('does not let a failed delete block the mirror', async () => {
+    await db.servicePositions.put(position('gone') as never)
+    await db.targetSyncQueue.add({ entity: 'servicePositions', entityId: 'other', operation: 'delete', updatedAt: now, attempts: 1, status: 'failed' })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.servicePositions.count()).toBe(0)
+  })
+
+  it('does not sweep non-mirrored entities', async () => {
+    await db.services.put({ id: 'svc-x', updatedAt: now } as never)
+    await new TargetSyncEngine(db).sync()
+    expect(await db.services.get('svc-x')).toBeDefined()
+    await db.services.clear()
+  })
+
+  it('a failed pull of one entity does not wipe it nor the others', async () => {
+    await db.serviceItems.put(item('a', 0) as never)
+    await db.servicePositions.put(position('gone') as never)
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_items' ? Promise.reject(new Error('boom')) : [])
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.count()).toBe(1)
+    expect(await db.servicePositions.count()).toBe(0)
+  })
+
+  it('mirror also drops queued rehearsal-song upserts of removed items', async () => {
+    await db.serviceItems.put(item('t', 0) as never)
+    await db.targetSyncQueue.add({ entity: 'rehearsalSongs', entityId: 'rh:t', operation: 'upsert', payload: { rehearsalId: 'rh', serviceItemId: 't' } as never, updatedAt: now, attempts: 0, status: 'failed' })
+    await new TargetSyncEngine(db).sync()
+    expect(await db.serviceItems.count()).toBe(0)
+    expect((await db.targetSyncQueue.toArray()).filter((q) => q.operation === 'upsert')).toEqual([])
+  })
+
+  it('pulls mirrored entities with no filter (full pull invariant)', async () => {
+    await new TargetSyncEngine(db).sync()
+    for (const t of ['service_items', 'repertoire_items', 'service_positions', 'member_availability']) {
+      const calls = remote.selectRows.mock.calls.filter(([name]) => name === t)
+      expect(calls.length).toBeGreaterThan(0)
+      for (const call of calls) expect(call[1]).toBeUndefined()
+    }
+  })
+})

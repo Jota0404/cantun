@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vitest'
 import { db } from '../database'
 
-vi.mock('../../sync/syncService', () => ({ queueTargetDelete: vi.fn(), queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn() }))
+vi.mock('../../sync/syncService', () => ({ queueTargetDeleteAtomic: vi.fn(async (_e: string, _id: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn() }))
 
 import { ServiceItemRepository } from './serviceItemRepository'
 
