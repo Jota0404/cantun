@@ -1,6 +1,6 @@
 # Feature Spec — VS-06 Execução & Histórico
 
-- **Status:** Proposed — fatias 1–6 implementadas; D1–D6 adotadas pela recomendação do planner, aguardando confirmação do Jota antes de produção; fatia 7 (refatoração do Palco solo) implementada
+- **Status:** Accepted — fatias 1–7 implementadas; D1–D6 decididas pelo Jota em 2026-10-22
 - **Bloco:** B7 (`docs/blocks/B7-execucao-historico.md`)
 - **Fatia vertical:** VS-06
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-22
@@ -173,6 +173,9 @@ QA do bloco (qa) ao fim: §58.4 + jornada musical com 2 usuários. `database.ts`
 | Atividade desatualizada sem Realtime | Recarrega ao focar o Início; aceitável para log |
 
 ## Decisões do owner
+
+**Decididas pelo Jota em 2026-10-22, todas como recomendado:** D1 (a), D2 (b), D3 (a), D4 (b), D5 log 90 dias + registro (a), D6 sim. Emenda (mesma data): o membro acessa o Registro dos serviços concluídos em que participou pela seção "Realizados" de "Meus serviços" (VS-05 RN-02), além do link da Atividade. Texto original abaixo.
+
 - **D1 Tom registrado.** (a) tom efetivo planejado do serviço `coalesce(si.key, s.current_key)`; (b) também gravar a última transposição ao vivo por item (exige persistir estado do Palco, mexe no Stage e no contrato). Recomendo **(a)**.
 - **D2 Concluir com Palco aberto.** (a) concluir encerra as sessões `lobby`/`live` do serviço na mesma transação (§57, duração exata; contorna o guarda do operador); (b) bloquear a conclusão até o MD encerrar; (c) não mexer no Palco (duração pelo `ended_at` existente, pode ficar nula). Recomendo **(b)**: zero mudança no Stage e mensagem clara "Encerre o Palco antes de concluir".
 - **D3 Equipe registrada.** (a) só `confirmed`; (b) também `invited` sem resposta (quem provavelmente tocou mas não confirmou). Recomendo **(a)**.
