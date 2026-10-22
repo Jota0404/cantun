@@ -245,7 +245,7 @@ describe('TargetSyncEngine scheduling (VS-03)', () => {
       { entity: 'servicePositions', entityId: 'p1', operation: 'upsert', payload: position, updatedAt: now, attempts: 0 },
       { entity: 'teams', entityId: 't1', operation: 'upsert', payload: { id: 't1', organizationId: 'o', name: 'T', createdAt: now, updatedAt: now }, updatedAt: now, attempts: 0 },
     ] as unknown as TargetSyncQueueItem[])
-    remote.upsertRows.mockRejectedValueOnce(new ApiError(500, 'erro')).mockRejectedValueOnce(new ApiError(409, 'conflito'))
+    remote.upsertRows.mockRejectedValueOnce(new ApiError(409, 'conflito')).mockRejectedValueOnce(new ApiError(500, 'erro'))
     await new TargetSyncEngine(db).sync()
     expect((await db.targetSyncQueue.toArray()).map((i) => [i.entity, i.attempts])).toEqual([['servicePositions', 1], ['teams', 1]])
   })
@@ -756,5 +756,118 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
       expect(calls.length).toBeGreaterThan(0)
       for (const call of calls) expect(call[1]).toBeUndefined()
     }
+  })
+})
+
+describe('TargetSyncEngine push order (parent before child)', () => {
+  const add = (entity: string, id: string, extra: Record<string, unknown> = {}) =>
+    ({ entity, entityId: id, operation: 'upsert', payload: { id, updatedAt: now, ...extra }, updatedAt: now, attempts: 0 }) as unknown as TargetSyncQueueItem
+
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    await db.targetSyncQueue.clear()
+  })
+
+  it('pushes the parent first even when it was re-queued after its children', async () => {
+    // Fila na ordem do bug: filhos primeiro, pai re-enfileirado (id maior).
+    await db.targetSyncQueue.bulkAdd([
+      add('serviceItems', 'i1', { serviceId: 's1' }), add('serviceItems', 'i2', { serviceId: 's1' }),
+      add('servicePositions', 'p1', { serviceId: 's1' }), add('materials', 'm1', { serviceId: 's1' }),
+      add('rehearsalSongs', 'r1:i1', { rehearsalId: 'r1', serviceItemId: 'i1' }), add('rehearsals', 'r1', { serviceId: 's1' }),
+      add('services', 's1'),
+    ])
+    await new TargetSyncEngine(db).sync()
+    const order = remote.upsertRows.mock.calls.map((c) => c[0])
+    expect(order[0]).toBe('services')
+    expect(order.indexOf('service_items')).toBeGreaterThan(order.indexOf('services'))
+    expect(order.indexOf('rehearsals')).toBeLessThan(order.indexOf('rehearsal_songs'))
+    expect(order.indexOf('service_items')).toBeLessThan(order.indexOf('rehearsal_songs'))
+    expect(order.indexOf('service_positions')).toBeGreaterThan(order.indexOf('services'))
+    expect(order.indexOf('materials')).toBeGreaterThan(order.indexOf('services'))
+  })
+
+  const del = (entity: string, id: string) => ({ entity, entityId: id, operation: 'delete', updatedAt: now, attempts: 0 }) as unknown as TargetSyncQueueItem
+  const calls = () => [...remote.upsertRows.mock.calls.map((c) => `up:${c[0]}`), ...remote.deleteRows.mock.calls.map((c) => `del:${c[0]}`)]
+
+  it('does not send higher-rank upserts when a parent upsert is retryable in the round; children are not failed', async () => {
+    remote.upsertRows.mockImplementation(async (table: string) => {
+      if (table === 'services') throw new ApiError(500, 'boom')
+      return { count: 1 }
+    })
+    await db.targetSyncQueue.bulkAdd([add('serviceItems', 'i1', { serviceId: 's1' }), add('rehearsals', 'r1', { serviceId: 's1' }), add('materials', 'm1'), add('services', 's1')])
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows.mock.calls.map((c) => c[0])).toEqual(['services'])
+    const items = await db.targetSyncQueue.toArray()
+    expect(items.map((i) => [i.entity, i.status, i.attempts])).toEqual([['serviceItems', undefined, 0], ['rehearsals', undefined, 0], ['materials', undefined, 0], ['services', undefined, 1]])
+  })
+
+  it('sends children after a parent refused for good, and they fail naturally', async () => {
+    remote.upsertRows.mockImplementation(async (table: string) => {
+      if (table === 'services') throw new ApiError(403, 'negado')
+      if (table === 'service_items') throw new ApiError(403, 'negado')
+      return { count: 1 }
+    })
+    await db.targetSyncQueue.bulkAdd([add('serviceItems', 'i1', { serviceId: 's1' }), add('services', 's1')])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.targetSyncQueue.toArray()).map((i) => i.status)).toEqual(['failed', 'failed'])
+  })
+
+  it('keeps deletes in their original position: team removed after member upsert', async () => {
+    await db.targetSyncQueue.bulkAdd([add('teamMemberships', 'tm1', { teamId: 't1' }), del('teams', 't1')])
+    await new TargetSyncEngine(db).sync()
+    expect(calls()).toEqual(['up:team_memberships', 'del:teams'])
+    expect(remote.upsertRows.mock.invocationCallOrder[0]).toBeLessThan(remote.deleteRows.mock.invocationCallOrder[0])
+  })
+
+  it('keeps delete-before-recreate and child-before-parent deletes', async () => {
+    await db.targetSyncQueue.bulkAdd([del('memberAvailability', 'a1'), add('memberAvailability', 'a2'), add('teams', 't2'), del('serviceItems', 'i1'), del('services', 's1')])
+    await new TargetSyncEngine(db).sync()
+    const all = [...remote.upsertRows.mock.invocationCallOrder.map((o, i) => [o, `up:${remote.upsertRows.mock.calls[i][0]}`]), ...remote.deleteRows.mock.invocationCallOrder.map((o, i) => [o, `del:${remote.deleteRows.mock.calls[i][0]}`])] as [number, string][]
+    expect(all.sort((a, b) => a[0] - b[0]).map((x) => x[1])).toEqual(['del:member_availability', 'up:teams', 'up:member_availability', 'del:service_items', 'del:services'])
+  })
+
+  const order = () => [
+    ...remote.upsertRows.mock.invocationCallOrder.map((o, i) => [o, `up:${remote.upsertRows.mock.calls[i][0]}`]),
+    ...remote.deleteRows.mock.invocationCallOrder.map((o, i) => [o, `del:${remote.deleteRows.mock.calls[i][0]}`]),
+  ].sort((a, b) => (a[0] as number) - (b[0] as number)).map((e) => e[1])
+
+  it('treats a delete as a barrier: upsert after the delete stays after it', async () => {
+    await db.targetSyncQueue.bulkAdd([add('materials', 'm1'), del('memberAvailability', 'a1'), add('memberAvailability', 'a2')])
+    await new TargetSyncEngine(db).sync()
+    expect(order()).toEqual(['up:materials', 'del:member_availability', 'up:member_availability'])
+  })
+
+  it('treats a delete as a barrier: upsert before the delete is not pushed after it', async () => {
+    await db.targetSyncQueue.bulkAdd([add('teamMemberships', 'tm1', { teamId: 't1' }), del('teams', 't1'), add('organizations', 'o1')])
+    await new TargetSyncEngine(db).sync()
+    expect(order().slice(0, 2)).toEqual(['up:team_memberships', 'del:teams'])
+  })
+
+  it('reorders by rank inside a run without deletes', async () => {
+    await db.targetSyncQueue.bulkAdd([add('serviceItems', 'i1', { serviceId: 's1' }), add('services', 's1')])
+    await new TargetSyncEngine(db).sync()
+    expect(order()).toEqual(['up:services', 'up:service_items'])
+  })
+
+  it('a batch in 5xx blocks rank 5', async () => {
+    remote.upsertRows.mockImplementation(async (table: string) => {
+      if (table === 'service_items') throw new ApiError(500, 'boom')
+      return { count: 1 }
+    })
+    await db.targetSyncQueue.bulkAdd([add('serviceItems', 'i1', { serviceId: 's1' }), add('materials', 'm1')])
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows.mock.calls.map((c) => c[0])).toEqual(['service_items'])
+  })
+
+  it('same-rank entities do not block each other (services 5xx, repertoire still sent)', async () => {
+    remote.upsertRows.mockImplementation(async (table: string) => {
+      if (table === 'services') throw new ApiError(500, 'boom')
+      return { count: 1 }
+    })
+    await db.targetSyncQueue.bulkAdd([add('services', 's1'), add('repertoires', 'rp1')])
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows.mock.calls.map((c) => c[0])).toEqual(['services', 'repertoires'])
   })
 })

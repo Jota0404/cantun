@@ -120,6 +120,16 @@ const BATCHED_ENTITIES = ['serviceItems', 'repertoireItems'] as const
 const batchKey = (item: TargetSyncQueueItem) =>
   item.entity === 'serviceItems' ? (item.payload as ServiceItem).serviceId : (item.payload as RepertoireItem).repertoireId
 
+// Dependência pai→filho no push (a FK/guard do servidor recusa filho sem pai). Re-enfileirar o pai (apaga+add) lhe dá id
+// maior que o dos filhos, então a ordem de id não basta. Os upserts se reordenam por rank só dentro de cada trecho
+// contíguo de upserts: o delete é barreira e fica na posição original (filho antes do pai, apagar antes de recriar).
+const PUSH_RANK: Record<TargetWritableEntityName, number> = {
+  organizations: 0, teams: 1, teamMemberships: 2, repertoires: 3, services: 3,
+  repertoireItems: 4, serviceItems: 4, servicePositions: 4, memberAvailability: 4, servicePreparations: 4, rehearsals: 4,
+  rehearsalSongs: 5, materials: 5,
+}
+const pushRank = (item: TargetSyncQueueItem) => PUSH_RANK[item.entity]
+
 const tables: Record<TargetEntityName, string> = {
   organizations: 'organizations',
   organizationMemberships: 'organization_memberships',
@@ -407,11 +417,23 @@ export class TargetSyncEngine {
     try {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
       await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES, ...REMOVED_ENTITIES]).delete()
-      const pending = (await this.db.targetSyncQueue.orderBy('id').toArray()).filter((p) => p.status !== 'failed')
+      const queued = (await this.db.targetSyncQueue.orderBy('id').toArray()).filter((p) => p.status !== 'failed')
+      // Cada delete é barreira: só se reordena por rank dentro de trechos contíguos de upserts (estável por id).
+      const pending: TargetSyncQueueItem[] = []
+      for (let i = 0; i < queued.length;) {
+        if (queued[i].operation === 'delete') { pending.push(queued[i++]); continue }
+        let j = i
+        while (j < queued.length && queued[j].operation === 'upsert') j++
+        pending.push(...queued.slice(i, j).sort((x, y) => pushRank(x) - pushRank(y)))
+        i = j
+      }
+      // ponytail: bloqueio por rank na fila toda; entidades independentes esperam enquanto um pai estiver em 5xx. Melhoria: bloquear pela chave do pai.
+      let blockedRank = Infinity
       const done = new Set<number | undefined>()
       for (const item of pending) {
         if (this.stopped) return
         if (done.has(item.id)) continue
+        if (item.operation === 'upsert' && pushRank(item) > blockedRank) continue
         // Itens do mesmo serviço (ou repertório) sobem num só lote (uma transação no servidor; unique de posição deferida).
         if ((BATCHED_ENTITIES as readonly string[]).includes(item.entity) && item.operation === 'upsert') {
           const key = batchKey(item)
@@ -438,6 +460,7 @@ export class TargetSyncEngine {
             // 4xx permanente recusa o lote inteiro (uma transação): não dá para separar itens da mesma ordem
             // sem quebrar a unique de posição. O servidor vence (ADR-026); o usuário descarta e o pull restaura.
             for (const p of batch) if (p.id !== undefined) await this.db.targetSyncQueue.update(p.id, this.failure(p, error))
+            if (!isPermanent(error)) blockedRank = Math.min(blockedRank, pushRank(item))
           }
           continue
         }
@@ -469,6 +492,7 @@ export class TargetSyncEngine {
             continue
           }
           await this.db.targetSyncQueue.update(item.id, this.failure(item, error))
+          if (item.operation === 'upsert' && !isPermanent(error)) blockedRank = Math.min(blockedRank, pushRank(item))
         }
       }
 
