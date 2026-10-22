@@ -24,6 +24,7 @@ const m = vi.hoisted(() => ({
   addReprise: vi.fn(),
   orgSongs: [] as unknown[],
 }))
+vi.mock('../../application/services/executionHistoryService', () => ({ getServiceExecution: async () => ({ success: true, execution: null }) }))
 vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => m.orgSongs }))
 vi.mock('../../application/songs/copySongToOrganization', () => ({ OFFLINE_COPY_MESSAGE: 'Sem conexão: tente de novo quando estiver online.' }))
 vi.mock('../../application/songs/listSongs', () => ({ listSongs: async () => [{ id: 's1', title: 'Grande é o Senhor', currentKey: 'C', originalKey: 'C' }] }))

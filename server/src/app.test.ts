@@ -9,7 +9,7 @@ import { after, before, describe, test } from 'node:test'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from './app.ts'
 import { hashPassword, newToken, verifyPassword } from './auth.ts'
-import { createPool } from './db.ts'
+import { createPool, transaction } from './db.ts'
 import type { Pool } from './db.ts'
 import type { Mail } from './mailer.ts'
 import { brevoMailer } from './mailer.ts'
@@ -520,6 +520,62 @@ describe('materiais por link (VS-04-05, RN-22…25)', () => {
     assert.deepEqual(read.json().map((r: { id: string; url: string; created_by: string }) => [r.id, r.url, r.created_by]), [[materialId, material.url, lia.id]])
     assert.equal((await app.inject({ method: 'DELETE', url: `/sync/materials?id=${materialId}`, headers: { cookie: mauro.cookie } })).json().count, 0, 'Membro exclui')
     assert.equal((await app.inject({ method: 'DELETE', url: `/sync/materials?id=${materialId}`, headers: { cookie: lia.cookie } })).json().count, 1)
+  })
+})
+
+describe('registro da execução (VS-06, RN-01…07)', () => {
+  test('concluir grava o registro; Palco aberto bloqueia; cliente só lê', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.98', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'H' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.hist@teste.local')
+    const lia = await join('lia.hist@teste.local')
+    const mauro = await join('mauro.hist@teste.local')
+    const fora = await join('fora.hist@teste.local')
+    const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID(), songId = crypto.randomUUID()
+    const positionId = crypto.randomUUID(), stageId = crypto.randomUUID()
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/create_organization', headers: { cookie: olga.cookie }, payload: { p_id: orgId, p_name: 'Igreja H' } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: olga.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    for (const [user, role] of [[lia, 'leader'], [mauro, 'member']] as const) {
+      await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+      await pool.query('insert into public.team_memberships (team_id, user_id, role) values ($1, $2, $3)', [teamId, user.id, role])
+    }
+    await pool.query(`insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at) values ($1, $2, $3, 'Maior', 'C', 'C', 'x', now(), now())`, [olga.id, songId, orgId])
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id, status) values ($1, $2, $3, 'Culto', now(), $4, 'in_progress')`, [serviceId, orgId, teamId, olga.id])
+    await pool.query(`insert into public.service_items (service_id, type, song_id, key, position) values ($1, 'song', $2, 'D', 0)`, [serviceId, songId])
+    await pool.query(`insert into public.service_positions (id, service_id, musical_function, quantity) values ($1, $2, 'vocals', 1)`, [positionId, serviceId])
+    await pool.query(`insert into public.assignments (position_id, user_id, status) values ($1, $2, 'confirmed')`, [positionId, mauro.id])
+    await pool.query(`insert into public.stage_sessions (id, service_id, status, started_at, md_user_id) values ($1, $2, 'live', now(), $3)`, [stageId, serviceId, lia.id])
+
+    const rpc = (user: { cookie: string }, name: string, payload: object) => app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+    const blocked = await rpc(lia, 'transition_service', { p_service_id: serviceId, p_to: 'completed' })
+    assert.equal(blocked.statusCode, 400)
+    assert.match(blocked.body, /stage session still open/)
+
+    await transaction(pool, async (client) => {
+      await client.query("select set_config('app.user_id', $1, true)", [lia.id])
+      await client.query(`update public.stage_sessions set status = 'ended', ended_at = now() where id = $1`, [stageId])
+    })
+    const done = await rpc(lia, 'transition_service', { p_service_id: serviceId, p_to: 'completed' })
+    assert.equal(done.statusCode, 200, done.body)
+
+    const execution = (await rpc(mauro, 'get_service_execution', { p_service_id: serviceId })).json()
+    assert.deepEqual(execution.songs.map((s: { title: string; key: string }) => [s.title, s.key]), [['Maior', 'D']])
+    assert.deepEqual(execution.members, [{ user_id: mauro.id, musical_function: 'vocals' }])
+    assert.equal(execution.completed_by_user_id, lia.id)
+    assert.equal((await rpc(mauro, 'get_song_history', { p_song_id: songId })).json().plays_last_12_months, 1)
+    assert.equal((await rpc(fora, 'get_service_execution', { p_service_id: serviceId })).json(), null, 'outra organização')
+
+    // /sync: o catálogo expõe a leitura sob RLS; escrever é 403 para qualquer papel.
+    const read = await app.inject({ method: 'GET', url: `/sync/service_executions?service_id=${serviceId}`, headers: { cookie: mauro.cookie } })
+    assert.deepEqual(read.json().map((r: { service_id: string }) => r.service_id), [serviceId])
+    assert.deepEqual((await app.inject({ method: 'GET', url: `/sync/service_executions?service_id=${serviceId}`, headers: { cookie: fora.cookie } })).json(), [])
+    const write = await app.inject({ method: 'POST', url: '/sync/service_executions', headers: { cookie: olga.cookie }, payload: { rows: [{ service_id: serviceId, organization_id: orgId }] } })
+    assert.equal(write.statusCode, 403, write.body)
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/service_execution_songs?service_id=${serviceId}`, headers: { cookie: olga.cookie } })).statusCode, 403)
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/record_service_execution', headers: { cookie: olga.cookie }, payload: { p_service_id: serviceId } })).statusCode, 404, 'gerador fora da allowlist')
   })
 })
 

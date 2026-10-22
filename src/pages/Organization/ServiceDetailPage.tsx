@@ -12,6 +12,7 @@ import { useAuth } from '../../auth/authContext'
 import { Badge } from '../../components/ui/Badge'
 import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
 import { MaterialsPanel } from '../../components/service/MaterialsPanel'
+import { ExecutionRecordPanel } from '../../components/service/ExecutionRecordPanel'
 import { RehearsalPanel } from '../../components/service/RehearsalPanel'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
@@ -279,6 +280,8 @@ export function ServiceDetailPage() {
         <button type="submit">Adicionar item</button>
       </form>}
     </section>
+
+    {service.status === 'completed' && <ExecutionRecordPanel serviceId={serviceId} />}
 
     <MaterialsPanel owner={{ type: 'service', id: serviceId }} title="Materiais do serviço" final={final} />
     <RehearsalPanel serviceId={serviceId} items={items} itemLabel={itemLabel} final={final} />

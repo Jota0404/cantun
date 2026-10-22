@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { SongDetail } from '../../components/song/SongDetail'
 import { MaterialsPanel } from '../../components/service/MaterialsPanel'
+import { SongHistoryPanel } from '../../components/song/SongHistoryPanel'
+import { RelatedRepertoires } from '../../components/song/RelatedRepertoires'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { deleteSong } from '../../application/songs/deleteSong'
 import { getSongById } from '../../application/songs/getSongById'
@@ -107,6 +109,8 @@ export function SongDetailPage({ repository }: SongDetailPageProps) {
         isUpdatingFavorite={isUpdatingFavorite}
         onStage={() => navigate(`/stage/song/${currentSong.id}`)}
       />
+      {currentSong.organizationId && <SongHistoryPanel songId={currentSong.id} />}
+      {currentSong.organizationId && <RelatedRepertoires songId={currentSong.id} organizationId={currentSong.organizationId} />}
       {currentSong.organizationId && <MaterialsPanel owner={{ type: 'song', id: currentSong.id }} title="Materiais da música" />}
       {deleteError && <p role="alert">{deleteError}</p>}
       {favoriteError && <p role="alert">{favoriteError}</p>}
