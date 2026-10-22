@@ -27,5 +27,7 @@ export function useFullscreen() {
     }
   }
 
-  return { isFullscreen, toggleFullscreen }
+  const supported = typeof document !== 'undefined' && Boolean(document.documentElement.requestFullscreen)
+
+  return { isFullscreen, supported, toggleFullscreen }
 }

@@ -15,6 +15,9 @@ type Props = {
   busy: boolean
   onRefresh: () => void
   onExit: () => void
+  isFullscreen: boolean
+  fullscreenSupported: boolean
+  onToggleFullscreen: () => void
 }
 
 const sessionStatusLabel = { live: 'Ao vivo', lobby: 'Lobby' } as const
@@ -38,6 +41,7 @@ export function ServiceStageHeader(p: Props) {
         <span aria-live="polite">{p.connectionLabel}</span>
         {p.md && <strong>MD</strong>}
         <button type="button" onClick={p.onRefresh} disabled={p.busy}>Sincronizar</button>
+        {p.fullscreenSupported && <button type="button" onClick={p.onToggleFullscreen}>{p.isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}</button>}
         <button type="button" onClick={p.onExit}>Sair</button>
       </div>
     </header>

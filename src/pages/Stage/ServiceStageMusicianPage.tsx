@@ -14,6 +14,7 @@ import type { SharedExecutionState } from '../../domain/stage/sharedExecution'
 import { getSemitoneDistance, transposeSongLyrics } from '../../domain/music/transpose'
 import { labels } from '../../ui/labels'
 import { useScrollTopOnChange } from './useScrollTopOnChange'
+import { useFullscreen } from './useFullscreen'
 import { useWakeLock } from './useWakeLock'
 import './ServiceStageMusicianPage.css'
 
@@ -110,6 +111,7 @@ export function ServiceStageMusicianPage() {
   const activeSong = songs[activeIndex]
   useScrollTopOnChange(activeSong?.position)
   useWakeLock()
+  const { isFullscreen, supported: fullscreenSupported, toggleFullscreen } = useFullscreen()
   const experience = getStageMusicalRoleExperience(musicalRole)
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
@@ -153,6 +155,7 @@ export function ServiceStageMusicianPage() {
           <span className={`service-stage-musician__status service-stage-musician__status--${snapshot.session.status}`}>{sessionStatus}</span>
           <span aria-live="polite">{stageConnectionLabel(status)}</span>
           <button type="button" onClick={() => void refresh()}>Sincronizar</button>
+          {fullscreenSupported && <button type="button" onClick={() => void toggleFullscreen()}>{isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}</button>}
           <button type="button" onClick={() => navigate('/')}>Sair</button>
         </div>
       </header>
