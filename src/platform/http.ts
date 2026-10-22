@@ -64,26 +64,45 @@ export function translateServerMessage(message: string): string {
   return SERVER_MESSAGES[message] ?? message
 }
 
+/** Sem headers em 20 s = falha de rede (ApiError 0, retentável). O WebSocket não passa por aqui. */
+export const REQUEST_TIMEOUT_MS = 20_000
+/** Teto da leitura do corpo (GET /sync grande em rede móvel lenta, exportação): bem maior que o dos headers. */
+export const BODY_TIMEOUT_MS = 120_000
+
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
 /** Lança `ApiError` para respostas não-2xx; sem resposta (rede), `ApiError(0)`. */
 export async function apiRequest<T>(method: HttpMethod, path: string, body?: unknown): Promise<T> {
   if (!isPlatformConfigured) throw new ApiError(0, 'Servidor não configurado.')
-  let response: Response
+  const controller = new AbortController()
+  let timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    response = await fetch(`${apiUrl}${path}`, {
-      method,
-      credentials: 'include',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new ApiError(0, 'Sem conexão: tente de novo quando estiver online.')
+    let response: Response
+    try {
+      response = await fetch(`${apiUrl}${path}`, {
+        method,
+        credentials: 'include',
+        headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      })
+    } catch {
+      throw new ApiError(0, 'Sem conexão: tente de novo quando estiver online.')
+    }
+    // Headers chegaram: o teto passa a valer para a leitura do corpo.
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(), BODY_TIMEOUT_MS)
+    if (!response.ok) {
+      const data = await response.json().catch(() => null) as { error?: unknown } | null
+      throw new ApiError(response.status, typeof data?.error === 'string' ? translateServerMessage(data.error) : `Erro ${response.status} do servidor.`)
+    }
+    if (response.status === 204) return undefined as T
+    return await response.json() as T
+  } catch (error) {
+    // Corpo pendurado depois dos headers também estoura o teto: é rede, não erro do servidor.
+    if (controller.signal.aborted && !(error instanceof ApiError)) throw new ApiError(0, 'Sem conexão: tente de novo quando estiver online.')
+    throw error
+  } finally {
+    clearTimeout(timer)
   }
-  if (!response.ok) {
-    const data = await response.json().catch(() => null) as { error?: unknown } | null
-    throw new ApiError(response.status, typeof data?.error === 'string' ? translateServerMessage(data.error) : `Erro ${response.status} do servidor.`)
-  }
-  if (response.status === 204) return undefined as T
-  return await response.json() as T
 }

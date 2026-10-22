@@ -102,6 +102,22 @@ export async function ensureLocalDataOwner(
   return cleared
 }
 
+/**
+ * Teto de espera do flush: servidor pendurado não pode travar o logout sem feedback. Não há teto no stop():
+ * ele espera a run em voo, que o epoch interrompe e cujas requisições têm teto próprio (20 s headers / 120 s corpo),
+ * então nenhuma run velha sobrevive à limpeza (ADR-048). O timeout é por requisição, não por inatividade, e RPC
+ * online abortada pode já ter sido aplicada (convite, transition_service, import_personal_repertoire,
+ * delete_my_account). deleteAccount espera o stop sem teto (aceito).
+ */
+export const SIGN_OUT_FLUSH_TIMEOUT_MS = 10_000
+
+// Resolve quando a promessa termina ou o teto estoura; o que sobrar roda em segundo plano.
+function withCeiling(promise: Promise<void>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const ceiling = new Promise<void>((resolve) => { timer = setTimeout(resolve, ms) })
+  return Promise.race([promise, ceiling]).finally(() => clearTimeout(timer))
+}
+
 export interface SignOutWithLocalCleanupDeps {
   db: SalmodiaDatabase
   /** Tenta enviar as filas pendentes antes de sair. Falhas são toleradas. */
@@ -129,7 +145,7 @@ export async function signOutWithLocalCleanup(
   const storage = deps.storage === undefined ? getBrowserStorage() : deps.storage
 
   try {
-    await deps.flushPendingChanges()
+    await withCeiling(deps.flushPendingChanges(), SIGN_OUT_FLUSH_TIMEOUT_MS)
   } catch {
     // Sem conexão ou erro de rede: a contagem abaixo decide.
   }

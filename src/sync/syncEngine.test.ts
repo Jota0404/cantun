@@ -42,6 +42,83 @@ describe('SyncEngine (songs)', () => {
     expect(await db.syncQueue.count()).toBe(0)
   })
 
+  it('drops a late pull response after stop + clear + start (ADR-048)', async () => {
+    let release: (rows: unknown[]) => void = () => undefined
+    remote.selectRows.mockReturnValue(new Promise((resolve) => { release = resolve }))
+    const engine = new SyncEngine(db)
+    const inFlight = engine.sync('user-1')
+    await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalled())
+
+    const stopping = engine.stop()
+    await db.songs.clear()
+    engine.start()
+    release([remoteRow('2026-10-03T00:00:00Z')])
+    await Promise.all([inFlight, stopping])
+
+    expect(await db.songs.count()).toBe(0)
+  })
+
+  it('a late push response after stop + clear + start sends nothing more (second queued item)', async () => {
+    let release: (rows: unknown[]) => void = () => undefined
+    remote.selectRows.mockReturnValue(new Promise((resolve) => { release = resolve }))
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    const engine = new SyncEngine(db)
+    await db.songs.put(song('2026-10-02T00:00:00Z'))
+    await queue(song('2026-10-02T00:00:00Z'))
+    await db.syncQueue.add({ userId: 'user-1', entity: 'songs', entityId: 'song-2', operation: 'upsert', payload: { ...song('2026-10-02T00:00:00Z'), id: 'song-2' }, updatedAt: '2026-10-02T00:00:00Z', attempts: 0 })
+    const inFlight = engine.sync('user-1')
+    await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalled())
+    const stopping = engine.stop()
+    await Promise.all([db.songs.clear(), db.syncQueue.clear()])
+    engine.start()
+    release([])
+    await Promise.all([inFlight, stopping])
+    expect(remote.upsertRows).not.toHaveBeenCalled()
+  })
+
+  it('a hung first upsert answered after stop + clear + start sends the second item zero times', async () => {
+    let release: (v: unknown) => void = () => undefined
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockImplementationOnce(() => new Promise((resolve) => { release = resolve }))
+    const engine = new SyncEngine(db)
+    await queue(song('2026-10-02T00:00:00Z'))
+    await db.syncQueue.add({ userId: 'user-1', entity: 'songs', entityId: 'song-2', operation: 'upsert', payload: { ...song('2026-10-02T00:00:00Z'), id: 'song-2' }, updatedAt: '2026-10-02T00:00:00Z', attempts: 0 })
+    const inFlight = engine.sync('user-1')
+    await vi.waitFor(() => expect(remote.upsertRows).toHaveBeenCalledTimes(1))
+    const stopping = engine.stop()
+    await db.syncQueue.clear()
+    engine.start()
+    release({ count: 1 })
+    await Promise.all([inFlight, stopping])
+    expect(remote.upsertRows).toHaveBeenCalledTimes(1)
+  })
+
+  it('bootstrap does not queue anything when the select answers after stop + start', async () => {
+    let release: (rows: unknown[]) => void = () => undefined
+    remote.selectRows.mockReturnValue(new Promise((resolve) => { release = resolve }))
+    const engine = new SyncEngine(db)
+    await db.songs.put(song('2026-10-02T00:00:00Z'))
+    const boot = engine.bootstrap('user-1')
+    await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalled())
+    void engine.stop()
+    await db.songs.clear()
+    await db.songs.put({ ...song('2026-10-02T00:00:00Z'), id: 'song-b' })
+    engine.start()
+    release([])
+    await boot
+    expect(await db.syncQueue.count()).toBe(0)
+  })
+
+  it('start() while running does not release a parallel run', async () => {
+    remote.selectRows.mockReturnValue(new Promise(() => undefined))
+    const engine = new SyncEngine(db)
+    void engine.sync('user-1')
+    await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledTimes(1))
+    engine.start()
+    await engine.sync('user-1')
+    expect(remote.selectRows).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the remote row when it is newer (LWW) and pulls it', async () => {
     remote.selectRows.mockResolvedValue([remoteRow('2026-10-03T00:00:00Z')])
     const engine = new SyncEngine(db)

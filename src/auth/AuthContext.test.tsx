@@ -88,6 +88,26 @@ describe('AuthProvider', () => {
     expect(result.current.user?.consentRequired).toBe(false)
   })
 
+  it('stops the engines when the session drops and before another user starts (no run of A survives into B)', async () => {
+    const { result } = await renderAuth()
+    engines.syncEngine.stop.mockClear()
+    engines.syncEngine.start.mockClear()
+
+    auth.getSession.mockResolvedValueOnce(null)
+    await act(() => result.current.refresh())
+    expect(engines.syncEngine.stop).toHaveBeenCalledTimes(1)
+    expect(engines.syncEngine.start).not.toHaveBeenCalled()
+
+    auth.getSession.mockResolvedValueOnce({ ...verified, id: 'user-2' })
+    await act(() => result.current.refresh())
+    expect(engines.syncEngine.stop.mock.invocationCallOrder[1]).toBeLessThan(engines.syncEngine.start.mock.invocationCallOrder[0])
+
+    engines.syncEngine.stop.mockClear()
+    auth.getSession.mockResolvedValueOnce({ ...verified, id: 'user-2' })
+    await act(() => result.current.refresh())
+    expect(engines.syncEngine.stop).not.toHaveBeenCalled()
+  })
+
   it('verifyEmail confirms the token and refreshes emailVerified', async () => {
     const { result } = await renderAuth()
     auth.getSession.mockResolvedValueOnce(verified)

@@ -30,6 +30,7 @@ export function MorePage() {
   const errorRef = useRef<HTMLParagraphElement>(null)
   const [deleteError, setDeleteError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const online = useOnline()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [error, setError] = useState('')
@@ -37,6 +38,15 @@ export function MorePage() {
   const [exported, setExported] = useState(false)
 
   async function handleSignOut() {
+    setSigningOut(true)
+    try {
+      await runSignOut()
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
+  async function runSignOut() {
     setError('')
     try {
       await signOut()
@@ -170,7 +180,10 @@ export function MorePage() {
         </div>
       </ConfirmModal>
       {error && <p role="alert" className="organization-error">{error}</p>}
-      <button type="button" onClick={() => void handleSignOut()}>Sair</button>
+      <button type="button" disabled={signingOut} onClick={() => void handleSignOut()}>
+        {signingOut ? 'Saindo…' : 'Sair'}
+      </button>
+      {signingOut && <p role="status" aria-live="polite">Saindo da conta…</p>}
     </main>
   )
 }

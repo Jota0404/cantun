@@ -26,6 +26,9 @@ describe('activityText', () => {
     expect(activityText(ev('service.ready', { actorUserId: null }), names)).toBe('Serviço X ficou pronto')
     expect(activityText(ev('service.ready', { actorUserId: 'zz' }), names)).toBe('Serviço X ficou pronto · por Ex-membro')
   })
+  it('repertório excluído', () => {
+    expect(activityText(ev('repertoire.updated', { entityTitle: null }), names)).toBe('Ana atualizou um repertório que foi excluído')
+  })
   it('entidade excluída', () => {
     expect(activityText(ev('service.ready', { entityTitle: null }), names)).toBe('Serviço item excluído ficou pronto · por Ana')
   })
