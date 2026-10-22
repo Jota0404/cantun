@@ -11,6 +11,7 @@ import { setServiceItemKey } from '../../application/services/applyRepertoire'
 import { useAuth } from '../../auth/authContext'
 import { Badge } from '../../components/ui/Badge'
 import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
+import { MaterialsPanel } from '../../components/service/MaterialsPanel'
 import { RehearsalPanel } from '../../components/service/RehearsalPanel'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
@@ -279,10 +280,7 @@ export function ServiceDetailPage() {
       </form>}
     </section>
 
-    <section aria-labelledby="service-materials-title" className="service-placeholder">
-      <h3 id="service-materials-title">Materiais</h3>
-      <p>Em breve: cifras, áudios e arquivos do serviço.</p>
-    </section>
+    <MaterialsPanel owner={{ type: 'service', id: serviceId }} title="Materiais do serviço" final={final} />
     <RehearsalPanel serviceId={serviceId} items={items} itemLabel={itemLabel} final={final} />
 
     <ServiceSchedule service={service} access={access} currentUserId={user?.id ?? ''} />

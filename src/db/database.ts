@@ -13,6 +13,7 @@ import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
 import type { ServicePreparation } from '../domain/services/servicePreparation'
 import type { Rehearsal, RehearsalSong } from '../domain/services/rehearsal'
+import type { Material } from '../domain/services/material'
 import type { MemberProfile } from '../domain/users/memberProfile'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
@@ -36,6 +37,7 @@ export class SalmodiaDatabase extends Dexie {
   servicePreparations!: Table<ServicePreparation, string>
   rehearsals!: Table<Rehearsal, string>
   rehearsalSongs!: Table<RehearsalSong, [string, string]>
+  materials!: Table<Material, string>
   memberProfiles!: Table<MemberProfile, [string, string]>
   stageSessions!: Table<StageSession, string>
   stageSessionStates!: Table<StageSessionState, string>
@@ -248,6 +250,10 @@ export class SalmodiaDatabase extends Dexie {
     this.version(20).stores({
       rehearsals: 'id, serviceId, updatedAt',
       rehearsalSongs: '[rehearsalId+serviceItemId], rehearsalId, serviceItemId',
+    })
+    // B6 (RN-22…25, ADR-057 classe A): materiais de apoio (links).
+    this.version(21).stores({
+      materials: 'id, serviceId, rehearsalId, songId, updatedAt',
     })
   }
 }

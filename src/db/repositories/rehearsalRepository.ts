@@ -2,6 +2,7 @@ import type { Rehearsal, RehearsalSong } from '../../domain/services/rehearsal'
 import { rehearsalSongId } from '../../domain/services/rehearsal'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
+import { MaterialRepository } from './materialRepository'
 import { queueTargetUpserts, queueTargetDeleteAtomic } from '../../sync/syncService'
 
 export class RehearsalRepository {
@@ -28,7 +29,8 @@ export class RehearsalRepository {
 
   /** O banco apaga as linhas em cascata; localmente apaga as dele na mesma transação. */
   async remove(id: string): Promise<void> {
-    await queueTargetDeleteAtomic('rehearsals', id, [this.db.rehearsals, this.db.rehearsalSongs], async () => {
+    await queueTargetDeleteAtomic('rehearsals', id, [this.db.rehearsals, this.db.rehearsalSongs, this.db.materials, this.db.targetSyncQueue], async () => {
+      await new MaterialRepository(this.db).removeLocalByOwner('rehearsalId', [id])
       await this.db.rehearsals.delete(id)
       await this.db.rehearsalSongs.where('rehearsalId').equals(id).delete()
     })

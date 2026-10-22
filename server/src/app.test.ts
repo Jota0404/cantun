@@ -487,6 +487,42 @@ describe('ensaio (VS-04-05, RN-19…21)', () => {
   })
 })
 
+describe('materiais por link (VS-04-05, RN-22…25)', () => {
+  test('/sync de materials: Líder anexa, Membro 403, http 409, membro ativo lê', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.97', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'M' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.mat@teste.local')
+    const lia = await join('lia.mat@teste.local')
+    const mauro = await join('mauro.mat@teste.local')
+    const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID(), materialId = crypto.randomUUID()
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/create_organization', headers: { cookie: olga.cookie }, payload: { p_id: orgId, p_name: 'Igreja M' } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: olga.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    for (const [user, role] of [[lia, 'leader'], [mauro, 'member']] as const) {
+      await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+      await pool.query('insert into public.team_memberships (team_id, user_id, role) values ($1, $2, $3)', [teamId, user.id, role])
+    }
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values ($1, $2, $3, 'Culto', now(), $4)`, [serviceId, orgId, teamId, olga.id])
+
+    const material = { id: materialId, organization_id: orgId, service_id: serviceId, rehearsal_id: null, song_id: null, kind: 'link', title: 'Playlist', url: 'https://open.spotify.com/x', notes: null, created_by: lia.id, created_at: '2026-10-22T10:00:00Z', updated_at: '2026-10-22T10:00:00Z' }
+    const push = (user: { cookie: string }, row: object) =>
+      app.inject({ method: 'POST', url: '/sync/materials', headers: { cookie: user.cookie }, payload: { rows: [row] } })
+
+    assert.equal((await push(mauro, material)).statusCode, 403, 'Membro anexa')
+    assert.equal((await push(lia, { ...material, url: 'http://open.spotify.com/x' })).statusCode, 409, 'http recusado')
+    const created = await push(lia, material)
+    assert.equal(created.statusCode, 200, created.body)
+    assert.equal((await push(lia, material)).statusCode, 200, 'reenvio sem mudança passa')
+
+    const read = await app.inject({ method: 'GET', url: `/sync/materials?service_id=${serviceId}`, headers: { cookie: mauro.cookie } })
+    assert.deepEqual(read.json().map((r: { id: string; url: string; created_by: string }) => [r.id, r.url, r.created_by]), [[materialId, material.url, lia.id]])
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/materials?id=${materialId}`, headers: { cookie: mauro.cookie } })).json().count, 0, 'Membro exclui')
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/materials?id=${materialId}`, headers: { cookie: lia.cookie } })).json().count, 1)
+  })
+})
+
 describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }

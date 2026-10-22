@@ -9,6 +9,8 @@ import { getCurrentUser } from '../../platform/auth'
 import { servicePreparationRepository } from '../../db/repositories/servicePreparationRepository'
 import { preparationId } from '../../domain/services/servicePreparation'
 import { buildRehearsalViews, defaultRehearsalRepositories, type RehearsalRepositories, type RehearsalView } from './rehearsalService'
+import { listServiceMaterialViews, type MaterialView } from './materialService'
+import { materialRepository } from '../../db/repositories/materialRepository'
 import { getMyAccessContext } from '../teams/teamMemberService'
 
 export interface MemberPreparationItem {
@@ -37,8 +39,8 @@ export interface MemberPreparationView {
   /** RN-15: estado próprio de "preparado". */
   prepared: boolean
   rehearsals: RehearsalView[]
-  /** Fatia 7: ainda não existe. */
-  materials: never[]
+  /** RN-22…25: materiais do serviço, dos ensaios e das músicas da ordem. */
+  materials: MaterialView[]
 }
 
 export interface MemberPreparationRepositories {
@@ -50,11 +52,12 @@ export interface MemberPreparationRepositories {
   access: (input: { organizationId: string; teamId?: string }) => Promise<AccessContext>
   currentUserId: () => string | undefined
   rehearsals: RehearsalRepositories
+  materials: typeof materialRepository
 }
 
 const defaults: MemberPreparationRepositories = {
   services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository,
-  access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id, rehearsals: defaultRehearsalRepositories,
+  access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id, rehearsals: defaultRehearsalRepositories, materials: materialRepository,
 }
 
 export type MemberPreparationResult = { success: true; view: MemberPreparationView } | { success: false; errors: string[] }
@@ -80,8 +83,10 @@ export async function getMemberPreparationView(serviceId: string, repositories =
       effectiveKey: song ? effectiveKey(item, song) : undefined, bpm: song?.bpm, notes: item.notes,
     }
   }))
+  const rehearsals = await buildRehearsalViews(serviceId, repositories.rehearsals)
+  const materials = await listServiceMaterialViews(serviceId, rehearsals.map((r) => r.id), ordered.flatMap((i) => (i.songId ? [i.songId] : [])), repositories.materials)
   return {
     success: true,
-    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals: await buildRehearsalViews(serviceId, repositories.rehearsals), materials: [] },
+    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals, materials },
   }
 }

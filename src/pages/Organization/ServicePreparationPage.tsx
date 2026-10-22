@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { Link, useParams } from 'react-router-dom'
 import { getMemberPreparationView, type MemberPreparationResult } from '../../application/services/memberPreparationView'
+import { MaterialLink, MaterialsHint } from '../../components/service/MaterialsPanel'
 import { SERVICE_ITEM_TYPE_LABEL, formatServiceDate } from '../../components/service/serviceLabels'
 import { getPreparationSummary, setPreparation, type PreparationSummary } from '../../application/services/servicePreparationService'
 import './ServicePreparationPage.css'
@@ -97,7 +98,11 @@ export function ServicePreparationPage() {
           </li>)}
         </ul>
       </section>}
-      {view.materials.length > 0 && <h3>Materiais</h3>}
+      {view.materials.length > 0 && <section aria-labelledby="prep-materials" className="materials-panel">
+        <h3 id="prep-materials">Materiais</h3>
+        <ul>{view.materials.map((m) => <li key={m.id}><MaterialLink material={m} /></li>)}</ul>
+        <MaterialsHint />
+      </section>}
     </section>
   )
 }

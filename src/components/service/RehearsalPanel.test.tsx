@@ -8,6 +8,7 @@ import { RehearsalPanel } from './RehearsalPanel'
 
 const m = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), update: vi.fn(), del: vi.fn() }))
 vi.mock('../../application/services/rehearsalService', () => ({ listRehearsals: m.list, createRehearsal: m.create, updateRehearsal: m.update, deleteRehearsal: m.del }))
+vi.mock('../../application/services/materialService', () => ({ listMaterials: async () => ({ success: true, materials: [], canManage: false }), addMaterial: vi.fn(), updateMaterial: vi.fn(), deleteMaterial: vi.fn() }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 
 const items = [{ id: 'i1', type: 'song', songId: 'a' }, { id: 'i2', type: 'song', songId: 'b' }, { id: 'i3', type: 'prayer' }] as unknown as ServiceItem[]

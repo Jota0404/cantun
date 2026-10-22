@@ -28,6 +28,16 @@ const view = (over = {}) => ({
 const renderPage = () => render(<MemoryRouter initialEntries={['/services/s1/prepare']}><Routes><Route path="/services/:serviceId/prepare" element={<ServicePreparationPage />} /></Routes></MemoryRouter>)
 
 describe('ServicePreparationPage', () => {
+  it('mostra materiais como links seguros', async () => {
+    m.get.mockResolvedValue(view({ materials: [{ id: 'm1', ownerType: 'song', ownerId: 'sg1', title: 'Cifra', url: 'https://example.com/a', domain: 'example.com' }] }))
+    renderPage()
+    const link = await screen.findByRole('link', { name: /^Cifra/ })
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(screen.getByRole('heading', { name: 'Materiais' })).toBeTruthy()
+  })
+
+
   beforeEach(() => { m.get.mockReset(); m.impl = undefined; sp.set.mockReset(); sp.sum.mockReset(); sp.sum.mockResolvedValue({ success: true, summary: { canSeeTeam: false, preparedCount: 0, totalCount: 0, people: [] } }) })
   afterEach(cleanup)
 
