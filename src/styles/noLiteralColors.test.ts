@@ -17,7 +17,7 @@ const EXEMPT = [
   'src/pages/Stage/StagePage.css',
   'src/pages/Stage/ServiceStagePage.css',
   'src/pages/Stage/ServiceStageMusicianPage.css',
-  'src/components/stage/BandStagePresencePanel.css',
+  'src/components/stage/StagePresencePanel.css',
 ]
 const LITERAL = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/
 

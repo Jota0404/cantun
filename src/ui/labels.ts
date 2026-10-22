@@ -29,6 +29,8 @@ export const labels = {
   inviteTitle: 'Convite para banda',
   inviteOrganizationLine: 'Ministério',
   inviteMention: 'convites para bandas',
+  stageMdKicker: 'MODO PALCO · CONTROLE DO MD',
+  stageOrder: 'Ordem do serviço',
   connectedTeam: 'Banda conectada',
   mainTeamName: 'Nome da banda principal',
   mainTeamStep: 'Banda principal',
