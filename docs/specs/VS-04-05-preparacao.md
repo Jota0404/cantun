@@ -1,6 +1,6 @@
 # Feature Spec — VS-04/05 Música no serviço, Ensaio e Materiais
 
-- **Status:** Aprovada (decisões D1–D9 do Jota, 2026-10-18; D10, provedor de storage, adiada e bloqueia só a fatia 8)
+- **Status:** Aprovada (decisões D1–D9 do Jota, 2026-10-18; D10 decidida em 2026-10-22: adiar o upload; fatia 8 fora do MVP, materiais seguem como links https; ADR-064 segue Proposed)
 - **Bloco:** B6 (`docs/blocks/B6-musica-ensaio-materiais.md`)
 - **Fatia vertical:** VS-04 (música no serviço) e VS-05 (preparação, ensaio, materiais)
 - **Autor / data:** Claude Code (planner) · 2026-10-18
@@ -172,7 +172,7 @@ Aprovadas em 2026-10-18, como recomendado: **D1 a D9**. **D10** (provedor e limi
 - **D7** Material em música pessoal: fora do B6 (só música da organização)? Recomendo **sim**.
 - **D8** Vários ensaios por serviço, sem convite nem lembrete? Recomendo **sim**.
 - **D9** Ids de requisito novos (RF-SVC-006/007/008) a registrar no Blueprint §28? Recomendo **sim**.
-- **D10** Provedor de storage (R2, Backblaze B2 ou outro) e limites do ADR-064: decidir antes da slice 8.
+- **D10** Provedor de storage (R2, Backblaze B2 ou outro) e limites do ADR-064: decidir antes da slice 8. **Decidido (2026-10-22): adiar o upload; fatia 8 fora do MVP; materiais seguem como links https; ADR-064 continua Proposed.**
 
 ## Issues
 - [ ] #<n> — épico B6 e uma issue por fatia 1–8 (lead cria).

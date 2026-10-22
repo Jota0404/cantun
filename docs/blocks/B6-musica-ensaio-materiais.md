@@ -29,7 +29,7 @@ O serviço concentra tudo o que o músico precisa para se preparar (§56): músi
 **Não entra:** Arrangement como entidade (D7), integração com catálogos de cifras ou licenças (§31), editor de PDF.
 
 ## Entregáveis por PR
-`docs/vs-04-05-spec` · `feat/apply-repertoire-to-service` · `feat/service-item-key` · `feat/rehearsals` · `feat/materials-links` · `feat/materials-upload` (após o ADR-056) · `feat/member-preparation-view`.
+`docs/vs-04-05-spec` · `feat/apply-repertoire-to-service` · `feat/service-item-key` · `feat/rehearsals` · `feat/materials-links` · `feat/materials-upload` (**adiado pelo owner, D10 2026-10-22: fora do MVP; materiais seguem como links https; ADR-064 segue Proposed**) · `feat/member-preparation-view`.
 
 ## Critérios de aceite
 - Aplicar um repertório adiciona as músicas na ordem e o repertório continua reutilizável.

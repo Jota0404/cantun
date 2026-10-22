@@ -1550,7 +1550,7 @@ Os requisitos abaixo servem como catálogo inicial. Eles deverão ser decomposto
 - **RF-STG-004** — O sistema deve permitir auto-scroll.
 - **RF-STG-005** — O sistema deve funcionar em dispositivos móveis.
 
-**Histórico** *(VS-06, D6; pendente de confirmação do owner)*
+**Histórico** *(VS-06, D6; decidido pelo owner em 2026-10-22)*
 
 - **RF-HIS-001** — O sistema deve registrar o serviço executado (data, repertório, tons, equipe, duração).
 - **RF-HIS-002** — O sistema deve mostrar o histórico da música (última vez, frequência, tons usados, repertórios relacionados).

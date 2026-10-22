@@ -2,7 +2,7 @@
 
 > Fase 2/3 · Esforço: 2–3 semanas · Depende de: B6 · Blueprint §8.9, §9, §52.1, §57, NFR-007
 
-> **Status:** implementado (fatias 1–7; 0023 e 0024). QA do bloco feito. Pendentes do Jota: confirmação das D1–D5 e aplicação das migrations 0007–0024 em produção.
+> **Status:** implementado (fatias 1–7; 0023 e 0024). QA do bloco feito. D1–D6 decididas pelo Jota (2026-10-22). Pendente do Jota: aplicação das migrations 0007–0024 em produção.
 
 ## Objetivo
 Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico útil para a liderança, e o Stage, descongelado, é refinado e simplificado.
@@ -12,7 +12,7 @@ Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico 
 - `ServiceStagePage.tsx` (220 linhas, ~17 KB, JSX em linhas longas, exceção de lint #42) e `StagePage.tsx` (581 linhas, Palco solo) concentram lógica demais. `bandStageRealtime.ts` e os adaptadores legados já saíram no B1 (ADR-059).
 - O Stage canônico ainda usa nomes do legado: `BandStagePresencePanel`, classes `band-stage-*`, textos "MODO BANDA" e "Setlist".
 - Não existem histórico nem log de atividade.
-- Spec: [`VS-06-execucao-historico.md`](../specs/VS-06-execucao-historico.md) (decisões D1–D6 abertas).
+- Spec: [`VS-06-execucao-historico.md`](../specs/VS-06-execucao-historico.md) (decisões D1–D6 decididas em 2026-10-22).
 
 ## Escopo
 
