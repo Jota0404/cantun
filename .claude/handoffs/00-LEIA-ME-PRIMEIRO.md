@@ -7,13 +7,15 @@ Para qualquer agente ou sessão que continue o CANTUM. Fonte de verdade continua
 - QA do #119 (reautenticação para excluir conta) feito com servidor e banco reais: ok; issue #101 fechada. Três ajustes de UX de baixa severidade ficaram **sem issue** por decisão do owner (mensagem de sessão expirada no reauth com sessão revogada, 429 do reauth que fala em "conexão", Enter no campo de senha não envia).
 - QA do bloco B6 (dois usuários, offline, 375/768) feito: ok depois do #126.
 - #126 corrigiu o sync (issue #116): deletes atômicos, o pull não ressuscita linha com delete pendente e espelha o servidor só em `serviceItems`, `repertoireItems`, `servicePositions` e `memberAvailability`. Follow-ups em **#127**. Invariante: o GET `/sync` não pode ganhar limite/paginação sem um marcador de "pull completo".
-- Em andamento: spec do **B7 Execução & Histórico** (VS-06) em `docs/specs/VS-06-execucao-historico.md` (decisões D abertas para o owner).
+- **B7 Execução & Histórico** (VS-06) implementado nas fatias 1–6 (migrations **0023** registro da execução e **0024** log de atividade; "Registro da execução", "Realizados", histórico e repertórios relacionados na música, bloco "Atividade" no Início). Fatia 7 (refatorar `StagePage`) é opcional e o Palco segue congelado. QA do bloco feito com servidores reais: ok; achados corrigidos (reuso da sessão de Palco em `startOrResumeStage`, autor nos eventos de serviço).
+- **D1–D6 do VS-06 foram adotadas pela recomendação do planner e aguardam confirmação do owner antes de produção** (D1 tom efetivo, D2 bloquear concluir com Palco aberto de MD ativo, D3 só `confirmed`, D4 recusa/substituição só para quem gerencia a equipe, D5 log 90 dias e registro enquanto existir, D6 RF-HIS no Blueprint). Mudar é migration aditiva.
+- Riscos/achados B7 sem correção: `stage_sessions` não tem índice único (sessão aberta criada em outro aparelho ainda pode duplicar); o membro só acha o Registro de um serviço pelo link da Atividade ("Realizados" é só de gestão, RN-02 VS-05; decidir se "Meus serviços" ganha realizados); o status `declined` segue legível em `assignments` (D4 esconde só o evento); a purga de 90 dias só roda quando a organização ganha evento (levar ao B8/LGPD); `GET /sync/activity_events` ignora a janela de 30 dias.
 
 ## Ideias adiadas pelo owner (NÃO propor nem implementar sem ele retomar)
 `docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md`: importação de músicas além do `.txt` (colar texto, PDF/Word, OCR; IA só com decisão) e áudio por música com player fora do Palco. Não crie spec/ADR delas.
 
 ## Pendências do owner (nada disto a IA faz)
-1. **Produção:** aplicar as migrations pendentes (0007–0022) seguindo `docs/GO_LIVE_CHECKLIST.md`; a **0019 antes do servidor novo** (o servidor seleciona `reauth_at`; sem a coluna vira 500). Hospedagem de produção no Brasil ainda sem decisão. Confirmar antes que o banco só tem dados de teste; restore testado (BACKUP_RECOVERY).
+1. **Produção:** aplicar as migrations pendentes (0007–0024) seguindo `docs/GO_LIVE_CHECKLIST.md`; a **0019 antes do servidor novo** (o servidor seleciona `reauth_at`; sem a coluna vira 500). Hospedagem de produção no Brasil ainda sem decisão. Confirmar antes que o banco só tem dados de teste; restore testado (BACKUP_RECOVERY).
 2. **Texto jurídico** (D6 do B8): contato do controlador, bases legais, retenção, subprocessadores, validação dos 16 anos; e os termos de uso/responsabilidade sobre direitos autorais se um dia houver áudio/upload.
 3. **D10** (storage) antes da fatia 8 do B6 e qualquer decisão sobre a ADR-064.
 

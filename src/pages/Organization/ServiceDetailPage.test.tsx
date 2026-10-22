@@ -9,6 +9,7 @@ import type { Service } from '../../domain/services/service'
 import type { ServiceItem } from '../../domain/services/serviceItem'
 import { MAJOR_KEYS } from '../../domain/music/musicalKey'
 import { ServiceDetailPage } from './ServiceDetailPage'
+import { startOrResumeStage } from '../../application/stage/stageSessionService'
 
 const m = vi.hoisted(() => ({
   service: undefined as unknown,
@@ -36,7 +37,7 @@ vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () =>
 vi.mock('../../application/services/rehearsalService', () => ({ listRehearsals: async () => ({ success: true, rehearsals: [], canManage: false }), createRehearsal: vi.fn(), updateRehearsal: vi.fn(), deleteRehearsal: vi.fn() }))
 vi.mock('../../application/services/materialService', () => ({ listMaterials: async () => ({ success: true, materials: [], canManage: false }), addMaterial: vi.fn(), updateMaterial: vi.fn(), deleteMaterial: vi.fn() }))
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
-vi.mock('../../application/stage/stageSessionService', () => ({ createStageSession: vi.fn(), startStageSession: vi.fn() }))
+vi.mock('../../application/stage/stageSessionService', () => ({ startOrResumeStage: vi.fn() }))
 vi.mock('../../application/services/serviceService', () => ({
   getService: async () => m.service, listServiceAssignments: async () => [],
   transitionService: m.transitionService, updateServiceInfo: m.updateServiceInfo, deleteService: m.deleteService,
@@ -56,7 +57,7 @@ function renderWith(service: Partial<Service>, access: AccessContext, list: Serv
   m.service = { ...base, ...service }
   m.items = list
   m.access = access
-  render(<MemoryRouter initialEntries={['/services/sv1']}><Routes><Route path="/services/:serviceId" element={<ServiceDetailPage />} /></Routes></MemoryRouter>)
+  render(<MemoryRouter initialEntries={['/services/sv1']}><Routes><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/stage/service-session/:id" element={<p>Palco aberto</p>} /></Routes></MemoryRouter>)
 }
 
 describe('ServiceDetailPage', () => {
@@ -142,6 +143,15 @@ describe('ServiceDetailPage', () => {
   it('owner starts the stage on an open service', async () => {
     renderWith({ status: 'ready' }, { organizationRole: 'owner' })
     expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeInTheDocument()
+  })
+
+  it('"Iniciar palco" calls startOrResumeStage once and navigates to the session', async () => {
+    vi.mocked(startOrResumeStage).mockResolvedValue({ id: 'ss1' } as never)
+    renderWith({ status: 'ready' }, { organizationRole: 'owner' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Iniciar palco' }))
+    expect(await screen.findByText('Palco aberto')).toBeInTheDocument()
+    expect(startOrResumeStage).toHaveBeenCalledTimes(1)
+    expect(startOrResumeStage).toHaveBeenCalledWith('sv1')
   })
 
   it('adds a reprise to a song item (RN-10)', async () => {

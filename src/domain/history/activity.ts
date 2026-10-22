@@ -15,11 +15,12 @@ export interface ActivityEvent {
 
 export function activityText(event: ActivityEvent, names: Record<string, string>): string {
   const author = (event.actorUserId && names[event.actorUserId]) || 'Ex-membro'
+  const by = event.actorUserId ? ` · por ${author}` : ''
   const t = event.entityTitle ?? 'item excluído'
   switch (event.kind) {
-    case 'service.ready': return `Serviço ${t} ficou pronto`
-    case 'service.completed': return `Serviço ${t} foi concluído`
-    case 'service.cancelled': return `Serviço ${t} foi cancelado`
+    case 'service.ready': return `Serviço ${t} ficou pronto${by}`
+    case 'service.completed': return `Serviço ${t} foi concluído${by}`
+    case 'service.cancelled': return `Serviço ${t} foi cancelado${by}`
     case 'assignment.confirmed': return `${author} confirmou presença em ${t}`
     case 'assignment.declined': return `${author} recusou a escala em ${t}`
     case 'assignment.replacement_needed': return `Precisa de substituto em ${t}`

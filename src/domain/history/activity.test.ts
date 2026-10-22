@@ -7,9 +7,9 @@ const names = { u1: 'Ana' }
 
 describe('activityText', () => {
   it.each([
-    ['service.ready', 'Serviço X ficou pronto'],
-    ['service.completed', 'Serviço X foi concluído'],
-    ['service.cancelled', 'Serviço X foi cancelado'],
+    ['service.ready', 'Serviço X ficou pronto · por Ana'],
+    ['service.completed', 'Serviço X foi concluído · por Ana'],
+    ['service.cancelled', 'Serviço X foi cancelado · por Ana'],
     ['assignment.confirmed', 'Ana confirmou presença em X'],
     ['assignment.declined', 'Ana recusou a escala em X'],
     ['assignment.replacement_needed', 'Precisa de substituto em X'],
@@ -22,7 +22,11 @@ describe('activityText', () => {
     expect(activityText(ev('material.added', { actorUserId: null }), names)).toBe('Ex-membro adicionou o material X')
     expect(activityText(ev('material.added', { actorUserId: 'zz' }), names)).toBe('Ex-membro adicionou o material X')
   })
+  it('service sem actor não tem sufixo; actor desconhecido vira Ex-membro', () => {
+    expect(activityText(ev('service.ready', { actorUserId: null }), names)).toBe('Serviço X ficou pronto')
+    expect(activityText(ev('service.ready', { actorUserId: 'zz' }), names)).toBe('Serviço X ficou pronto · por Ex-membro')
+  })
   it('entidade excluída', () => {
-    expect(activityText(ev('service.ready', { entityTitle: null }), names)).toBe('Serviço item excluído ficou pronto')
+    expect(activityText(ev('service.ready', { entityTitle: null }), names)).toBe('Serviço item excluído ficou pronto · por Ana')
   })
 })
