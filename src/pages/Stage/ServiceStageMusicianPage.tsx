@@ -114,19 +114,92 @@ export function ServiceStageMusicianPage() {
     return transposeSongLyrics(activeSong.lyrics, semitones, key)
   }, [activeSong, executionState?.currentKey])
 
-  if (loading) return <main className="service-stage-musician"><div className="service-stage-musician__empty">Carregando palco…</div></main>
-  if (error && !snapshot) return <main className="service-stage-musician"><div className="service-stage-musician__empty"><p role="alert">{error}</p><button type="button" onClick={() => navigate(-1)}>Voltar</button></div></main>
-  if (!snapshot || !executionState || !activeSong) return <main className="service-stage-musician"><div className="service-stage-musician__empty"><p>Nenhuma música disponível nesta sessão.</p><button type="button" onClick={() => navigate(-1)}>Voltar</button></div></main>
+  const empty = (content: React.ReactNode) => (
+    <main className="service-stage-musician"><div className="service-stage-musician__empty">{content}</div></main>
+  )
+  const back = <button type="button" onClick={() => navigate(-1)}>Voltar</button>
+  if (loading) return empty('Carregando palco…')
+  if (error && !snapshot) return empty(<><p role="alert">{error}</p>{back}</>)
+  if (!snapshot || !executionState || !activeSong) return empty(<><p>Nenhuma música disponível nesta sessão.</p>{back}</>)
+
+  const sessionStatus = { live: 'Ao vivo', lobby: 'Lobby' }[snapshot.session.status as 'live' | 'lobby'] ?? 'Encerrada'
+  const execLabel = { running: 'ativa', paused: 'pausada', lobby: 'aguardando início' }[executionState.status as 'running'] ?? 'encerrada'
+  const footerLabel = { running: 'O MD está conduzindo a música', paused: 'Execução pausada pelo MD', ended: 'Sessão encerrada' }[
+    executionState.status as 'running'
+  ] ?? 'Aguardando início do MD'
 
   return (
-    <main className="service-stage-musician" data-musical-role={musicalRole} style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}>
-      <header className="service-stage-musician__header"><div><Link to="/organizations">{labels.backToOrganizations}</Link><span className="service-stage-musician__kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span><h1>{activeSong.title}</h1><p>{activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}{experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}{experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}</p></div><div className="service-stage-musician__session"><span className={`service-stage-musician__status service-stage-musician__status--${snapshot.session.status}`}>{snapshot.session.status === 'live' ? 'Ao vivo' : snapshot.session.status === 'lobby' ? 'Lobby' : 'Encerrada'}</span><span aria-live="polite">{stageConnectionLabel(status)}</span><button type="button" onClick={() => void refresh()}>Sincronizar</button><button type="button" onClick={() => navigate('/')}>Sair</button></div></header>
-      <section className="service-stage-musician__presence" aria-label="Estado da execução"><span>Função: {experience.accentLabel}</span><span>Revisão {executionState.revision}</span><span>Execução: {executionState.status === 'running' ? 'ativa' : executionState.status === 'paused' ? 'pausada' : executionState.status === 'lobby' ? 'aguardando início' : 'encerrada'}</span><span>Somente leitura</span></section>
+    <main
+      className="service-stage-musician"
+      data-musical-role={musicalRole}
+      style={{ '--musician-font-size': `${fontSize}px` } as React.CSSProperties}
+    >
+      <header className="service-stage-musician__header">
+        <div>
+          <Link to="/organizations">{labels.backToOrganizations}</Link>
+          <span className="service-stage-musician__kicker">MODO PALCO · {experience.accentLabel.toUpperCase()}</span>
+          <h1>{activeSong.title}</h1>
+          <p>
+            {activeSong.artist ?? 'Sem artista'} · {activeIndex + 1}/{songs.length}
+            {experience.showKey && <> · Tom: {executionState.currentKey ?? activeSong.currentKey}</>}
+            {experience.showBpm && activeSong.bpm && <> · BPM: {activeSong.bpm}</>}
+          </p>
+        </div>
+        <div className="service-stage-musician__session">
+          <span className={`service-stage-musician__status service-stage-musician__status--${snapshot.session.status}`}>{sessionStatus}</span>
+          <span aria-live="polite">{stageConnectionLabel(status)}</span>
+          <button type="button" onClick={() => void refresh()}>Sincronizar</button>
+          <button type="button" onClick={() => navigate('/')}>Sair</button>
+        </div>
+      </header>
+      <section className="service-stage-musician__presence" aria-label="Estado da execução">
+        <span>Função: {experience.accentLabel}</span>
+        <span>Revisão {executionState.revision}</span>
+        <span>Execução: {execLabel}</span>
+        <span>Somente leitura</span>
+      </section>
       <StagePresencePanel participants={participants} />
-      {executionState.mdAnnotation && <aside className="service-stage-musician__annotation"><strong>Nota do MD</strong><p>{executionState.mdAnnotation}</p></aside>}
+      {executionState.mdAnnotation && (
+        <aside className="service-stage-musician__annotation"><strong>Nota do MD</strong><p>{executionState.mdAnnotation}</p></aside>
+      )}
       {error && <p className="service-stage-musician__error" role="alert">{error}</p>}
-      <div className="service-stage-musician__layout"><aside className="service-stage-musician__order" aria-label="Ordem do serviço"><div className="service-stage-musician__order-header"><strong>Ordem</strong><span>{songs.length}</span></div>{songs.map((song, index) => <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}><span>{index + 1}</span><strong>{song.title}</strong></div>)}</aside><section className="service-stage-musician__content" aria-label={`Letra de ${activeSong.title}`}><div className="service-stage-musician__toolbar"><div><button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button><button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button></div><label>Tamanho <input aria-label="Tamanho da fonte" type="range" min="16" max="36" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} /></label></div><article className={`service-stage-musician__lyrics service-stage-musician__lyrics--${readMode}`}>{displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}{experience.showNotes && activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}</article></section></div>
-      <footer className="service-stage-musician__footer"><strong>{executionState.status === 'running' ? 'O MD está conduzindo a música' : executionState.status === 'paused' ? 'Execução pausada pelo MD' : executionState.status === 'ended' ? 'Sessão encerrada' : 'Aguardando início do MD'}</strong><span>O estado de execução é compartilhado e somente o MD operacional pode alterá-lo.</span></footer>
+      <div className="service-stage-musician__layout">
+        <aside className="service-stage-musician__order" aria-label="Ordem do serviço">
+          <div className="service-stage-musician__order-header"><strong>Ordem</strong><span>{songs.length}</span></div>
+          {songs.map((song, index) => (
+            <div key={song.songId} className={index === activeIndex ? 'is-active' : ''} aria-current={index === activeIndex ? 'true' : undefined}>
+              <span>{index + 1}</span><strong>{song.title}</strong>
+            </div>
+          ))}
+        </aside>
+        <section className="service-stage-musician__content" aria-label={`Letra de ${activeSong.title}`}>
+          <div className="service-stage-musician__toolbar">
+            <div>
+              <button type="button" aria-pressed={readMode === 'scroll'} onClick={() => setReadMode('scroll')}>Rolagem</button>
+              <button type="button" aria-pressed={readMode === 'pages'} onClick={() => setReadMode('pages')}>Páginas</button>
+            </div>
+            <label>
+              Tamanho{' '}
+              <input
+                aria-label="Tamanho da fonte"
+                type="range"
+                min="16"
+                max="36"
+                value={fontSize}
+                onChange={(event) => setFontSize(Number(event.target.value))}
+              />
+            </label>
+          </div>
+          <article className={`service-stage-musician__lyrics service-stage-musician__lyrics--${readMode}`}>
+            {displayedLyrics.split('\n').map((line, index) => <div key={`${index}-${line}`}>{line || '\u00a0'}</div>)}
+            {experience.showNotes && activeSong.notes && <aside><strong>Observações</strong><p>{activeSong.notes}</p></aside>}
+          </article>
+        </section>
+      </div>
+      <footer className="service-stage-musician__footer">
+        <strong>{footerLabel}</strong>
+        <span>O estado de execução é compartilhado e somente o MD operacional pode alterá-lo.</span>
+      </footer>
     </main>
   )
 }
