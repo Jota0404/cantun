@@ -2,6 +2,8 @@ import { isFinalStatus } from '../../domain/services/serviceLifecycle'
 import { moveItem, renumber, validateServiceItem, type ServiceItem, type ServiceItemInput } from '../../domain/services/serviceItem'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
+import { hasPermission, type AccessContext } from '../../domain/access/permissions'
+import { getMyAccessContext } from '../teams/teamMemberService'
 import { resolveOrganizationSong } from '../songs/copySongToOrganization'
 
 export type ServiceItemsResult = { success: true; items: ServiceItem[] } | { success: false; errors: string[] }
@@ -9,9 +11,10 @@ export type ServiceItemsResult = { success: true; items: ServiceItem[] } | { suc
 export interface ServiceScheduleRepositories {
   items: typeof serviceItemRepository
   services: typeof serviceRepository
+  access: (input: { organizationId: string; teamId?: string }) => Promise<AccessContext>
 }
 
-const defaults: ServiceScheduleRepositories = { items: serviceItemRepository, services: serviceRepository }
+const defaults: ServiceScheduleRepositories = { items: serviceItemRepository, services: serviceRepository, access: getMyAccessContext }
 
 async function touchService(serviceId: string, repositories: ServiceScheduleRepositories, updatedAt = new Date().toISOString()) {
   const service = await repositories.services.getById(serviceId)
@@ -22,7 +25,9 @@ async function touchService(serviceId: string, repositories: ServiceScheduleRepo
 async function editableError(serviceId: string, repositories: ServiceScheduleRepositories): Promise<string | null> {
   const service = await repositories.services.getById(serviceId)
   if (!service) return 'Serviço não encontrado.'
-  return isFinalStatus(service.status) ? 'Serviço encerrado não pode ser editado.' : null
+  if (isFinalStatus(service.status)) return 'Serviço encerrado não pode ser editado.'
+  const access = await repositories.access({ organizationId: service.organizationId, teamId: service.teamId ?? undefined })
+  return hasPermission(access, 'service.edit') ? null : 'Você não tem permissão para editar a ordem deste serviço.'
 }
 
 // Os itens renumerados sobem juntos no mesmo lote do sync (unique deferida no banco, VS-02 §Dados).
