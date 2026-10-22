@@ -10,7 +10,9 @@ import type { ServiceItem } from '../domain/services/serviceItem'
 import { toAssignment, type Assignment } from '../domain/services/assignment'
 import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
+import type { ServicePreparation } from '../domain/services/servicePreparation'
 import type { StageSession } from '../domain/stage/stageSession'
+import { preparationId } from '../domain/services/servicePreparation'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
 import { toStageSessionState } from '../domain/stage/stageSessionState'
 import { rpc } from '../platform/rpc'
@@ -31,6 +33,7 @@ export type TargetEntityName =
   | 'assignments'
   | 'servicePositions'
   | 'memberAvailability'
+  | 'servicePreparations'
   | 'stageSessions'
   | 'stageSessionStates'
 
@@ -46,6 +49,7 @@ export type TargetEntity =
   | Assignment
   | ServicePosition
   | MemberAvailability
+  | ServicePreparation
   | StageSession
   | StageSessionState
 
@@ -72,6 +76,7 @@ export type TargetWritableEntity =
   | ServiceItem
   | ServicePosition
   | MemberAvailability
+  | ServicePreparation
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -112,6 +117,7 @@ const tables: Record<TargetEntityName, string> = {
   assignments: 'assignments',
   servicePositions: 'service_positions',
   memberAvailability: 'member_availability',
+  servicePreparations: 'service_preparations',
   stageSessions: 'stage_sessions',
   stageSessionStates: 'stage_session_states',
 }
@@ -152,6 +158,10 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
       const v = value as ServicePosition
       return { id: v.id, service_id: v.serviceId, musical_function: v.musicalFunction, quantity: v.quantity, notes: v.notes ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
     }
+    case 'servicePreparations': {
+      const v = value as ServicePreparation
+      return { service_id: v.serviceId, user_id: v.userId, prepared_at: v.preparedAt, updated_at: v.updatedAt }
+    }
     case 'memberAvailability': {
       const v = value as MemberAvailability
       return { id: v.id, user_id: v.userId, organization_id: v.organizationId, date: v.date, status: v.status, note: v.note ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
@@ -172,6 +182,7 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'assignments': return toAssignment(row)
     case 'servicePositions': return { id: String(row.id), serviceId: String(row.service_id), musicalFunction: String(row.musical_function), quantity: Number(row.quantity), notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'memberAvailability': return { id: String(row.id), userId: String(row.user_id), organizationId: String(row.organization_id), date: String(row.date).slice(0, 10), status: row.status as MemberAvailability['status'], note: row.note ? String(row.note) : undefined, createdAt: String(row.created_at ?? row.updated_at), updatedAt: String(row.updated_at) }
+    case 'servicePreparations': return { id: preparationId(String(row.service_id), String(row.user_id)), serviceId: String(row.service_id), userId: String(row.user_id), preparedAt: String(row.prepared_at), updatedAt: String(row.updated_at ?? row.prepared_at) }
     case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
   }
@@ -190,6 +201,7 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName) {
     assignments: db.assignments,
     servicePositions: db.servicePositions,
     memberAvailability: db.memberAvailability,
+    servicePreparations: db.servicePreparations,
     stageSessions: db.stageSessions,
     stageSessionStates: db.stageSessionStates,
   }
@@ -238,6 +250,16 @@ export class TargetSyncEngine {
   }
 
   /** `true` quando a entidade não tem mais alteração na fila: o servidor aceitou o que o aparelho enviou. */
+  /** Apaga e enfileira o delete numa transação (o pull não enxerga o meio-termo). */
+  async queueDeleteAtomic(entity: TargetWritableEntityName, entityId: string, tables: Table[], write: () => Promise<void>): Promise<void> {
+    await this.db.transaction('rw', [this.db.targetSyncQueue, ...tables], async () => {
+      await write()
+      await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
+      await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt: new Date().toISOString(), attempts: 0 })
+    })
+    void this.sync()
+  }
+
   async isSent(entity: TargetWritableEntityName, entityId: string): Promise<boolean> {
     return (await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).count()) === 0
   }
@@ -329,7 +351,8 @@ export class TargetSyncEngine {
         try {
           const table = tables[item.entity]
           if (item.operation === 'delete') {
-            await deleteRows(table, { id: item.entityId })
+            const [serviceId, userId] = item.entityId.split(':')
+            await deleteRows(table, item.entity === 'servicePreparations' ? { service_id: serviceId, user_id: userId } : { id: item.entityId })
           } else if (item.entity === 'organizations') {
             const organization = item.payload as Organization
             const [existing] = await selectRows(table, { id: item.entityId })
@@ -359,6 +382,13 @@ export class TargetSyncEngine {
         const rows = await selectRows(tables[entity]).catch(() => null)
         if (!rows) continue
         const table = localTable(this.db, entity)
+        if (entity === 'servicePreparations') {
+          // Desmarcado em outro aparelho: a linha sumiu do servidor (o pull não apaga); só preserva o que ainda está na fila.
+          const remoteIds = new Set(rows.map((r) => preparationId(String(r.service_id), String(r.user_id))))
+          for (const local of await this.db.servicePreparations.toArray()) {
+            if (!remoteIds.has(local.id) && await this.isSent('servicePreparations', local.id)) await this.db.servicePreparations.delete(local.id)
+          }
+        }
         for (const row of rows) {
           const value = fromRemoteRow(entity, row)
           const valueId = entity === 'stageSessionStates'

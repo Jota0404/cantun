@@ -99,6 +99,8 @@ Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-02-se
 | `service.edit` | equipe | ✅ | ✅ | **L** | ❌ | Informações, ordem e tom por serviço (`service_items.key`, mesmo modo do `original_key`, só em itens `song`). Negado em `completed`/`cancelled`. O Membro vê o tom, não edita. Também cobre itens `reprise`/`medley` (`ref_item_id` → item `song` do mesmo serviço; apagar o alvo apaga a reprise). |
 | `service.transition` | equipe | ✅ | ✅ | **L** | ❌ | Só pela RPC `transition_service`; `status` protegido por trigger de guarda. |
 | `service.delete` | equipe | ✅ | ✅ | **L** (só `draft`) | ❌ | Fora de `draft`, o Líder cancela (decisão do owner, 2026-10-09). |
+| `preparation.set_own` | equipe | **P** | **P** | **P** | **P** | B6 (VS-04-05 RN-15/16). Marcar/desmarcar "preparado" (`service_preparations`) **só do próprio** usuário, membro **ativo da equipe do serviço** (Owner/Admin fora da equipe não marcam). Negado em `completed`/`cancelled`. `user_id`/`service_id` imutáveis (trigger). Não passa por `app.has_permission` (`app.can_set_preparation`). |
+| `preparation.read_team` | equipe | ✅ | ✅ | **L** | ❌ | Ler o "preparado" de todos do serviço. Cada um sempre lê o próprio; Membro comum não lê o dos outros (D4). Não passa por `app.has_permission` (`app.can_read_preparation`). |
 
 Leitura de serviços e da ordem: membro **ativo na organização** (seção 4), sem capacidade própria.
 

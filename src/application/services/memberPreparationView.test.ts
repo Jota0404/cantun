@@ -4,16 +4,17 @@ import { db } from '../../db/database'
 import { assignmentRepository } from '../../db/repositories/assignmentRepository'
 import { serviceItemRepository } from '../../db/repositories/serviceItemRepository'
 import { serviceRepository } from '../../db/repositories/serviceRepository'
+import { servicePreparationRepository } from '../../db/repositories/servicePreparationRepository'
 import { songRepository } from '../../db/repositories/songRepository'
 import type { AccessContext } from '../../domain/access/permissions'
 import { getMemberPreparationView, type MemberPreparationRepositories } from './memberPreparationView'
 
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(), queueTargetDelete: vi.fn() }))
+vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn() }))
 
 const now = '2026-10-01T12:00:00Z'
 const service = { id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, notes: 'Chegar cedo', status: 'draft' as const, createdByUserId: 'u1', createdAt: now, updatedAt: now }
 const repos = (access: AccessContext = { organizationRole: 'member' } as AccessContext): MemberPreparationRepositories => ({
-  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, access: async () => access, currentUserId: () => 'me',
+  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository, access: async () => access, currentUserId: () => 'me',
 })
 const assignment = (status: 'invited' | 'declined', userId = 'me') => ({ id: `a-${status}-${userId}`, serviceId: 's1', positionId: 'p1', userId, musicalFunction: 'Vocal', status, createdAt: now, updatedAt: now })
 
@@ -66,5 +67,14 @@ describe('getMemberPreparationView (RN-12…14)', () => {
     expect(byId('i5')?.refPosition).toBe(2)
     expect(byId('i3')?.refPosition).toBe(1)
     expect(byId('i4')?.title).toBe('Música indisponível offline')
+  })
+
+  it('exposes my own prepared state', async () => {
+    const before = await getMemberPreparationView('s1', repos())
+    expect(before.success && before.view.prepared).toBe(false)
+    await db.servicePreparations.bulkPut([{ id: 's1:me', serviceId: 's1', userId: 'me', preparedAt: now, updatedAt: now }])
+    const after = await getMemberPreparationView('s1', repos())
+    expect(after.success && after.view.prepared).toBe(true)
+    await db.servicePreparations.clear()
   })
 })

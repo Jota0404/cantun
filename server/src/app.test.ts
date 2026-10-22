@@ -398,6 +398,52 @@ describe('músicas do Ministério (ADR-062)', () => {
   })
 })
 
+describe('preparação (VS-04-05, RN-15…17)', () => {
+  test('/sync de service_preparations: marca a própria, não a de outro; Líder lê todas, membro só a própria', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.95', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'P' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.prep@teste.local')
+    const lia = await join('lia.prep@teste.local')
+    const mauro = await join('mauro.prep@teste.local')
+    const nina = await join('nina.prep@teste.local')
+    const orgId = crypto.randomUUID()
+    const teamId = crypto.randomUUID()
+    const serviceId = crypto.randomUUID()
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/create_organization', headers: { cookie: olga.cookie }, payload: { p_id: orgId, p_name: 'Igreja P' } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: olga.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    for (const [user, role] of [[lia, 'leader'], [mauro, 'member'], [nina, 'member']] as const) {
+      await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+      await pool.query('insert into public.team_memberships (team_id, user_id, role) values ($1, $2, $3)', [teamId, user.id, role])
+    }
+    const service = { id: serviceId, organization_id: orgId, team_id: teamId, name: 'Culto', starts_at: new Date().toISOString(), created_by_user_id: olga.id }
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/services', headers: { cookie: olga.cookie }, payload: { rows: [service] } })).statusCode, 200)
+
+    const push = (user: { cookie: string }, userId: string) => app.inject({ method: 'POST', url: '/sync/service_preparations', headers: { cookie: user.cookie },
+      payload: { rows: [{ service_id: serviceId, user_id: userId, prepared_at: '2026-10-22T10:00:00Z', updated_at: '2026-10-22T10:00:00Z' }] } })
+    const read = async (user: { cookie: string }) =>
+      (await app.inject({ method: 'GET', url: `/sync/service_preparations?service_id=${serviceId}`, headers: { cookie: user.cookie } })).json().map((r: { user_id: string }) => r.user_id).sort()
+
+    for (const user of [mauro, nina]) assert.equal((await push(user, user.id)).statusCode, 200)
+    assert.equal((await push(mauro, mauro.id)).statusCode, 200, 'reenvio sem mudança passa')
+    assert.equal((await push(mauro, nina.id)).statusCode, 403, 'marcar por outra pessoa')
+    assert.equal((await push(lia, mauro.id)).statusCode, 403, 'Líder marca por outro')
+    const moved = await app.inject({ method: 'PATCH', url: `/sync/service_preparations?service_id=${serviceId}&user_id=${mauro.id}`, headers: { cookie: mauro.cookie }, payload: { values: { user_id: nina.id } } })
+    assert.equal(moved.statusCode, 403, moved.body)
+
+    assert.deepEqual(await read(mauro), [mauro.id])
+    assert.deepEqual(await read(lia), [mauro.id, nina.id].sort())
+    assert.deepEqual(await read(olga), [mauro.id, nina.id].sort())
+
+    const unmark = await app.inject({ method: 'DELETE', url: `/sync/service_preparations?service_id=${serviceId}&user_id=${nina.id}`, headers: { cookie: mauro.cookie } })
+    assert.equal(unmark.json().count, 0, 'membro não desmarca a de outro')
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/service_preparations?service_id=${serviceId}&user_id=${nina.id}`, headers: { cookie: nina.cookie } })).json().count, 1)
+    assert.deepEqual(await read(lia), [mauro.id])
+  })
+})
+
 describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }

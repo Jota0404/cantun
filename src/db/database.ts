@@ -11,6 +11,7 @@ import type { ServiceItem } from '../domain/services/serviceItem'
 import type { Assignment } from '../domain/services/assignment'
 import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
+import type { ServicePreparation } from '../domain/services/servicePreparation'
 import type { MemberProfile } from '../domain/users/memberProfile'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
@@ -31,6 +32,7 @@ export class SalmodiaDatabase extends Dexie {
   assignments!: Table<Assignment, string>
   servicePositions!: Table<ServicePosition, string>
   memberAvailability!: Table<MemberAvailability, string>
+  servicePreparations!: Table<ServicePreparation, string>
   memberProfiles!: Table<MemberProfile, [string, string]>
   stageSessions!: Table<StageSession, string>
   stageSessionStates!: Table<StageSessionState, string>
@@ -234,6 +236,10 @@ export class SalmodiaDatabase extends Dexie {
     // FIX-01 / C (ADR-062): repertório pessoal (`organizationId` ausente) é listado pelo dono.
     this.version(18).stores({
       repertoires: 'id, organizationId, createdByUserId, updatedAt',
+    })
+    // B6 (RN-15, ADR-057 classe A): "preparado" por pessoa e serviço.
+    this.version(19).stores({
+      servicePreparations: 'id, serviceId, userId, updatedAt',
     })
   }
 }

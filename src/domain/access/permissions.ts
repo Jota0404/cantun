@@ -37,6 +37,9 @@ export const PERMISSION_MATRIX = {
   // FIX-01 (D4): o Líder ativo da equipe do serviço também inicia o Palco.
   'stage.start': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   // §3.4: equipe = equipe do serviço. `service.delete` do Líder vale só em `draft` (ver `canDeleteService`).
+  // B6 (RN-16/17): quem decide é `app.can_set_preparation` / `app.can_read_preparation`.
+  'preparation.set_own': { scope: 'team', owner: 'P', admin: 'P', leader: 'P', member: 'P' },
+  'preparation.read_team': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.create': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.edit': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.transition': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
