@@ -1,4 +1,5 @@
 import { isPlatformConfigured } from '../../platform/http'
+import { getCurrentUser } from '../../platform/auth'
 import { rpc } from '../../platform/rpc'
 import type { StageSession } from '../../domain/stage/stageSession'
 import { stageSessionRepository } from '../../db/repositories/stageSessionRepository'
@@ -57,15 +58,19 @@ export async function getStageSession(stageSessionId: string): Promise<StageSess
   }
 }
 
+async function startIfOwnLobby(session: StageSession): Promise<StageSession> {
+  const otherMd = session.mdUserId && session.mdUserId !== getCurrentUser()?.id
+  if (otherMd || session.status !== 'lobby') return session // participante, ou já live
+  return startStageSession(session.id)
+}
+
 export async function startOrResumeStage(serviceId: string): Promise<StageSession> {
   const local = (await stageSessionRepository.listByServiceId(serviceId))
     .filter((s) => s.status !== 'ended')
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
   if (local) {
     const current = await getStageSession(local.id) // atualiza status remoto; cai no local se offline
-    if (current.status === 'live') return current
-    if (current.status === 'lobby') return startStageSession(current.id)
+    if (current.status === 'live' || current.status === 'lobby') return startIfOwnLobby(current)
   }
-  const created = await createStageSession(serviceId)
-  return startStageSession(created.id)
+  return startIfOwnLobby(await createStageSession(serviceId))
 }
