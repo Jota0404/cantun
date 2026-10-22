@@ -131,7 +131,7 @@ Sem usuários reais: sai o Supabase de uma vez, sem dump nem migração de dados
 
 ### B7 — Execução & Histórico (VS-06)
 
-> Implementado exceto a fatia 7 opcional; QA, D1–D5 e migrations 0007–0024 em produção pendentes do Jota.
+> Implementado e com QA; D1–D5 e migrations 0007–0024 em produção pendentes do Jota.
 
 - [x] Registro do serviço executado (repertório, equipe, tons) e derivados por música (última vez tocada, tons usados).
 - [x] `ActivityLog` somente leitura no Início (§52.1): sem comentários nem reações.

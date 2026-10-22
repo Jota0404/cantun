@@ -1,6 +1,6 @@
 # Feature Spec — VS-06 Execução & Histórico
 
-- **Status:** Proposed — fatias 1–6 implementadas; D1–D6 adotadas pela recomendação do planner, aguardando confirmação do Jota antes de produção; fatia 7 opcional (Stage congelado)
+- **Status:** Proposed — fatias 1–6 implementadas; D1–D6 adotadas pela recomendação do planner, aguardando confirmação do Jota antes de produção; fatia 7 (refatoração do Palco solo) implementada
 - **Bloco:** B7 (`docs/blocks/B7-execucao-historico.md`)
 - **Fatia vertical:** VS-06
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-22
@@ -190,4 +190,4 @@ Defaults adotados (sem decisão pendente): leitura só online (RN-20); históric
 - [x] `feat/execution-history` (core-engineer → ui-engineer)
 - [x] `feat/activity-log-schema` — 0024 (backend-engineer)
 - [x] `feat/home-activity` (core-engineer → ui-engineer)
-- [ ] `refactor/solo-stage-page` (ui-engineer, opcional)
+- [x] `refactor/solo-stage-page` (ui-engineer, opcional)
