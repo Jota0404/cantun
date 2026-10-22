@@ -16,7 +16,7 @@ import { db } from '../../db/database'
 import { ApiError } from '../../platform/http'
 import type { Service } from '../../domain/services/service'
 import {
-  assignMember, cancelAssignment, listManagedServiceGaps, clearMyAvailability, confirmAssignment, createPosition, getServiceGaps, listMyUpcomingAssignments,
+  assignMember, cancelAssignment, listManagedServiceGaps, clearMyAvailability, confirmAssignment, createPosition, getServiceGaps, listMyUpcomingAssignments, listMyCompletedServices,
   removePosition, replaceAssignment, resendAssignmentInvite, setMyAvailability, suggestForPosition, updatePosition,
 } from './scheduleService'
 
@@ -117,6 +117,26 @@ describe('schedule use cases', () => {
     const list = await listMyUpcomingAssignments()
     expect(list.map((i) => i.assignment.id)).toEqual(['x1'])
     expect(list[0].songTitles).toEqual(['Grande é o Senhor'])
+  })
+
+  it('lists my completed services: confirmed only, newest first, limited', async () => {
+    const base = { positionId: 'p1', userId: 'me', musicalFunction: 'vocals', status: 'confirmed' as const, createdAt: now, updatedAt: now }
+    await db.services.bulkPut([
+      { ...service, id: 'c1', status: 'completed', startsAt: '2026-01-01T10:00:00Z' },
+      { ...service, id: 'c2', status: 'completed', startsAt: '2026-02-01T10:00:00Z' },
+      { ...service, id: 'c3', status: 'completed', startsAt: '2026-03-01T10:00:00Z' },
+      { ...service, id: 'c4', status: 'completed', startsAt: '2026-04-01T10:00:00Z' },
+      { ...service, id: 'c5', status: 'completed', startsAt: '2026-05-01T10:00:00Z' },
+    ])
+    await db.assignments.bulkPut([
+      { ...base, id: 'y1', serviceId: 'c1' }, { ...base, id: 'y2', serviceId: 'c2' },
+      { ...base, id: 'y3', serviceId: 'c3', status: 'declined' }, { ...base, id: 'y4', serviceId: 'c4', status: 'invited' },
+      { ...base, id: 'y5', serviceId: 'c5', userId: 'other' }, { ...base, id: 'y6', serviceId: 's1' },
+    ])
+    expect(await listMyCompletedServices()).toEqual([
+      { serviceId: 'c2', serviceName: 'Culto', startsAt: '2026-02-01T10:00:00Z', musicalFunction: 'vocals', organizationId: 'o1' },
+      { serviceId: 'c1', serviceName: 'Culto', startsAt: '2026-01-01T10:00:00Z', musicalFunction: 'vocals', organizationId: 'o1' },
+    ])
   })
 
   it('computes gaps and suggestions from local data (RN-06, RN-12)', async () => {

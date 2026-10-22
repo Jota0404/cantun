@@ -197,6 +197,30 @@ export async function listMyUpcomingAssignments(now = new Date()): Promise<MyUpc
   return result.sort((a, b) => a.service.startsAt.localeCompare(b.service.startsAt))
 }
 
+export interface MyCompletedService {
+  serviceId: string
+  serviceName: string
+  startsAt: string
+  musicalFunction: string | null
+  organizationId: string
+}
+
+const COMPLETED_LIMIT = 50
+
+/** Serviços concluídos em que servi (escala confirmada, D3), do mais recente ao mais antigo. */
+export async function listMyCompletedServices(): Promise<MyCompletedService[]> {
+  const user = getCurrentUser()
+  if (!user) return []
+  const mine = (await assignmentRepository.listByUserId(user.id)).filter((assignment) => assignment.status === 'confirmed')
+  const result = new Map<string, MyCompletedService>()
+  for (const assignment of mine) {
+    const service = await serviceRepository.getById(assignment.serviceId)
+    if (!service || service.status !== 'completed' || result.has(service.id)) continue
+    result.set(service.id, { serviceId: service.id, serviceName: service.name, startsAt: service.startsAt, musicalFunction: assignment.musicalFunction || null, organizationId: service.organizationId })
+  }
+  return [...result.values()].sort((a, b) => b.startsAt.localeCompare(a.startsAt)).slice(0, COMPLETED_LIMIT)
+}
+
 export interface ManagedServiceGap {
   service: Service
   openCount: number

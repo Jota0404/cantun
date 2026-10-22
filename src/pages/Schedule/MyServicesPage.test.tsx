@@ -7,14 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MyServicesPage } from './MyServicesPage'
 
 const m = vi.hoisted(() => ({
-  mine: [] as unknown[], days: [] as unknown[], orgs: [{ id: 'o1', name: 'Igreja Esperança' }] as unknown[],
+  mine: [] as unknown[], done: [] as unknown[], days: [] as unknown[], orgs: [{ id: 'o1', name: 'Igreja Esperança' }] as unknown[],
   confirmAssignment: vi.fn(), declineAssignment: vi.fn(), requestReplacement: vi.fn(), setMyAvailability: vi.fn(), clearMyAvailability: vi.fn(),
 }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => m.orgs }))
 vi.mock('../../application/services/scheduleService', () => ({
-  listMyUpcomingAssignments: async () => m.mine, listMyAvailability: async () => m.days,
+  listMyUpcomingAssignments: async () => m.mine, listMyAvailability: async () => m.days, listMyCompletedServices: async () => m.done,
   confirmAssignment: m.confirmAssignment, declineAssignment: m.declineAssignment, requestReplacement: m.requestReplacement,
   setMyAvailability: m.setMyAvailability, clearMyAvailability: m.clearMyAvailability,
 }))
@@ -28,7 +28,20 @@ const item = (status: string) => ({
 describe('MyServicesPage', () => {
   beforeEach(() => {
     Object.values(m).forEach((value) => { if (typeof value === 'function' && 'mockReset' in value) value.mockReset().mockResolvedValue({ success: true }) })
-    m.days = []
+    m.days = []; m.done = []
+  })
+
+  it('lists completed services with link, date and function', async () => {
+    m.done = [{ serviceId: 'sv9', serviceName: 'Culto de Páscoa', startsAt: '2026-04-05T13:00:00.000Z', musicalFunction: 'drums', organizationId: 'o1' }]
+    render(<MemoryRouter><MyServicesPage /></MemoryRouter>)
+    const card = await screen.findByRole('listitem', { name: 'Culto de Páscoa (realizado)' })
+    expect(within(card).getByRole('link', { name: 'Culto de Páscoa' })).toHaveAttribute('href', '/services/sv9')
+    expect(within(card).getByText('Bateria')).toBeInTheDocument()
+  })
+
+  it('shows empty state for completed services', async () => {
+    render(<MemoryRouter><MyServicesPage /></MemoryRouter>)
+    expect(await screen.findByText('Você ainda não participou de serviços concluídos.')).toBeInTheDocument()
   })
 
   it('lists my services with function, status and songs, and confirms an invite', async () => {

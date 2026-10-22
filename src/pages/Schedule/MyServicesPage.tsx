@@ -5,7 +5,7 @@ import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listMyOrganizations } from '../../application/organizations/organizationService'
 import type { Organization } from '../../domain/organizations/organization'
 import {
-  clearMyAvailability, confirmAssignment, declineAssignment, listMyAvailability, listMyUpcomingAssignments, requestReplacement, setMyAvailability,
+  clearMyAvailability, confirmAssignment, declineAssignment, listMyAvailability, listMyCompletedServices, listMyUpcomingAssignments, requestReplacement, setMyAvailability,
   type MyUpcomingAssignment,
 } from '../../application/services/scheduleService'
 import { availableAssignmentActions, type AssignmentAction } from '../../domain/services/assignmentLifecycle'
@@ -23,6 +23,7 @@ export function MyServicesPage() {
   const { user } = useAuth()
   const online = useOnline()
   const [upcoming, setUpcoming] = useState<MyUpcomingAssignment[]>([])
+  const [completed, setCompleted] = useState<Awaited<ReturnType<typeof listMyCompletedServices>>>([])
   const [loaded, setLoaded] = useState(false)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [availability, setAvailability] = useState<MemberAvailability[]>([])
@@ -41,11 +42,12 @@ export function MyServicesPage() {
     let cancelled = false
     async function load() {
       try {
-        const [mine, orgs] = await Promise.all([listMyUpcomingAssignments(), listMyOrganizations()])
+        const [mine, orgs, done] = await Promise.all([listMyUpcomingAssignments(), listMyOrganizations(), listMyCompletedServices()])
         const orgId = organizationId || orgs[0]?.id
         const days = orgId ? await listMyAvailability(orgId) : []
         if (cancelled) return
         setUpcoming(mine)
+        setCompleted(done)
         setOrganizations(orgs)
         setAvailability(days)
         setLoaded(true)
@@ -113,6 +115,22 @@ export function MyServicesPage() {
                   </button>
                 ))}
               </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="my-completed-title">
+        <h3 id="my-completed-title">Realizados</h3>
+        {loaded && completed.length === 0 && <p>Você ainda não participou de serviços concluídos.</p>}
+        <ul className="my-services__list">
+          {completed.map((item) => (
+            <li key={item.serviceId} aria-label={`${item.serviceName} (realizado)`}>
+              <header>
+                <Link to={`/services/${item.serviceId}`}>{item.serviceName}</Link>
+                <span>{formatServiceDate(item.startsAt)}</span>
+              </header>
+              {item.musicalFunction && <p>Função: <strong>{musicalFunctionLabel(item.musicalFunction)}</strong></p>}
             </li>
           ))}
         </ul>
