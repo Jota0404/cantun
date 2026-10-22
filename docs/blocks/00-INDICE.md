@@ -13,8 +13,8 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 | B3 | `B3-servico-vs02.md` | 1 | B2 | ✅ concluído |
 | B4 | `B4-escala-vs03.md` | 1 | B3 | ✅ concluído |
 | B5 | `B5-navegacao-design-system.md` | 1 | B0 (paralelo ao B2) | ✅ concluído |
-| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | ▶ em andamento: fatias 1–3 feitas (3 = reprise/medley, #115), próxima a 4 |
-| B7 | `B7-execucao-historico.md` | 2/3 | B6 | — |
+| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | ✔ fatias 1–7 em `main` (#108–#125, #126 sync); falta a 8 (upload), bloqueada pela ADR-064 e D10 |
+| B7 | `B7-execucao-historico.md` | 2/3 | B6 | ▶ spec VS-06 em redação |
 | B8 | `B8-privacidade-minima.md` | 0/1 | B2 | ✅ concluído (jurídico pendente; antes de usuários reais) |
 | B9 | `B9-backend-proprio.md` | — | — | absorvido pelo B1 |
 | B10 | `B10-network.md` | 5 | validação do core | hipótese |
