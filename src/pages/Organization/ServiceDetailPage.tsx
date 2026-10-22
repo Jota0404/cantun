@@ -15,7 +15,7 @@ import { MaterialsPanel } from '../../components/service/MaterialsPanel'
 import { ExecutionRecordPanel } from '../../components/service/ExecutionRecordPanel'
 import { RehearsalPanel } from '../../components/service/RehearsalPanel'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
-import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
+import { startOrResumeStage } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
 import { MAJOR_KEYS, MINOR_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
@@ -94,9 +94,8 @@ export function ServiceDetailPage() {
 
   async function startStage() {
     try {
-      const stage = await createStageSession(serviceId)
-      const started = await startStageSession(stage.id)
-      navigate(`/stage/service-session/${started.id}`)
+      const session = await startOrResumeStage(serviceId)
+      navigate(`/stage/service-session/${session.id}`)
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível iniciar o palco deste serviço.') }
   }
 

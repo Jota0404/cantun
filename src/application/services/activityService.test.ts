@@ -11,7 +11,7 @@ describe('getRecentActivity', () => {
     const r = await getRecentActivity('o1', { call: call as never, displayNames })
     expect(call).toHaveBeenCalledWith('get_recent_activity', { p_organization_id: 'o1' })
     expect(r).toEqual({ success: true, events: [
-      { id: 'a', kind: 'service.completed', text: 'Serviço Culto foi concluído', serviceId: 's1', createdAt: row.created_at },
+      { id: 'a', kind: 'service.completed', text: 'Serviço Culto foi concluído · por Ana', serviceId: 's1', createdAt: row.created_at },
       { id: 'b', kind: 'material.added', text: 'Ex-membro adicionou o material item excluído', serviceId: null, createdAt: row.created_at },
     ] })
   })

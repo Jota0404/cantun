@@ -56,3 +56,16 @@ export async function getStageSession(stageSessionId: string): Promise<StageSess
     throw error
   }
 }
+
+export async function startOrResumeStage(serviceId: string): Promise<StageSession> {
+  const local = (await stageSessionRepository.listByServiceId(serviceId))
+    .filter((s) => s.status !== 'ended')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+  if (local) {
+    const current = await getStageSession(local.id) // atualiza status remoto; cai no local se offline
+    if (current.status === 'live') return current
+    if (current.status === 'lobby') return startStageSession(current.id)
+  }
+  const created = await createStageSession(serviceId)
+  return startStageSession(created.id)
+}
