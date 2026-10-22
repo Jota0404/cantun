@@ -14,6 +14,7 @@ import { labels } from '../../ui/labels'
 import { stageConnectionLabel } from './stageConnectionLabel'
 import { useServiceStageSession } from './useServiceStageSession'
 import { useScrollTopOnChange } from './useScrollTopOnChange'
+import { useFullscreen } from './useFullscreen'
 import { useWakeLock } from './useWakeLock'
 import './ServiceStagePage.css'
 
@@ -28,6 +29,7 @@ export function ServiceStagePage() {
   const activeSong = songs[activeIndex]
   useScrollTopOnChange(activeSong?.position)
   useWakeLock()
+  const { isFullscreen, supported: fullscreenSupported, toggleFullscreen } = useFullscreen()
 
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
@@ -77,6 +79,9 @@ export function ServiceStagePage() {
         busy={busy}
         onRefresh={() => void s.refresh()}
         onExit={() => navigate('/')}
+        isFullscreen={isFullscreen}
+        fullscreenSupported={fullscreenSupported}
+        onToggleFullscreen={() => void toggleFullscreen()}
       />
       <ServiceStageSessionInfo execution={executionState} trailing={musician ? 'Somente visualização' : 'Você controla o palco'}>
         {musician && <span>Função: {experience.accentLabel}</span>}

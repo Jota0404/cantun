@@ -3,7 +3,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceStageMusicianPage } from './ServiceStageMusicianPage'
 import { ServiceStagePage } from './ServiceStagePage'
 
@@ -56,5 +56,22 @@ describe('Service stage with non-musical items', () => {
     m.currentIndex = 1
     renderAt('/stage/st1', <ServiceStageMusicianPage />)
     expect(await screen.findByRole('heading', { name: 'Primeira' })).toBeInTheDocument()
+  })
+
+  describe.each([['MD', <ServiceStagePage />], ['musician', <ServiceStageMusicianPage />]])('fullscreen button (%s)', (_name, page) => {
+    afterEach(() => Reflect.deleteProperty(document.documentElement, 'requestFullscreen'))
+
+    it('shows when supported', async () => {
+      document.documentElement.requestFullscreen = vi.fn()
+      renderAt('/stage/st1', page)
+      await screen.findByRole('heading', { name: 'Primeira' })
+      expect(screen.getByRole('button', { name: 'Tela cheia' })).toBeInTheDocument()
+    })
+
+    it('is hidden when unsupported', async () => {
+      renderAt('/stage/st1', page)
+      await screen.findByRole('heading', { name: 'Primeira' })
+      expect(screen.queryByRole('button', { name: 'Tela cheia' })).not.toBeInTheDocument()
+    })
   })
 })

@@ -3,3 +3,8 @@
 .shell--stage .service-stage-header button,.shell--stage .service-stage-content__toolbar button,.shell--stage .service-stage-annotation-editor button,.shell--stage .service-stage-order>button,.shell--stage .service-stage-empty button,.shell--stage .service-stage-content__toolbar input[type=range]{min-height:var(--size-touch-min)}.shell--stage .service-stage-controls button{min-height:var(--size-touch-stage)}
 
 .service-stage-header a{display:inline-flex;align-items:center;min-height:var(--size-touch-min,44px);min-width:var(--size-touch-min,44px)}
+
+/* Correções de Palco: alvo >=44px e rodapé do Músico centralizado no celular. */
+.service-stage-readiness button{min-height:var(--size-touch-min,44px)}
+.service-stage-readiness button{min-width:var(--size-touch-min,44px);padding-inline:16px}
+@media (max-width:560px){.service-stage-controls--musician strong{width:100%;text-align:center}}

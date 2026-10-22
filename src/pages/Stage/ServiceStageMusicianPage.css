@@ -3,3 +3,6 @@
 .shell--stage .service-stage-musician__session button,.shell--stage .service-stage-musician__toolbar button,.shell--stage .service-stage-musician__empty button,.shell--stage .service-stage-musician__toolbar input[type=range]{min-height:var(--size-touch-min)}
 
 .service-stage-musician__header a{display:inline-flex;align-items:center;min-height:var(--size-touch-min,44px);min-width:var(--size-touch-min,44px)}
+
+.shell--stage .service-stage-musician__session button{min-width:var(--size-touch-min,44px)}
+@media (max-width:560px){.service-stage-musician__footer{justify-content:center}.service-stage-musician__footer strong,.service-stage-musician__footer span{text-align:center}}
