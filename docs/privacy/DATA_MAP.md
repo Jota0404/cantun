@@ -29,8 +29,8 @@ Não coletamos: cookies de analytics, publicidade, localização, contatos, dado
 
 | Operador | Papel | Recebe | Não recebe |
 |---|---|---|---|
-| Render | hospeda o servidor Node.js | todo tráfego do app (requisições em trânsito) e logs de acesso | banco de dados |
+| Render | hospeda o servidor Node.js | todo tráfego do app (requisições em trânsito) e logs de acesso; o servidor registra o IP do cliente nos logs (`server/src/app.ts`) `[JURÍDICO: prazo de retenção dos logs]` | banco de dados |
 | Neon | hospeda o PostgreSQL | todos os dados armazenados (§1) | — |
-| Brevo (e-mail transacional) | envia confirmação de conta e redefinição de senha | e-mail do destinatário, nome de exibição, link/token da mensagem | músicas, repertórios, escalas |
+| Brevo (e-mail transacional) | envia confirmação de conta, redefinição de senha e convite de escala (ADR-054) | e-mail do destinatário, nome de exibição, link/token da mensagem; no convite de escala, a função musical, o nome do serviço e a data (`server/src/schedule.ts`) | músicas, repertórios, letras, outros membros da escala |
 
 `[JURÍDICO]` Confirmar: país de armazenamento de cada operador, transferência internacional (LGPD art. 33) e cláusulas contratuais. A lista só muda com atualização da Política e nova versão de aceite (D7).
