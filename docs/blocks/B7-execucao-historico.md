@@ -7,8 +7,10 @@ Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico 
 
 ## Estado atual
 - O Stage canônico é autoritativo (ADR-044/047), com sessão compartilhada, presença, readiness, transições e anotações do MD.
-- `StagePage.tsx` (675 linhas) e `bandStageRealtime.ts` (518 linhas) concentram lógica demais.
+- `ServiceStagePage.tsx` (220 linhas, ~17 KB, JSX em linhas longas, exceção de lint #42) e `StagePage.tsx` (581 linhas, Palco solo) concentram lógica demais. `bandStageRealtime.ts` e os adaptadores legados já saíram no B1 (ADR-059).
+- O Stage canônico ainda usa nomes do legado: `BandStagePresencePanel`, classes `band-stage-*`, textos "MODO BANDA" e "Setlist".
 - Não existem histórico nem log de atividade.
+- Spec: [`VS-06-execucao-historico.md`](../specs/VS-06-execucao-historico.md) (decisões D1–D6 abertas).
 
 ## Escopo
 
@@ -18,7 +20,7 @@ Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico 
 3. **Histórico por música**: última vez tocada, frequência, tons usados e repertórios relacionados (consultas/views, sem analytics sofisticado, §9).
 4. **ActivityLog** somente leitura (§52.1): repertório atualizado, escala publicada, confirmação, ensaio criado, material adicionado. Sem comentários, curtidas ou respostas. Gerado por triggers/RPC, nunca pelo cliente.
 5. Bloco "Atividade" no Início (B5).
-6. **Fim do freeze do Stage (D6):** refatorar `StagePage.tsx` e `bandStageRealtime.ts` em hooks/serviços; remover adaptadores legados quando os gates do ADR-045 permitirem; garantir a saída da sessão descartando o estado temporário (§57).
+6. **Fim do freeze do Stage (D6), sem feature nova:** renomear o legado "Band" do Stage canônico; refatorar `ServiceStagePage.tsx` (e, opcional, `StagePage.tsx`) em hooks/componentes; testar que a saída da sessão descarta o estado temporário (§57).
 7. Teste manual do Stage (§58.4): celular, tablet, rotação, offline, rede instável, toques rápidos, reconnect.
 
 **Não entra:** relatórios avançados, exportação, CCLI.
