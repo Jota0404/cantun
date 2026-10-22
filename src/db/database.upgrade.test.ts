@@ -325,7 +325,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
       { id: 'i1', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now },
       { id: 'r1', serviceId: 's1', type: 'reprise', title: 'Reprise: a', refItemId: 'i1', position: 1, updatedAt: now },
     ])
-    expect(db.verno).toBe(18)
+    expect(db.verno).toBe(19)
     expect((await db.serviceItems.get('r1'))?.refItemId).toBe('i1')
     expect((await db.serviceItems.get('i1'))?.refItemId).toBeUndefined()
   })
@@ -336,9 +336,26 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     await db.open()
     await db.serviceItems.put({ id: 'old', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now })
     await db.serviceItems.put({ id: 'new', serviceId: 's1', type: 'song', songId: 'b', position: 1, key: 'A', updatedAt: now })
-    expect(db.verno).toBe(18)
+    expect(db.verno).toBe(19)
     expect((await db.serviceItems.get('old'))?.key).toBeUndefined()
     expect((await db.serviceItems.get('new'))?.key).toBe('A')
     expect((await db.serviceItems.where('serviceId').equals('s1').sortBy('position')).map((i) => i.id)).toEqual(['old', 'new'])
+  })
+
+  it('upgrades to v19 (from the v10 seed) keeping data and adding servicePreparations by serviceId', async () => {
+    await seedVersion10()
+    db = new SalmodiaDatabase()
+    await db.open()
+    await db.services.put({ id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, status: 'draft', createdByUserId: 'u1', createdAt: now, updatedAt: now })
+    db.close()
+    db = new SalmodiaDatabase()
+    await db.open()
+    expect(db.verno).toBe(19)
+    expect((await db.services.get('s1'))?.name).toBe('Culto')
+    await db.servicePreparations.bulkPut([
+      { id: 's1:u1', serviceId: 's1', userId: 'u1', preparedAt: now, updatedAt: now },
+      { id: 's2:u1', serviceId: 's2', userId: 'u1', preparedAt: now, updatedAt: now },
+    ])
+    expect((await db.servicePreparations.where('serviceId').equals('s1').toArray()).map((p) => p.id)).toEqual(['s1:u1'])
   })
 })

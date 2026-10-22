@@ -337,3 +337,59 @@ describe('TargetSyncEngine personal repertoires (FIX-01 C)', () => {
     expect(pulled?.organizationId).toBeUndefined()
   })
 })
+
+describe('TargetSyncEngine service preparations (B6 / RN-15…18)', () => {
+  const prep = { id: 's1:u1', serviceId: 's1', userId: 'u1', preparedAt: now, updatedAt: now }
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    remote.deleteRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.servicePreparations.clear()])
+  })
+
+  it('pushes a mark and an unmark with the composite key', async () => {
+    const engine = new TargetSyncEngine(db)
+    await db.targetSyncQueue.add({ entity: 'servicePreparations', entityId: prep.id, operation: 'upsert', payload: prep, updatedAt: now, attempts: 0 })
+    await engine.sync()
+    expect(remote.upsertRows).toHaveBeenCalledWith('service_preparations', [{ service_id: 's1', user_id: 'u1', prepared_at: now, updated_at: now }])
+    await db.targetSyncQueue.add({ entity: 'servicePreparations', entityId: prep.id, operation: 'delete', updatedAt: now, attempts: 0 })
+    await engine.sync()
+    expect(remote.deleteRows).toHaveBeenCalledWith('service_preparations', { service_id: 's1', user_id: 'u1' })
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('does not retry a rejected mark (403/409)', async () => {
+    for (const status of [403, 409]) {
+      await db.targetSyncQueue.clear()
+      remote.upsertRows.mockClear().mockRejectedValue(new ApiError(status, 'recusado'))
+      const engine = new TargetSyncEngine(db)
+      await db.targetSyncQueue.add({ entity: 'servicePreparations', entityId: prep.id, operation: 'upsert', payload: prep, updatedAt: now, attempts: 0 })
+      await engine.sync()
+      remote.upsertRows.mockClear()
+      await engine.sync()
+      expect(remote.upsertRows).not.toHaveBeenCalled()
+      expect((await engine.getStatus()).failed).toHaveLength(1)
+    }
+  })
+
+  it('pulls what the server returns and drops local rows that vanished remotely', async () => {
+    await db.servicePreparations.put({ ...prep, id: 's1:u2', userId: 'u2' })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'service_preparations'
+      ? [{ service_id: 's1', user_id: 'u1', prepared_at: now, updated_at: now }] : [])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.servicePreparations.toArray()).map((p) => p.id)).toEqual(['s1:u1'])
+  })
+  it('pull keeps a local row that is still queued and atomic put/delete enqueue together', async () => {
+    const engine = new TargetSyncEngine(db)
+    await db.servicePreparations.put(prep)
+    await db.targetSyncQueue.add({ entity: 'servicePreparations', entityId: prep.id, operation: 'upsert', payload: prep, updatedAt: now, attempts: 0 })
+    remote.upsertRows.mockRejectedValue(new ApiError(503, 'off'))
+    await engine.sync()
+    expect((await db.servicePreparations.toArray()).map((p) => p.id)).toEqual(['s1:u1'])
+    await db.targetSyncQueue.clear()
+    await engine.queueDeleteAtomic('servicePreparations', prep.id, [db.servicePreparations], async () => { await db.servicePreparations.delete(prep.id) })
+    expect(await db.servicePreparations.count()).toBe(0)
+    expect((await db.targetSyncQueue.toArray())[0]).toMatchObject({ operation: 'delete', entityId: prep.id })
+  })
+})

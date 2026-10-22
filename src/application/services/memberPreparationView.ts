@@ -6,6 +6,8 @@ import { serviceItemRepository } from '../../db/repositories/serviceItemReposito
 import { serviceRepository } from '../../db/repositories/serviceRepository'
 import { songRepository } from '../../db/repositories/songRepository'
 import { getCurrentUser } from '../../platform/auth'
+import { servicePreparationRepository } from '../../db/repositories/servicePreparationRepository'
+import { preparationId } from '../../domain/services/servicePreparation'
 import { getMyAccessContext } from '../teams/teamMemberService'
 
 export interface MemberPreparationItem {
@@ -31,6 +33,8 @@ export interface MemberPreparationView {
   myFunction: string | null
   items: MemberPreparationItem[]
   serviceNotes?: string
+  /** RN-15: estado próprio de "preparado". */
+  prepared: boolean
   /** Fatias 6–7: ainda não existem. */
   rehearsals: never[]
   materials: never[]
@@ -41,12 +45,13 @@ export interface MemberPreparationRepositories {
   items: typeof serviceItemRepository
   songs: typeof songRepository
   assignments: typeof assignmentRepository
+  preparations: typeof servicePreparationRepository
   access: (input: { organizationId: string; teamId?: string }) => Promise<AccessContext>
   currentUserId: () => string | undefined
 }
 
 const defaults: MemberPreparationRepositories = {
-  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository,
+  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository,
   access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id,
 }
 
@@ -62,6 +67,7 @@ export async function getMemberPreparationView(serviceId: string, repositories =
   const userId = repositories.currentUserId()
   const [assignments, items] = await Promise.all([repositories.assignments.listByServiceId(serviceId), repositories.items.listByServiceId(serviceId)])
   const mine = userId ? assignments.find((a) => a.userId === userId && (a.status === 'invited' || a.status === 'confirmed')) : undefined
+  const prepared = userId ? Boolean(await repositories.preparations.get(preparationId(serviceId, userId))) : false
   const ordered = [...items].sort((a, b) => a.position - b.position)
   const view: MemberPreparationItem[] = await Promise.all(ordered.map(async (item) => {
     const song = item.songId ? await repositories.songs.getById(item.songId) : undefined
@@ -74,6 +80,6 @@ export async function getMemberPreparationView(serviceId: string, repositories =
   }))
   return {
     success: true,
-    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, rehearsals: [], materials: [] },
+    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals: [], materials: [] },
   }
 }
