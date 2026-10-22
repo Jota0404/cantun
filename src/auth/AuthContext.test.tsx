@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
   getCurrentUser: vi.fn(() => null),
@@ -34,7 +34,7 @@ vi.mock('../application/privacy/recordConsent', () => ({ recordConsent }))
 
 import { db } from '../db/database'
 import { ApiError } from '../platform/http'
-import { AuthProvider } from './AuthContext.tsx'
+import { AuthProvider, SESSION_LOAD_TIMEOUT_MS } from './AuthContext.tsx'
 import { useAuth } from './authContext'
 
 const unverified = { id: 'user-1', email: 'a@example.com', emailVerified: false, displayName: 'Ana' }
@@ -188,5 +188,32 @@ describe('AuthProvider', () => {
     const { result } = await renderAuth()
     await act(() => result.current.requestPasswordReset('a@example.com'))
     expect(auth.requestPasswordReset).toHaveBeenCalledWith('a@example.com')
+  })
+
+  describe('session load timeout', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('opens with the local user after the timeout and reconciles a late 401', async () => {
+      vi.useFakeTimers()
+      let resolveLate: (u: null) => void = () => undefined
+      auth.getSession.mockReturnValueOnce(new Promise((r) => { resolveLate = r }))
+      auth.getCurrentUser.mockReturnValue(unverified as never)
+      const hook = renderHook(() => useAuth(), { wrapper })
+      expect(hook.result.current.loading).toBe(true)
+      await act(() => vi.advanceTimersByTimeAsync(SESSION_LOAD_TIMEOUT_MS))
+      expect(hook.result.current.loading).toBe(false)
+      expect(hook.result.current.user).toEqual(unverified)
+      await act(async () => { resolveLate(null) })
+      expect(hook.result.current.user).toBeNull()
+      auth.getCurrentUser.mockReturnValue(null as never)
+    })
+
+    it('a normal response cancels the timeout', async () => {
+      vi.useFakeTimers()
+      const hook = renderHook(() => useAuth(), { wrapper })
+      await act(async () => { await Promise.resolve() })
+      expect(hook.result.current.user).toEqual(unverified)
+      expect(vi.getTimerCount()).toBe(0)
+    })
   })
 })

@@ -10,6 +10,9 @@ import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
 import { recordConsent } from '../application/privacy/recordConsent'
 import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
+/** Servidor que aceita a conexão e não responde não pode prender o app em "Carregando…". */
+export const SESSION_LOAD_TIMEOUT_MS = 8000
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => platformAuth.getCurrentUser())
   const [loading, setLoading] = useState(isPlatformConfigured)
@@ -38,7 +41,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mounted.current = true
     if (!isPlatformConfigured) return
-    void platformAuth.getSession().then(applyUser)
+    // Timeout: abre com o usuário local; a resposta tardia (200 ou 401) reconcilia via applyUser.
+    const timer = setTimeout(() => { void applyUser(platformAuth.getCurrentUser()) }, SESSION_LOAD_TIMEOUT_MS)
+    void platformAuth.getSession().then((sessionUser) => {
+      clearTimeout(timer)
+      return applyUser(sessionUser)
+    })
 
     const onOnline = () => {
       void platformAuth.getSession().then((sessionUser) => {
@@ -50,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener('online', onOnline)
     return () => {
       mounted.current = false
+      clearTimeout(timer)
       window.removeEventListener('online', onOnline)
     }
   }, [applyUser])
