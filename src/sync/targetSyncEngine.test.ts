@@ -477,3 +477,55 @@ describe('TargetSyncEngine rehearsals (RN-19…21)', () => {
     expect((await db.targetSyncQueue.toArray()).filter((x) => x.entityId.startsWith('r1'))).toEqual([])
   })
 })
+
+describe('TargetSyncEngine materials (RN-22…25)', () => {
+  const mat = { id: 'm1', organizationId: 'o1', serviceId: 's1', kind: 'link' as const, title: 'Cifra', url: 'https://x.com/a', createdAt: now, updatedAt: now }
+  const row = { id: 'm1', organization_id: 'o1', service_id: 's1', rehearsal_id: null, song_id: null, kind: 'link', title: 'Cifra', url: 'https://x.com/a', notes: null, created_by: null, created_at: now, updated_at: now }
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    remote.selectRows.mockResolvedValue([])
+    remote.upsertRows.mockResolvedValue({ count: 1 })
+    remote.deleteRows.mockResolvedValue({ count: 1 })
+    await Promise.all([db.targetSyncQueue.clear(), db.materials.clear()])
+  })
+
+  it('pushes upsert and delete', async () => {
+    await db.targetSyncQueue.bulkAdd([
+      { entity: 'materials', entityId: 'm1', operation: 'upsert', payload: mat, updatedAt: now, attempts: 0 },
+      { entity: 'materials', entityId: 'm2', operation: 'delete', updatedAt: now, attempts: 0 },
+    ])
+    await new TargetSyncEngine(db).sync()
+    expect(remote.upsertRows).toHaveBeenCalledWith('materials', [row])
+    expect(remote.deleteRows).toHaveBeenCalledWith('materials', { id: 'm2' })
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('does not retry 403', async () => {
+    remote.upsertRows.mockRejectedValue(new ApiError(403, 'recusado'))
+    const engine = new TargetSyncEngine(db)
+    await db.targetSyncQueue.add({ entity: 'materials', entityId: 'm1', operation: 'upsert', payload: mat, updatedAt: now, attempts: 0 })
+    await engine.sync()
+    remote.upsertRows.mockClear()
+    await engine.sync()
+    expect(remote.upsertRows).not.toHaveBeenCalled()
+    expect((await engine.getStatus()).failed).toHaveLength(1)
+  })
+
+  it('409 (check de URL) goes to failed and keeps the local copy', async () => {
+    remote.upsertRows.mockRejectedValue(new ApiError(409, 'url inválida'))
+    await db.materials.put(mat)
+    await db.targetSyncQueue.add({ entity: 'materials', entityId: 'm1', operation: 'upsert', payload: mat, updatedAt: now, attempts: 0 })
+    const engine = new TargetSyncEngine(db)
+    await engine.sync()
+    expect(await db.materials.get('m1')).toBeDefined()
+    expect((await engine.getStatus()).failed).toHaveLength(1)
+  })
+
+  it('pull adds remote, drops vanished, keeps queued', async () => {
+    await db.materials.bulkPut([{ ...mat, id: 'gone' }, { ...mat, id: 'queued' }])
+    await db.targetSyncQueue.add({ entity: 'materials', entityId: 'queued', operation: 'upsert', payload: { ...mat, id: 'queued' }, updatedAt: now, attempts: 0, status: 'failed' })
+    remote.selectRows.mockImplementation(async (table: string) => table === 'materials' ? [row] : [])
+    await new TargetSyncEngine(db).sync()
+    expect((await db.materials.toArray()).map((m) => m.id).sort()).toEqual(['m1', 'queued'])
+  })
+})

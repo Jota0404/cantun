@@ -13,6 +13,7 @@ import type { MemberAvailability } from '../domain/services/memberAvailability'
 import type { ServicePreparation } from '../domain/services/servicePreparation'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { Rehearsal, RehearsalSong } from '../domain/services/rehearsal'
+import type { Material } from '../domain/services/material'
 import { rehearsalSongId } from '../domain/services/rehearsal'
 import { preparationId } from '../domain/services/servicePreparation'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
@@ -38,6 +39,7 @@ export type TargetEntityName =
   | 'servicePreparations'
   | 'rehearsals'
   | 'rehearsalSongs'
+  | 'materials'
   | 'stageSessions'
   | 'stageSessionStates'
 
@@ -56,6 +58,7 @@ export type TargetEntity =
   | ServicePreparation
   | Rehearsal
   | RehearsalSong
+  | Material
   | StageSession
   | StageSessionState
 
@@ -85,6 +88,7 @@ export type TargetWritableEntity =
   | ServicePreparation
   | Rehearsal
   | RehearsalSong
+  | Material
 
 export interface TargetSyncQueueItem {
   id?: number
@@ -128,12 +132,13 @@ const tables: Record<TargetEntityName, string> = {
   servicePreparations: 'service_preparations',
   rehearsals: 'rehearsals',
   rehearsalSongs: 'rehearsal_songs',
+  materials: 'materials',
   stageSessions: 'stage_sessions',
   stageSessionStates: 'stage_session_states',
 }
 
 // `rehearsalSongs` não tem `id`/`updatedAt` (chave composta): a fila usa `rehearsalId:serviceItemId`.
-const queueId = (payload: TargetWritableEntity) => 'rehearsalId' in payload ? rehearsalSongId(payload.rehearsalId, payload.serviceItemId) : payload.id
+const queueId = (payload: TargetWritableEntity) => 'serviceItemId' in payload ? rehearsalSongId(payload.rehearsalId, payload.serviceItemId) : payload.id
 const queueUpdatedAt = (payload: TargetWritableEntity) => 'updatedAt' in payload ? payload.updatedAt : new Date().toISOString()
 
 function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEntity) {
@@ -184,6 +189,10 @@ function toRemoteRow(entity: TargetWritableEntityName, value: TargetWritableEnti
       const v = value as RehearsalSong
       return { rehearsal_id: v.rehearsalId, service_item_id: v.serviceItemId }
     }
+    case 'materials': {
+      const v = value as Material
+      return { id: v.id, organization_id: v.organizationId, service_id: v.serviceId ?? null, rehearsal_id: v.rehearsalId ?? null, song_id: v.songId ?? null, kind: v.kind, title: v.title, url: v.url, notes: v.notes ?? null, created_by: v.createdByUserId ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
+    }
     case 'memberAvailability': {
       const v = value as MemberAvailability
       return { id: v.id, user_id: v.userId, organization_id: v.organizationId, date: v.date, status: v.status, note: v.note ?? null, created_at: v.createdAt, updated_at: v.updatedAt }
@@ -207,6 +216,7 @@ function fromRemoteRow(entity: TargetEntityName, row: Record<string, unknown>): 
     case 'servicePreparations': return { id: preparationId(String(row.service_id), String(row.user_id)), serviceId: String(row.service_id), userId: String(row.user_id), preparedAt: String(row.prepared_at), updatedAt: String(row.updated_at ?? row.prepared_at) }
     case 'rehearsals': return { id: String(row.id), organizationId: String(row.organization_id), serviceId: String(row.service_id), startsAt: String(row.starts_at), location: row.location ? String(row.location) : undefined, notes: row.notes ? String(row.notes) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'rehearsalSongs': return { rehearsalId: String(row.rehearsal_id), serviceItemId: String(row.service_item_id) }
+    case 'materials': return { id: String(row.id), organizationId: String(row.organization_id), serviceId: row.service_id ? String(row.service_id) : undefined, rehearsalId: row.rehearsal_id ? String(row.rehearsal_id) : undefined, songId: row.song_id ? String(row.song_id) : undefined, kind: 'link', title: String(row.title), url: String(row.url), notes: row.notes ? String(row.notes) : undefined, createdByUserId: row.created_by ? String(row.created_by) : undefined, createdAt: String(row.created_at), updatedAt: String(row.updated_at) }
     case 'stageSessions': return { id: String(row.id), serviceId: String(row.service_id), mdUserId: row.md_user_id ? String(row.md_user_id) : undefined, status: row.status as StageSession['status'], createdAt: String(row.created_at), startedAt: row.started_at ? String(row.started_at) : undefined, endedAt: row.ended_at ? String(row.ended_at) : undefined, updatedAt: String(row.updated_at) }
     case 'stageSessionStates': return toStageSessionState(row)
   }
@@ -229,6 +239,7 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName): Table<{ upd
     servicePreparations: db.servicePreparations,
     rehearsals: db.rehearsals,
     rehearsalSongs: db.rehearsalSongs,
+    materials: db.materials,
     stageSessions: db.stageSessions,
     stageSessionStates: db.stageSessionStates,
   }
@@ -439,6 +450,13 @@ export class TargetSyncEngine {
           const remoteIds = new Set(rows.map((r) => preparationId(String(r.service_id), String(r.user_id))))
           for (const local of await this.db.servicePreparations.toArray()) {
             if (!remoteIds.has(local.id) && await this.isSent('servicePreparations', local.id)) await this.db.servicePreparations.delete(local.id)
+          }
+        }
+        if (entity === 'materials') {
+          // Apagado em outro aparelho: o pull não apaga; só preserva o que ainda está na fila.
+          const remoteIds = new Set(rows.map((r) => String(r.id)))
+          for (const local of await this.db.materials.toArray()) {
+            if (!remoteIds.has(local.id) && await this.isSent('materials', local.id)) await this.db.materials.delete(local.id)
           }
         }
         if (entity === 'rehearsals' || entity === 'rehearsalSongs') {

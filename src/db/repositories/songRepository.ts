@@ -3,6 +3,7 @@ import { normalizeSongLyrics } from '../../domain/songs/normalizeSongLyrics'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
 import { getCurrentUser } from '../../platform/auth'
+import { MaterialRepository } from './materialRepository'
 import { queueLocalDelete, queueLocalUpsert } from '../../sync/syncService'
 
 function normalizeSong(song: Song): Song {
@@ -57,6 +58,7 @@ export class SongRepository {
 
   async remove(id: string): Promise<void> {
     const song = await this.db.songs.get(id)
+    await new MaterialRepository(this.db).removeLocalByOwner('songId', [id])
     await this.db.songs.delete(id)
     await queueLocalDelete(getCurrentUser()?.id ?? null, 'songs', id, undefined, song)
   }

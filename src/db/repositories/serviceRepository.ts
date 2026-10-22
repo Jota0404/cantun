@@ -1,6 +1,7 @@
 import type { Service } from '../../domain/services/service'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
+import { MaterialRepository } from './materialRepository'
 import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
 
 export class ServiceRepository {
@@ -14,6 +15,14 @@ export class ServiceRepository {
   /** Só Dexie, sem fila: `status` muda por RPC (RN-03). */
   async putLocal(value: Service): Promise<void> { await this.db.services.put(value) }
   async update(value: Service): Promise<void> { await this.db.services.put(value); await queueTargetUpsert('services', value) }
-  async remove(id: string): Promise<void> { await this.db.services.delete(id); await queueTargetDelete('services', id) }
+  async remove(id: string): Promise<void> {
+    // O banco apaga ensaios e materiais em cascata; localmente espelha os materiais do serviço e dos ensaios dele.
+    const materials = new MaterialRepository(this.db)
+    const rehearsalIds = (await this.db.rehearsals.where('serviceId').equals(id).primaryKeys()) as string[]
+    await materials.removeLocalByOwner('rehearsalId', rehearsalIds)
+    await materials.removeLocalByOwner('serviceId', [id])
+    await this.db.services.delete(id)
+    await queueTargetDelete('services', id)
+  }
 }
 export const serviceRepository = new ServiceRepository()

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createRehearsal, deleteRehearsal, listRehearsals, updateRehearsal, type RehearsalView } from '../../application/services/rehearsalService'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import type { ServiceItem } from '../../domain/services/serviceItem'
+import { MaterialsPanel } from './MaterialsPanel'
 import { formatServiceDate, toLocalInput } from './serviceLabels'
 import './RehearsalPanel.css'
 
@@ -92,6 +93,7 @@ export function RehearsalPanel({ serviceId, items, itemLabel, final }: Props) {
         {r.location && <span> · {r.location}</span>}
         {r.notes && <p>{r.notes}</p>}
         {r.songs.length > 0 && <p>Em foco: {r.songs.map((s) => s.title).join(', ')}</p>}
+        <MaterialsPanel owner={{ type: 'rehearsal', id: r.id }} title="Materiais do ensaio" final={final} />
         {controls && <div className="rehearsal-panel__actions">
           <button type="button" aria-label={`Editar ensaio de ${formatServiceDate(r.startsAt)}`} onClick={() => open(r)}>Editar</button>
           <button type="button" aria-label={`Excluir ensaio de ${formatServiceDate(r.startsAt)}`} onClick={() => void remove(r)}>Excluir</button>

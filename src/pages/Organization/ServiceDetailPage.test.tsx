@@ -33,6 +33,7 @@ vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } 
 vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/services/rehearsalService', () => ({ listRehearsals: async () => ({ success: true, rehearsals: [], canManage: false }), createRehearsal: vi.fn(), updateRehearsal: vi.fn(), deleteRehearsal: vi.fn() }))
+vi.mock('../../application/services/materialService', () => ({ listMaterials: async () => ({ success: true, materials: [], canManage: false }), addMaterial: vi.fn(), updateMaterial: vi.fn(), deleteMaterial: vi.fn() }))
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
 vi.mock('../../application/stage/stageSessionService', () => ({ createStageSession: vi.fn(), startStageSession: vi.fn() }))
 vi.mock('../../application/services/serviceService', () => ({
@@ -98,11 +99,10 @@ describe('ServiceDetailPage', () => {
     expect(screen.queryByRole('region', { name: 'Mudar status' })).not.toBeInTheDocument()
   })
 
-  it('member sees the service read-only with materials placeholder', async () => {
+  it('member sees the service read-only without edit controls', async () => {
     renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
     await screen.findByText('1. Boas-vindas')
     expect(screen.queryByRole('button', { name: /Subir|Remover|Editar informações/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Materiais' })).toBeInTheDocument()
   })
 
   it('leader deletes drafts after confirming', async () => {

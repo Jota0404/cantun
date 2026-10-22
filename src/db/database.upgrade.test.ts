@@ -325,7 +325,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
       { id: 'i1', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now },
       { id: 'r1', serviceId: 's1', type: 'reprise', title: 'Reprise: a', refItemId: 'i1', position: 1, updatedAt: now },
     ])
-    expect(db.verno).toBe(20)
+    expect(db.verno).toBe(21)
     expect((await db.serviceItems.get('r1'))?.refItemId).toBe('i1')
     expect((await db.serviceItems.get('i1'))?.refItemId).toBeUndefined()
   })
@@ -336,7 +336,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     await db.open()
     await db.serviceItems.put({ id: 'old', serviceId: 's1', type: 'song', songId: 'a', position: 0, updatedAt: now })
     await db.serviceItems.put({ id: 'new', serviceId: 's1', type: 'song', songId: 'b', position: 1, key: 'A', updatedAt: now })
-    expect(db.verno).toBe(20)
+    expect(db.verno).toBe(21)
     expect((await db.serviceItems.get('old'))?.key).toBeUndefined()
     expect((await db.serviceItems.get('new'))?.key).toBe('A')
     expect((await db.serviceItems.where('serviceId').equals('s1').sortBy('position')).map((i) => i.id)).toEqual(['old', 'new'])
@@ -350,7 +350,7 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     db.close()
     db = new SalmodiaDatabase()
     await db.open()
-    expect(db.verno).toBe(20)
+    expect(db.verno).toBe(21)
     expect((await db.services.get('s1'))?.name).toBe('Culto')
     await db.servicePreparations.bulkPut([
       { id: 's1:u1', serviceId: 's1', userId: 'u1', preparedAt: now, updatedAt: now },
@@ -367,12 +367,24 @@ describe('SalmodiaDatabase version 18 (personal repertoires)', () => {
     db.close()
     db = new SalmodiaDatabase()
     await db.open()
-    expect(db.verno).toBe(20)
+    expect(db.verno).toBe(21)
     expect((await db.services.get('s1'))?.name).toBe('Culto')
     await db.rehearsals.put({ id: 'r1', organizationId: 'org-1', serviceId: 's1', startsAt: now, createdAt: now, updatedAt: now })
     await db.rehearsalSongs.bulkPut([{ rehearsalId: 'r1', serviceItemId: 'i1' }, { rehearsalId: 'r2', serviceItemId: 'i1' }])
     expect((await db.rehearsals.where('serviceId').equals('s1').toArray()).map((r) => r.id)).toEqual(['r1'])
     expect(await db.rehearsalSongs.where('serviceItemId').equals('i1').count()).toBe(2)
     expect(await db.rehearsalSongs.where('rehearsalId').equals('r1').count()).toBe(1)
+  })
+
+  it('upgrades to v21 adding materials indexed by owner', async () => {
+    await seedVersion10()
+    db = new SalmodiaDatabase()
+    await db.open()
+    expect(db.verno).toBe(21)
+    const base = { organizationId: 'org-1', kind: 'link' as const, title: 'Cifra', url: 'https://x.com', createdAt: now, updatedAt: now }
+    await db.materials.bulkPut([{ ...base, id: 'm1', serviceId: 's1' }, { ...base, id: 'm2', rehearsalId: 'r1' }, { ...base, id: 'm3', songId: 'g1' }])
+    expect((await db.materials.where('serviceId').equals('s1').toArray()).map((m) => m.id)).toEqual(['m1'])
+    expect(await db.materials.where('rehearsalId').equals('r1').count()).toBe(1)
+    expect(await db.materials.where('songId').equals('g1').count()).toBe(1)
   })
 })

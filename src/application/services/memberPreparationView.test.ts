@@ -9,19 +9,20 @@ import { songRepository } from '../../db/repositories/songRepository'
 import type { AccessContext } from '../../domain/access/permissions'
 import { getMemberPreparationView, type MemberPreparationRepositories } from './memberPreparationView'
 
+import { materialRepository } from '../../db/repositories/materialRepository'
 import { defaultRehearsalRepositories } from './rehearsalService'
 vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn() }))
 
 const now = '2026-10-01T12:00:00Z'
 const service = { id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, notes: 'Chegar cedo', status: 'draft' as const, createdByUserId: 'u1', createdAt: now, updatedAt: now }
 const repos = (access: AccessContext = { organizationRole: 'member' } as AccessContext): MemberPreparationRepositories => ({
-  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository, access: async () => access, currentUserId: () => 'me', rehearsals: defaultRehearsalRepositories,
+  services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository, access: async () => access, currentUserId: () => 'me', rehearsals: defaultRehearsalRepositories, materials: materialRepository,
 })
 const assignment = (status: 'invited' | 'declined', userId = 'me') => ({ id: `a-${status}-${userId}`, serviceId: 's1', positionId: 'p1', userId, musicalFunction: 'Vocal', status, createdAt: now, updatedAt: now })
 
 describe('getMemberPreparationView (RN-12…14)', () => {
   beforeEach(async () => {
-    await Promise.all([db.services.clear(), db.serviceItems.clear(), db.songs.clear(), db.assignments.clear()])
+    await Promise.all([db.services.clear(), db.serviceItems.clear(), db.songs.clear(), db.assignments.clear(), db.materials.clear(), db.rehearsals.clear()])
     await db.services.put(service)
     await db.songs.bulkPut([
       { id: 'a', title: 'Grande', artist: 'Ana', bpm: 72, originalKey: 'G', currentKey: 'A', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now },
@@ -43,6 +44,15 @@ describe('getMemberPreparationView (RN-12…14)', () => {
     expect(result.view.items[0]).toMatchObject({ title: 'Grande', artist: 'Ana', bpm: 72, effectiveKey: 'A' })
     expect(result.view.items[1]).toMatchObject({ effectiveKey: 'D', notes: 'só violão' })
     expect(result.view.items[2]).toMatchObject({ type: 'reprise', title: 'Reprise: Grande', effectiveKey: undefined })
+  })
+
+  it('lists materials of the service, rehearsals and ordered songs', async () => {
+    const m = (id: string, owner: object) => ({ id, organizationId: 'org-1', kind: 'link' as const, title: id, url: 'https://www.exemplo.com/x', createdAt: now, updatedAt: now, ...owner })
+    await db.rehearsals.put({ id: 'r1', organizationId: 'org-1', serviceId: 's1', startsAt: now, createdAt: now, updatedAt: now })
+    await db.materials.bulkPut([m('ms', { serviceId: 's1' }), m('mr', { rehearsalId: 'r1' }), m('mg', { songId: 'a' }), m('other', { songId: 'zzz' })])
+    const result = await getMemberPreparationView('s1', repos())
+    if (!result.success) throw new Error('fail')
+    expect(result.view.materials.map((x) => [x.id, x.ownerType, x.ownerId, x.domain])).toEqual([['ms', 'service', 's1', 'exemplo.com'], ['mr', 'rehearsal', 'r1', 'exemplo.com'], ['mg', 'song', 'a', 'exemplo.com']])
   })
 
   it('returns null function without an active assignment', async () => {

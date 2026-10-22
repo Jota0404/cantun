@@ -41,6 +41,7 @@ export const PERMISSION_MATRIX = {
   'preparation.set_own': { scope: 'team', owner: 'P', admin: 'P', leader: 'P', member: 'P' },
   'preparation.read_team': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'rehearsal.manage': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
+  'material.manage': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.create': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.edit': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
   'service.transition': { scope: 'team', owner: true, admin: true, leader: 'L', member: false },
