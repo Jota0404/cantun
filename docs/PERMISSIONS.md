@@ -119,6 +119,14 @@ Escopo de equipe = **equipe do serviço** (`services.team_id`). Spec: [`VS-03-es
 
 Leitura de vagas e atribuições (quem está escalado): membro **ativo** na organização (seção 4), sem capacidade própria (proposta, decisão do owner).
 
+### 3.6 Registro da execução e histórico (B7 — VS-06, ADR-057 classe C)
+
+Sem capacidade nova (o espelho `permissions.ts` não muda). `0023_execution_history.sql`.
+- **Geração:** só o servidor, na transição `in_progress → completed` de `transition_service` (quem tem `service.transition`). Snapshot imutável: `service_executions` (+ `service_execution_songs`, `service_execution_members`). Cancelar não gera. `cantum_user` não tem INSERT/UPDATE/DELETE; `app.record_service_execution` não tem EXECUTE para ele.
+- **Leitura** (tabelas, `get_service_execution`, `get_song_history`): membro **ativo na organização** (seção 4), qualquer equipe. Outra organização, sem vínculo, anônimo e `inactive` em todas as equipes: nada.
+- **Decisões pendentes do owner (adotadas pela recomendação da spec):** D1 tom = `coalesce(service_items.key, songs.current_key)`; D2 concluir com Palco `lobby`/`live` é recusado (`stage session still open`); D3 equipe = só `confirmed`.
+- **Dado pessoal (ADR-063):** `user_id` e `completed_by_user_id` viram nulos na exclusão da conta ("Ex-membro"); `team_member.remove` não apaga participações; `export_my_data` inclui `service_participations`. Sai com o serviço e a organização.
+
 Capacidades ainda fora (Network, solicitações externas) seguem o Blueprint §49 e entram no B10.
 
 ## 4. Membro `inactive`, Líder inativo e quem está "ativo"
@@ -210,6 +218,20 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 | F11 | Escrita direta de `organization_id` em repertório pessoal para "roubar" para uma organização, ou vice-versa | negado (a mudança só ocorre pela RPC de importação, que cria cópia) |
 | F12 | Atualizar uma cópia da organização trocando `user_id` (autor) ou `organization_id`, ou upsert que cria linha própria do editor em vez de editar a cópia | negado (trigger de guarda); Líder/Admin não autor editam **a mesma linha**, sem trocar o autor |
 
+### 5.4 Registro da execução (B7 — VS-06)
+
+| # | Caso | Resultado esperado |
+|---|---|---|
+| H1 | Concluir: um registro com músicas `song` na ordem, tom efetivo, só `confirmed`, duração do Palco; concluir de novo | um registro; repetir = `invalid service transition` |
+| H2 | `insert`/`update`/`delete` direto nas tabelas do registro (inclui `/sync`) ou chamar o gerador, por Owner, Admin, Líder ou Membro | negado (privilégio) |
+| H3 | Editar a música depois; excluir a música | registro inalterado; `song_id` nulo, título preservado |
+| H4 | Usuário de outra organização ou sem vínculo lê registro ou histórico | vazio/nulo |
+| H5 | Anônimo | vazio/nulo |
+| H6 | `inactive` em todas as equipes lê; Líder `inactive` numa equipe e ativo noutra | negado; lê |
+| H7 | Membro de outra equipe da mesma organização lê | lê |
+| H9 | Excluir a conta; `team_member.remove`; `export_my_data` | ids nulos e registro intacto; participação mantida; export só com as do titular |
+| D2 | Concluir com Palco `lobby`/`live`; cancelar | `stage session still open`, nada muda; cancelar não gera registro |
+
 ## 6. Fora do B2
 
 - Troca ou recuperação de Owner (issue futura).
@@ -233,5 +255,6 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 | `app.has_permission` + RLS/RPCs | `db/migrations/0004_team_roles.sql` | B2 PR 2 (`feat/team-roles-schema`) |
 | `service.*` + RLS + `transition_service` | `db/migrations/0005_service_ops.sql` | B3 PR 2 (`feat/service-schema`) |
 | `schedule.manage` + vagas + RPCs de atribuição + disponibilidade | `db/migrations/0006_schedule.sql` | B4 PR 2 (`feat/schedule-schema`) |
+| Registro da execução + leituras | `db/migrations/0023_execution_history.sql` | B7 fatia 3 (`feat/execution-history-schema`) |
 | Espelho `permissions.ts` | `src/domain/access/` | B2 PR 3 (`feat/team-roles-domain`) |
 | Uso na UI (esconder/desabilitar) | `src/pages`, `src/components` | B2 PR 4 e PR 5 |

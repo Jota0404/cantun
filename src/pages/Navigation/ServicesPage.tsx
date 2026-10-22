@@ -8,12 +8,13 @@ import { hasPermission } from '../../domain/access/permissions'
 import type { Organization } from '../../domain/organizations/organization'
 import type { Team } from '../../domain/teams/team'
 import { ServicesPanel } from '../../components/service/ServicesPanel'
+import { CompletedServicesPanel } from '../../components/service/CompletedServicesPanel'
 import { MyServicesPage } from '../Schedule/MyServicesPage'
 import './NavigationPages.css'
 
 // Apêndice B. Tarefa: ver onde estou escalado e quais serviços existem. Prioridade: o que preciso confirmar.
-// Ação óbvia: abrir o serviço. "Todos os serviços" só aparece para quem cria serviços (RN-02).
-export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
+// Ação óbvia: abrir o serviço. "Todos os serviços" e "Realizados" só aparecem para quem cria serviços (RN-02).
+export function ServicesPage({ tab }: { tab: 'mine' | 'all' | 'done' }) {
   const [organization, setOrganization] = useState<Organization>()
   const [teams, setTeams] = useState<Team[]>([])
   const [canManage, setCanManage] = useState(false)
@@ -47,9 +48,12 @@ export function ServicesPage({ tab }: { tab: 'mine' | 'all' }) {
         <nav className="nav-page__tabs" aria-label="Seções de serviços">
           <NavLink to="/meus-servicos" end>Meus serviços</NavLink>
           <NavLink to="/servicos/todos" end>Todos os serviços</NavLink>
+          <NavLink to="/servicos/realizados" end>Realizados</NavLink>
         </nav>
       )}
-      {showAll
+      {tab === 'done' && canManage
+        ? organization && <CompletedServicesPanel organizationId={organization.id} />
+        : showAll
         ? organization && <ServicesPanel organizationId={organization.id} teams={teams} />
         : <MyServicesPage />}
       {loaded && tab === 'all' && !canManage && <p>Você vê aqui os serviços em que está escalado.</p>}

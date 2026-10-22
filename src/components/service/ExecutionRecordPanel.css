@@ -1,0 +1,3 @@
+.execution-panel ol, .execution-panel ul { padding-left: 1.25rem; display: grid; gap: 0.5rem; }
+.execution-panel li { min-height: 24px; overflow-wrap: anywhere; }
+.execution-panel__notice { padding: 0.5rem 0.75rem; border: 1px solid currentColor; border-radius: 6px; }

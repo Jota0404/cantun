@@ -13,6 +13,7 @@ const deleteSongMock = vi.fn()
 const updateSongMock = vi.fn()
 const transposeSongMock = vi.fn()
 
+vi.mock('../../application/services/executionHistoryService', () => ({ getSongHistory: async () => ({ success: true, history: { lastPlayedAt: null, playsLast12Months: 0, keys: [], recent: [] } }), listRepertoiresWithSong: async () => [] }))
 vi.mock('../../application/services/materialService', () => ({ listMaterials: async () => ({ success: true, materials: [], canManage: false }), addMaterial: vi.fn(), updateMaterial: vi.fn(), deleteMaterial: vi.fn() }))
 vi.mock('../../application/songs/getSongById', () => ({
   getSongById: (...args: unknown[]) => getSongByIdMock(...args),
