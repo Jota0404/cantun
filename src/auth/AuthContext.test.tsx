@@ -24,7 +24,11 @@ const engines = vi.hoisted(() => ({
   syncEngine: { bootstrap: vi.fn(), sync: vi.fn(), start: vi.fn(), stop: vi.fn(async () => undefined) },
   targetSyncEngine: { start: vi.fn(), stop: vi.fn(async () => undefined) },
 }))
-vi.mock('../sync/syncService', () => ({ ...engines, syncTargetDomain: vi.fn() }))
+const syncTargetDomain = vi.hoisted(() => vi.fn())
+vi.mock('../sync/syncService', () => ({ ...engines, syncTargetDomain }))
+
+const periodic = vi.hoisted(() => { const stop = vi.fn(); return { stop, start: vi.fn(() => stop) } })
+vi.mock('../sync/periodicPull', () => ({ startPeriodicPull: periodic.start }))
 
 const deleteMyAccount = vi.hoisted(() => vi.fn())
 vi.mock('../application/privacy/deleteMyAccount', () => ({ deleteMyAccount }))
@@ -137,6 +141,43 @@ describe('AuthProvider', () => {
     const stopOrder = engines.syncEngine.stop.mock.invocationCallOrder[0]
     expect(stopOrder).toBeLessThan(auth.signOut.mock.invocationCallOrder[0])
     expect(engines.targetSyncEngine.stop).toHaveBeenCalled()
+  })
+
+  it('starts the periodic pull with a session and stops it on sign out', async () => {
+    const { result } = await renderAuth()
+    expect(periodic.start).toHaveBeenCalledTimes(1)
+    await act(async () => { await result.current.signOut() })
+    expect(periodic.stop).toHaveBeenCalled()
+  })
+
+  it('signOut stops both engines before ending the session and clearing data', async () => {
+    const { result } = await renderAuth()
+    await act(async () => { await result.current.signOut() })
+    expect(engines.targetSyncEngine.stop.mock.invocationCallOrder[0]).toBeLessThan(auth.signOut.mock.invocationCallOrder[0])
+    expect(engines.syncEngine.stop.mock.invocationCallOrder[0]).toBeLessThan(auth.signOut.mock.invocationCallOrder[0])
+  })
+
+  it('signOut restarts the engines when the remote sign-out fails', async () => {
+    const { result } = await renderAuth()
+    auth.signOut.mockRejectedValueOnce(new Error('boom'))
+    auth.getCurrentUser.mockReturnValue(unverified as never)
+    engines.targetSyncEngine.start.mockClear()
+    await act(async () => { await result.current.signOut().catch(() => undefined) })
+    auth.getCurrentUser.mockReturnValue(null as never)
+    expect(engines.targetSyncEngine.start).toHaveBeenCalled()
+    expect(syncTargetDomain).toHaveBeenCalled()
+    expect(result.current.user).toEqual(unverified)
+  })
+
+  it('signOut does not restart the engines when the session already ended (local cleanup failed)', async () => {
+    const { result } = await renderAuth()
+    auth.signOut.mockResolvedValueOnce(undefined)
+    const spy = vi.spyOn(db, 'transaction').mockRejectedValueOnce(new Error('idb'))
+    engines.targetSyncEngine.start.mockClear()
+    await act(async () => { await result.current.signOut() })
+    spy.mockRestore()
+    expect(engines.targetSyncEngine.start).not.toHaveBeenCalled()
+    expect(result.current.user).toBeNull()
   })
 
   it('deleteAccount keeps everything when the server refuses', async () => {

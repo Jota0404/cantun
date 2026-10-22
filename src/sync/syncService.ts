@@ -30,11 +30,6 @@ export async function queueTargetUpserts(entity: TargetWritableEntityName, paylo
   await targetSyncEngine.queueUpserts(entity, payloads, tables, write, also)
 }
 
-export async function queueTargetDelete(entity: TargetWritableEntityName, entityId: string, updatedAt?: string) {
-  if (!targetSyncEngine) return
-  await targetSyncEngine.queueDelete(entity, entityId, updatedAt)
-}
-
 /** Apaga e enfileira o delete em uma transação; sem sync configurado, só apaga. */
 export async function queueTargetDeleteAtomic(entity: TargetWritableEntityName, entityId: string | string[], tables: Table[], write: () => Promise<void>) {
   if (!targetSyncEngine) return db.transaction('rw', tables, write)

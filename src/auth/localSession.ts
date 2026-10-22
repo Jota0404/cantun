@@ -108,6 +108,8 @@ export interface SignOutWithLocalCleanupDeps {
   flushPendingChanges: () => Promise<void>
   /** Encerra a sessão remota. Se lançar erro, nada local é apagado. */
   signOutRemote: () => Promise<void>
+  /** Para os motores de sync (e espera o pull em andamento) antes de sair e limpar; nada grava depois. */
+  stopSync?: () => Promise<void>
   storage?: KeyValueStorage | null
 }
 
@@ -137,6 +139,7 @@ export async function signOutWithLocalCleanup(
     throw new PendingLocalChangesError(pending)
   }
 
+  await deps.stopSync?.()
   await deps.signOutRemote()
   await clearLocalUserData(deps.db)
   safeRemove(storage, LOCAL_DATA_OWNER_KEY)

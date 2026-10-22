@@ -9,7 +9,7 @@ import type { AccessContext } from '../../domain/access/permissions'
 import { addMaterial, deleteMaterial, listMaterials, updateMaterial, type MaterialRepositories } from './materialService'
 
 const sync = vi.hoisted(() => ({
-  queueTargetUpsert: vi.fn(), queueTargetDelete: vi.fn(), queueLocalUpsert: vi.fn(), queueLocalDelete: vi.fn(),
+  queueTargetUpsert: vi.fn(), queueLocalUpsert: vi.fn(), queueLocalDelete: vi.fn(),
   queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()),
   queueTargetDeleteAtomic: vi.fn(async (_e: string, _i: string, _t: unknown, write: () => Promise<void>) => write()),
 }))

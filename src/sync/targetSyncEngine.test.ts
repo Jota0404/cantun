@@ -586,8 +586,11 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
     expect(await db.serviceItems.count()).toBe(2)
   })
 
-  it('does not remove rows created after the pull started', async () => {
-    await db.servicePositions.put({ id: 'new', serviceId: 'svc-1', musicalFunction: 'vocals', quantity: 1, createdAt: '2999-01-01T00:00:00Z', updatedAt: '2999-01-01T00:00:00Z' })
+  it('does not remove rows created while the GET was in flight (even with a skewed clock)', async () => {
+    remote.selectRows.mockImplementation(async (table: string) => {
+      if (table === 'service_positions') await db.servicePositions.put({ id: 'new', serviceId: 'svc-1', musicalFunction: 'vocals', quantity: 1, createdAt: now, updatedAt: '1999-01-01T00:00:00Z' })
+      return []
+    })
     await new TargetSyncEngine(db).sync()
     expect(await db.servicePositions.count()).toBe(1)
   })
@@ -609,10 +612,124 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
   })
 
   it('does not sweep non-mirrored entities', async () => {
-    await db.services.put({ id: 'svc-x', updatedAt: now } as never)
+    await db.organizations.put({ id: 'org-x', name: 'x', createdAt: now, updatedAt: now })
     await new TargetSyncEngine(db).sync()
-    expect(await db.services.get('svc-x')).toBeDefined()
-    await db.services.clear()
+    expect(await db.organizations.get('org-x')).toBeDefined()
+    await db.organizations.clear()
+  })
+
+  describe('mirror of services and repertoires (#127)', () => {
+    const svc = (id: string) => ({ id, organizationId: 'o', teamId: null, name: id, startsAt: now, status: 'draft', createdByUserId: 'u', createdAt: now, updatedAt: now })
+    const rep = (id: string) => ({ id, name: id, createdByUserId: 'u', version: 1, createdAt: now, updatedAt: now })
+    beforeEach(async () => {
+      await Promise.all([db.services.clear(), db.repertoires.clear(), db.serviceItems.clear(), db.repertoireItems.clear(), db.rehearsals.clear(), db.rehearsalSongs.clear(), db.materials.clear(), db.servicePositions.clear(), db.servicePreparations.clear(), db.assignments.clear(), db.stageSessions.clear(), db.stageSessionStates.clear(), db.targetSyncQueue.clear()])
+    })
+
+    it('removes a service deleted elsewhere with its children, keeps the ones still on the server', async () => {
+      await db.services.bulkPut([svc('gone'), svc('kept')] as never)
+      await db.serviceItems.bulkPut([item('i1', 0), { ...item('i2', 1), serviceId: 'kept' }] as never)
+      await db.rehearsals.put({ id: 'rh', organizationId: 'o', serviceId: 'gone', startsAt: now, createdAt: now, updatedAt: now })
+      await db.rehearsalSongs.put({ rehearsalId: 'rh', serviceItemId: 'i1' })
+      await db.materials.put({ id: 'm', organizationId: 'o', rehearsalId: 'rh', kind: 'link', title: 't', url: 'u', createdAt: now, updatedAt: now } as never)
+      await db.targetSyncQueue.add({ entity: 'servicePositions', entityId: 'p', operation: 'upsert', payload: position('p') as never, updatedAt: now, attempts: 0 })
+      await db.servicePositions.put({ ...position('p'), serviceId: 'gone' } as never)
+      remote.selectRows.mockImplementation(async (table: string) => table === 'services' ? [{ id: 'kept', organization_id: 'o', team_id: null, name: 'kept', starts_at: now, status: 'draft', created_by_user_id: 'u', created_at: now, updated_at: now }] : [])
+      await new TargetSyncEngine(db).sync()
+      expect((await db.services.toArray()).map((s) => s.id)).toEqual(['kept'])
+      expect(await db.rehearsals.count()).toBe(0)
+      expect(await db.rehearsalSongs.count()).toBe(0)
+      expect(await db.materials.count()).toBe(0)
+      expect(await db.servicePositions.count()).toBe(0)
+    })
+
+    it('keeps a locally created service/repertoire that is still queued', async () => {
+      await db.services.put(svc('new') as never)
+      await db.repertoires.put(rep('newrep') as never)
+      remote.upsertRows.mockRejectedValue(new Error('offline'))
+      for (const [entity, payload] of [['services', svc('new')], ['repertoires', rep('newrep')]] as const) {
+        await db.targetSyncQueue.add({ entity, entityId: payload.id, operation: 'upsert', payload: payload as never, updatedAt: now, attempts: 0 })
+      }
+      await new TargetSyncEngine(db).sync()
+      expect(await db.services.count()).toBe(1)
+      expect(await db.repertoires.count()).toBe(1)
+    })
+
+    it('removes a repertoire deleted elsewhere with its items', async () => {
+      await db.repertoires.put(rep('r') as never)
+      await db.repertoireItems.put({ id: 'ri', repertoireId: 'r', songId: 's', position: 0, updatedAt: now })
+      await new TargetSyncEngine(db).sync()
+      expect(await db.repertoires.count()).toBe(0)
+      expect(await db.repertoireItems.count()).toBe(0)
+    })
+
+    it('does not mirror when the pull fails', async () => {
+      await db.services.put(svc('a') as never)
+      await db.repertoires.put(rep('b') as never)
+      remote.selectRows.mockRejectedValue(new Error('offline'))
+      await new TargetSyncEngine(db).sync()
+      expect(await db.services.count()).toBe(1)
+      expect(await db.repertoires.count()).toBe(1)
+    })
+
+    it('does not remove a service written (putLocal) while the GET was in flight', async () => {
+      remote.selectRows.mockImplementation(async (table: string) => {
+        if (table === 'services') await db.services.put({ ...svc('late'), updatedAt: '1999-01-01T00:00:00Z' } as never)
+        return []
+      })
+      await new TargetSyncEngine(db).sync()
+      expect(await db.services.count()).toBe(1)
+    })
+
+    it('cascades a remotely deleted service to every child and to the children queue items', async () => {
+      await db.services.put(svc('gone') as never)
+      await db.serviceItems.put({ ...item('i1', 0), serviceId: 'gone' } as never)
+      await db.servicePositions.put({ ...position('p1'), serviceId: 'gone' } as never)
+      await db.servicePreparations.put({ id: 'gone:u', serviceId: 'gone', userId: 'u', preparedAt: now, updatedAt: now })
+      await db.assignments.put({ id: 'a1', serviceId: 'gone', updatedAt: now } as never)
+      await db.stageSessions.put({ id: 'ss', serviceId: 'gone', status: 'active', createdAt: now, updatedAt: now } as never)
+      await db.stageSessionStates.put({ stageSessionId: 'ss', updatedAt: now } as never)
+      await db.rehearsals.put({ id: 'rh', organizationId: 'o', serviceId: 'gone', startsAt: now, createdAt: now, updatedAt: now })
+      await db.rehearsalSongs.put({ rehearsalId: 'rh', serviceItemId: 'i1' })
+      await db.materials.bulkPut([
+        { id: 'm1', organizationId: 'o', serviceId: 'gone', kind: 'link', title: 't', url: 'u', createdAt: now, updatedAt: now },
+        { id: 'm2', organizationId: 'o', rehearsalId: 'rh', kind: 'link', title: 't', url: 'u', createdAt: now, updatedAt: now },
+      ] as never)
+      // Os filhos têm push pendente que o servidor recusa: a fila deles não pode sobreviver nem bloquear.
+      remote.upsertRows.mockRejectedValue(new ApiError(403, 'x'))
+      await db.targetSyncQueue.bulkAdd([
+        { entity: 'serviceItems', entityId: 'i1', operation: 'upsert', payload: { ...item('i1', 0), serviceId: 'gone' } as never, updatedAt: now, attempts: 1, status: 'failed' },
+        { entity: 'rehearsalSongs', entityId: 'rh:i1', operation: 'upsert', payload: { rehearsalId: 'rh', serviceItemId: 'i1' } as never, updatedAt: now, attempts: 1, status: 'failed' },
+        { entity: 'materials', entityId: 'm1', operation: 'upsert', payload: {} as never, updatedAt: now, attempts: 1, status: 'failed' },
+        { entity: 'servicePositions', entityId: 'p1', operation: 'upsert', payload: {} as never, updatedAt: now, attempts: 1, status: 'failed' },
+      ] as TargetSyncQueueItem[])
+      await new TargetSyncEngine(db).sync()
+      for (const t of [db.services, db.serviceItems, db.servicePositions, db.servicePreparations, db.assignments, db.stageSessions, db.stageSessionStates, db.rehearsals, db.rehearsalSongs, db.materials, db.targetSyncQueue]) {
+        expect([t.name, await t.count()]).toEqual([t.name, 0])
+      }
+    })
+
+    it('cascades a remotely deleted repertoire to its items and their queue items', async () => {
+      await db.repertoires.put(rep('r') as never)
+      await db.repertoireItems.put({ id: 'ri', repertoireId: 'r', songId: 's', position: 0, updatedAt: now })
+      await db.targetSyncQueue.add({ entity: 'repertoireItems', entityId: 'ri', operation: 'upsert', payload: { id: 'ri', repertoireId: 'r', songId: 's', position: 0, updatedAt: now } as never, updatedAt: now, attempts: 1, status: 'failed' })
+      await new TargetSyncEngine(db).sync()
+      expect(await db.repertoireItems.count()).toBe(0)
+      expect(await db.targetSyncQueue.count()).toBe(0)
+    })
+
+    it('writes nothing after stop() when the pull was in flight (sign out)', async () => {
+      let release: (rows: unknown[]) => void = () => undefined
+      remote.selectRows.mockImplementation((table: string) => table === 'services'
+        ? new Promise((resolve) => { release = resolve })
+        : Promise.resolve([]))
+      const engine = new TargetSyncEngine(db)
+      const running = engine.sync()
+      await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledWith('services'))
+      const stopping = engine.stop()
+      release([{ id: 'srv', organization_id: 'o', team_id: null, name: 'x', starts_at: now, status: 'draft', created_by_user_id: 'u', created_at: now, updated_at: now }])
+      await Promise.all([running, stopping])
+      expect(await db.services.count()).toBe(0)
+    })
   })
 
   it('a failed pull of one entity does not wipe it nor the others', async () => {
@@ -634,7 +751,7 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
 
   it('pulls mirrored entities with no filter (full pull invariant)', async () => {
     await new TargetSyncEngine(db).sync()
-    for (const t of ['service_items', 'repertoire_items', 'service_positions', 'member_availability']) {
+    for (const t of ['services', 'repertoires', 'service_items', 'repertoire_items', 'service_positions', 'member_availability']) {
       const calls = remote.selectRows.mock.calls.filter(([name]) => name === t)
       expect(calls.length).toBeGreaterThan(0)
       for (const call of calls) expect(call[1]).toBeUndefined()

@@ -8,7 +8,7 @@ vi.mock('../../sync/syncService', async () => {
   const engine = new TargetSyncEngine(db)
   engine.sync = async () => {}
   return {
-    queueTargetUpsert: engine.queueUpsert.bind(engine), queueTargetDelete: engine.queueDelete.bind(engine), queueTargetUpserts: engine.queueUpserts.bind(engine),
+    queueTargetUpsert: engine.queueUpsert.bind(engine), queueTargetUpserts: engine.queueUpserts.bind(engine),
   }
 })
 vi.mock('../../platform/http', () => ({ isPlatformConfigured: false }))
