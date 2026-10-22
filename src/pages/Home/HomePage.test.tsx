@@ -9,6 +9,7 @@ import { HomePage } from './HomePage'
 const home = vi.hoisted(() => ({ fail: false, summary: { hasOrganization: true, pendingConfirmations: [], managedGaps: [] } as Record<string, unknown> }))
 vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
 vi.mock('../../application/home/getHomeSummary', () => ({ getHomeSummary: async () => { if (home.fail) throw new Error('x'); return home.summary } }))
+vi.mock('../../components/home/ActivityPanel', () => ({ ActivityPanel: () => <section aria-label="Atividade" /> }))
 
 function CurrentLocation() {
   return <p>{useLocation().pathname}</p>
@@ -28,6 +29,12 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: /Organize seus repertórios/ })).toHaveAttribute('href', '/repertoires')
     expect(screen.getByRole('link', { name: /Nova música/ })).toHaveAttribute('href', '/songs/new')
     expect(screen.getByRole('link', { name: /Importar cifra/ })).toHaveAttribute('href', '/songs/import')
+  })
+
+  it('shows the activity block only with an organization', async () => {
+    home.summary = { hasOrganization: true, pendingConfirmations: [], managedGaps: [] }
+    render(<MemoryRouter><HomePage /></MemoryRouter>)
+    expect(await screen.findByRole('region', { name: 'Atividade' })).toBeInTheDocument()
   })
 
   it('navigates to the selected entry point', async () => {

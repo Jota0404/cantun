@@ -2,6 +2,8 @@
 
 > Fase 2/3 · Esforço: 2–3 semanas · Depende de: B6 · Blueprint §8.9, §9, §52.1, §57, NFR-007
 
+> **Status:** implementado (fatias 1–6; 0023 e 0024), exceto a fatia 7 opcional. Pendentes do Jota: QA do bloco, confirmação das D1–D5 e aplicação das migrations 0007–0024 em produção.
+
 ## Objetivo
 Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico útil para a liderança, e o Stage, descongelado, é refinado e simplificado.
 

@@ -579,6 +579,49 @@ describe('registro da execução (VS-06, RN-01…07)', () => {
   })
 })
 
+describe('log de atividade (VS-06, RN-10…17, D4)', () => {
+  test('RPCs geram eventos; leitura por organização com D4; cliente não escreve', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.97', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'A' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.ativ@teste.local')
+    const lia = await join('lia.ativ@teste.local')
+    const mauro = await join('mauro.ativ@teste.local')
+    const fora = await join('fora.ativ@teste.local')
+    const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID(), positionId = crypto.randomUUID(), assignmentId = crypto.randomUUID()
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/create_organization', headers: { cookie: olga.cookie }, payload: { p_id: orgId, p_name: 'Igreja A' } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: olga.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    for (const [user, role] of [[lia, 'leader'], [mauro, 'member']] as const) {
+      await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+      await pool.query('insert into public.team_memberships (team_id, user_id, role) values ($1, $2, $3)', [teamId, user.id, role])
+    }
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values ($1, $2, $3, 'Culto', now(), $4)`, [serviceId, orgId, teamId, olga.id])
+    await pool.query(`insert into public.service_positions (id, service_id, musical_function, quantity) values ($1, $2, 'vocals', 1)`, [positionId, serviceId])
+
+    const rpc = (user: { cookie: string }, name: string, payload: object) => app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+    assert.equal((await rpc(lia, 'transition_service', { p_service_id: serviceId, p_to: 'ready' })).statusCode, 200)
+    // Depois do ready: o gancho de convites não envia e-mail (a fila de e-mails é compartilhada entre os testes).
+    await pool.query(`insert into public.assignments (id, position_id, user_id, status) values ($1, $2, $3, 'invited')`, [assignmentId, positionId, mauro.id])
+    assert.equal((await rpc(mauro, 'respond_to_assignment', { p_assignment_id: assignmentId, p_response: 'decline' })).statusCode, 200)
+
+    const kinds = async (user: { cookie: string }) => {
+      const response = await rpc(user, 'get_recent_activity', { p_organization_id: orgId })
+      assert.equal(response.statusCode, 200, response.body)
+      return response.json().map((e: { kind: string; entity_title: string | null }) => [e.kind, e.entity_title]).sort()
+    }
+    assert.deepEqual(await kinds(lia), [['assignment.declined', 'Culto'], ['service.ready', 'Culto']], 'Líder vê a recusa')
+    assert.deepEqual(await kinds(mauro), [['service.ready', 'Culto']], 'D4: membro não vê a recusa')
+    assert.deepEqual(await kinds(fora), [], 'outra organização')
+
+    const write = await app.inject({ method: 'POST', url: '/sync/activity_events', headers: { cookie: olga.cookie }, payload: { rows: [{ id: crypto.randomUUID(), organization_id: orgId, kind: 'service.ready' }] } })
+    assert.equal(write.statusCode, 403, write.body)
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/activity_events?organization_id=${orgId}`, headers: { cookie: olga.cookie } })).statusCode, 403)
+    assert.equal((await rpc(olga, 'log_activity', { p_organization_id: orgId })).statusCode, 404, 'gerador fora da allowlist')
+  })
+})
+
 describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }

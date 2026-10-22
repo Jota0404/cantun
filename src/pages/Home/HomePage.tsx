@@ -6,6 +6,7 @@ import { formatServiceDate, SERVICE_STATUS_LABEL } from '../../components/servic
 import { ASSIGNMENT_STATUS_LABEL, ASSIGNMENT_STATUS_TONE } from '../../components/schedule/scheduleLabels'
 import { musicalFunctionLabel } from '../../components/team/musicalFunctions'
 import { labels } from '../../ui/labels'
+import { ActivityPanel } from '../../components/home/ActivityPanel'
 import { Badge } from '../../components/ui/Badge'
 import './HomePage.css'
 
@@ -133,6 +134,8 @@ export function HomePage() {
           </ul>
         </section>
       )}
+
+      {summary?.hasOrganization && <ActivityPanel />}
 
       <section className="home-actions" aria-labelledby="home-actions-title">
         <div className="home-section-heading">

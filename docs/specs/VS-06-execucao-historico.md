@@ -1,6 +1,6 @@
 # Feature Spec — VS-06 Execução & Histórico
 
-- **Status:** Em revisão
+- **Status:** Proposed — fatias 1–6 implementadas; D1–D6 adotadas pela recomendação do planner, aguardando confirmação do Jota antes de produção; fatia 7 opcional (Stage congelado)
 - **Bloco:** B7 (`docs/blocks/B7-execucao-historico.md`)
 - **Fatia vertical:** VS-06
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-22
@@ -184,10 +184,10 @@ Defaults adotados (sem decisão pendente): leitura só online (RN-20); históric
 
 ## Issues
 - [ ] Épico B7 / VS-06
-- [ ] `refactor/stage-naming` (ui-engineer)
-- [ ] `refactor/service-stage-page` (ui-engineer; lead: `eslint.config.js`)
-- [ ] `feat/execution-history-schema` — 0023 (backend-engineer)
-- [ ] `feat/execution-history` (core-engineer → ui-engineer)
-- [ ] `feat/activity-log-schema` — 0024 (backend-engineer)
-- [ ] `feat/home-activity` (core-engineer → ui-engineer)
+- [x] `refactor/stage-naming` (ui-engineer)
+- [x] `refactor/service-stage-page` (ui-engineer; lead: `eslint.config.js`)
+- [x] `feat/execution-history-schema` — 0023 (backend-engineer)
+- [x] `feat/execution-history` (core-engineer → ui-engineer)
+- [x] `feat/activity-log-schema` — 0024 (backend-engineer)
+- [x] `feat/home-activity` (core-engineer → ui-engineer)
 - [ ] `refactor/solo-stage-page` (ui-engineer, opcional)
