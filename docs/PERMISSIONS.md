@@ -126,6 +126,7 @@ Sem capacidade nova (o espelho `permissions.ts` não muda). `0023_execution_hist
 - **Leitura** (tabelas, `get_service_execution`, `get_song_history`): membro **ativo na organização** (seção 4), qualquer equipe. Outra organização, sem vínculo, anônimo e `inactive` em todas as equipes: nada.
 - **Decisões pendentes do owner (adotadas pela recomendação da spec):** D1 tom = `coalesce(service_items.key, songs.current_key)`; D2 concluir com Palco `lobby`/`live` é recusado (`stage session still open`); D3 equipe = só `confirmed`.
 - **Dado pessoal (ADR-063):** `user_id` e `completed_by_user_id` viram nulos na exclusão da conta ("Ex-membro"); `team_member.remove` não apaga participações; `export_my_data` inclui `service_participations`. Sai com o serviço e a organização.
+- **Log de atividade** (`0024_activity_events.sql`, somente leitura, sem capacidade nova): `activity_events` é gerado só pelo servidor (`app.log_activity`, sem EXECUTE para `cantum_user`) em `transition_service`, `respond_to_assignment`, `request_replacement` e triggers de `rehearsals`, `materials`, `repertoires`/`repertoire_items` (só da organização). Repertório pessoal, preparação e disponibilidade nunca geram evento. Guarda só ids + `kind`. Leitura (tabela e `get_recent_activity`): membro **ativo na organização**; **D4 (b, pendente do owner):** `assignment.declined` e `assignment.replacement_needed` só para quem tem `schedule.manage` na equipe do serviço. **D5 (pendente):** retém 90 dias, a leitura mostra 30 dias, 50 por página. Excluir a conta deixa `actor_user_id` nulo; `export_my_data` não inclui o log.
 
 Capacidades ainda fora (Network, solicitações externas) seguem o Blueprint §49 e entram no B10.
 
@@ -231,6 +232,10 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 | H7 | Membro de outra equipe da mesma organização lê | lê |
 | H9 | Excluir a conta; `team_member.remove`; `export_my_data` | ids nulos e registro intacto; participação mantida; export só com as do titular |
 | D2 | Concluir com Palco `lobby`/`live`; cancelar | `stage session still open`, nada muda; cancelar não gera registro |
+| H2' | `insert`/`update`/`delete` direto em `activity_events` (inclui `/sync`) ou chamar `app.log_activity`, por Owner, Admin, Líder ou Membro | negado (privilégio) |
+| H7' | Membro de outra equipe lê o log; lê recusa/substituição de equipe que não lidera (D4) | lê; não vê (Owner, Admin e Líder ativo da equipe veem) |
+| H8 | `inactive` em todas as equipes, outra organização, sem vínculo ou anônimo lê o log; repertório pessoal, preparação ou disponibilidade geram evento | vazio; nunca |
+| H10 | Evento > 90 dias; leitura | apagado na próxima inserção da organização; `get_recent_activity` só 30 dias, 50 por página |
 
 ## 6. Fora do B2
 
