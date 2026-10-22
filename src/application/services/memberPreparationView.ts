@@ -8,6 +8,7 @@ import { songRepository } from '../../db/repositories/songRepository'
 import { getCurrentUser } from '../../platform/auth'
 import { servicePreparationRepository } from '../../db/repositories/servicePreparationRepository'
 import { preparationId } from '../../domain/services/servicePreparation'
+import { buildRehearsalViews, defaultRehearsalRepositories, type RehearsalRepositories, type RehearsalView } from './rehearsalService'
 import { getMyAccessContext } from '../teams/teamMemberService'
 
 export interface MemberPreparationItem {
@@ -35,8 +36,8 @@ export interface MemberPreparationView {
   serviceNotes?: string
   /** RN-15: estado próprio de "preparado". */
   prepared: boolean
-  /** Fatias 6–7: ainda não existem. */
-  rehearsals: never[]
+  rehearsals: RehearsalView[]
+  /** Fatia 7: ainda não existe. */
   materials: never[]
 }
 
@@ -48,11 +49,12 @@ export interface MemberPreparationRepositories {
   preparations: typeof servicePreparationRepository
   access: (input: { organizationId: string; teamId?: string }) => Promise<AccessContext>
   currentUserId: () => string | undefined
+  rehearsals: RehearsalRepositories
 }
 
 const defaults: MemberPreparationRepositories = {
   services: serviceRepository, items: serviceItemRepository, songs: songRepository, assignments: assignmentRepository, preparations: servicePreparationRepository,
-  access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id,
+  access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id, rehearsals: defaultRehearsalRepositories,
 }
 
 export type MemberPreparationResult = { success: true; view: MemberPreparationView } | { success: false; errors: string[] }
@@ -80,6 +82,6 @@ export async function getMemberPreparationView(serviceId: string, repositories =
   }))
   return {
     success: true,
-    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals: [], materials: [] },
+    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals: await buildRehearsalViews(serviceId, repositories.rehearsals), materials: [] },
   }
 }

@@ -444,6 +444,49 @@ describe('preparação (VS-04-05, RN-15…17)', () => {
   })
 })
 
+describe('ensaio (VS-04-05, RN-19…21)', () => {
+  test('/sync de rehearsals e rehearsal_songs: Líder grava, Membro 403, membro ativo lê', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.96', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'R' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.reh@teste.local')
+    const lia = await join('lia.reh@teste.local')
+    const mauro = await join('mauro.reh@teste.local')
+    const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID()
+    const songId = crypto.randomUUID(), itemId = crypto.randomUUID(), rehearsalId = crypto.randomUUID()
+    assert.equal((await app.inject({ method: 'POST', url: '/rpc/create_organization', headers: { cookie: olga.cookie }, payload: { p_id: orgId, p_name: 'Igreja R' } })).statusCode, 200)
+    assert.equal((await app.inject({ method: 'POST', url: '/sync/teams', headers: { cookie: olga.cookie }, payload: { rows: [{ id: teamId, organization_id: orgId, name: 'Louvor' }] } })).statusCode, 200)
+    for (const [user, role] of [[lia, 'leader'], [mauro, 'member']] as const) {
+      await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, user.id])
+      await pool.query('insert into public.team_memberships (team_id, user_id, role) values ($1, $2, $3)', [teamId, user.id, role])
+    }
+    await pool.query(`insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at) values ($1, $2, $3, 'Maior', 'C', 'C', 'x', now(), now())`, [olga.id, songId, orgId])
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values ($1, $2, $3, 'Culto', now(), $4)`, [serviceId, orgId, teamId, olga.id])
+    await pool.query(`insert into public.service_items (id, service_id, type, song_id, position) values ($1, $2, 'song', $3, 0)`, [itemId, serviceId, songId])
+
+    const rehearsal = { id: rehearsalId, organization_id: orgId, service_id: serviceId, starts_at: '2026-10-22T19:00:00Z', location: 'Sala 2', notes: null, created_at: '2026-10-22T10:00:00Z', updated_at: '2026-10-22T10:00:00Z' }
+    const push = (user: { cookie: string }, table: string, row: object) =>
+      app.inject({ method: 'POST', url: `/sync/${table}`, headers: { cookie: user.cookie }, payload: { rows: [row] } })
+
+    assert.equal((await push(mauro, 'rehearsals', rehearsal)).statusCode, 403, 'Membro cria')
+    const created = await push(lia, 'rehearsals', rehearsal)
+    assert.equal(created.statusCode, 200, created.body)
+    assert.equal((await push(lia, 'rehearsals', rehearsal)).statusCode, 200, 'reenvio sem mudança passa')
+    assert.equal((await push(lia, 'rehearsal_songs', { rehearsal_id: rehearsalId, service_item_id: itemId })).statusCode, 200)
+    assert.equal((await push(lia, 'rehearsal_songs', { rehearsal_id: rehearsalId, service_item_id: itemId })).statusCode, 200, 'reenvio do foco passa')
+    assert.equal((await push(mauro, 'rehearsals', { ...rehearsal, notes: 'x' })).statusCode, 403, 'Membro edita')
+
+    const read = await app.inject({ method: 'GET', url: `/sync/rehearsals?service_id=${serviceId}`, headers: { cookie: mauro.cookie } })
+    assert.deepEqual(read.json().map((r: { id: string; location: string }) => [r.id, r.location]), [[rehearsalId, 'Sala 2']])
+    const songs = await app.inject({ method: 'GET', url: `/sync/rehearsal_songs?rehearsal_id=${rehearsalId}`, headers: { cookie: mauro.cookie } })
+    assert.deepEqual(songs.json().map((r: { service_item_id: string }) => r.service_item_id), [itemId])
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/rehearsals?id=${rehearsalId}`, headers: { cookie: mauro.cookie } })).json().count, 0, 'Membro exclui')
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/rehearsals?id=${rehearsalId}`, headers: { cookie: lia.cookie } })).json().count, 1)
+  })
+})
+
 describe('escala (ADR-053, ADR-054)', () => {
   test('RPCs da escala, reenvio do convite por e-mail e escrita direta em assignments negada', async () => {
     const ip = { remoteAddress: '10.0.0.91' }

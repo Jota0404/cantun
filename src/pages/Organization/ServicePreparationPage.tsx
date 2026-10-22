@@ -87,7 +87,16 @@ export function ServicePreparationPage() {
         </ol>
       )}
       {view.serviceNotes && <><h3>Observações do serviço</h3><p>{view.serviceNotes}</p></>}
-      {view.rehearsals.length > 0 && <h3>Ensaios</h3>}
+      {view.rehearsals.length > 0 && <section aria-labelledby="prep-rehearsals">
+        <h3 id="prep-rehearsals">Ensaio</h3>
+        <ul className="prep__team">
+          {view.rehearsals.map((r) => <li key={r.id}>
+            <strong>{formatServiceDate(r.startsAt)}</strong>{r.location && <span> · {r.location}</span>}
+            {r.notes && <p>{r.notes}</p>}
+            {r.songs.length > 0 && <p>Músicas em foco: {r.songs.map((s) => s.title).join(', ')}</p>}
+          </li>)}
+        </ul>
+      </section>}
       {view.materials.length > 0 && <h3>Materiais</h3>}
     </section>
   )

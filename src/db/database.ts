@@ -12,6 +12,7 @@ import type { Assignment } from '../domain/services/assignment'
 import type { ServicePosition } from '../domain/services/servicePosition'
 import type { MemberAvailability } from '../domain/services/memberAvailability'
 import type { ServicePreparation } from '../domain/services/servicePreparation'
+import type { Rehearsal, RehearsalSong } from '../domain/services/rehearsal'
 import type { MemberProfile } from '../domain/users/memberProfile'
 import type { StageSession } from '../domain/stage/stageSession'
 import type { StageSessionState } from '../domain/stage/stageSessionState'
@@ -33,6 +34,8 @@ export class SalmodiaDatabase extends Dexie {
   servicePositions!: Table<ServicePosition, string>
   memberAvailability!: Table<MemberAvailability, string>
   servicePreparations!: Table<ServicePreparation, string>
+  rehearsals!: Table<Rehearsal, string>
+  rehearsalSongs!: Table<RehearsalSong, [string, string]>
   memberProfiles!: Table<MemberProfile, [string, string]>
   stageSessions!: Table<StageSession, string>
   stageSessionStates!: Table<StageSessionState, string>
@@ -240,6 +243,11 @@ export class SalmodiaDatabase extends Dexie {
     // B6 (RN-15, ADR-057 classe A): "preparado" por pessoa e serviço.
     this.version(19).stores({
       servicePreparations: 'id, serviceId, userId, updatedAt',
+    })
+    // B6 (RN-19…21, ADR-057 classe A): ensaios e músicas em foco.
+    this.version(20).stores({
+      rehearsals: 'id, serviceId, updatedAt',
+      rehearsalSongs: '[rehearsalId+serviceItemId], rehearsalId, serviceItemId',
     })
   }
 }

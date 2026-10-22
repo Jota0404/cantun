@@ -11,6 +11,7 @@ import { setServiceItemKey } from '../../application/services/applyRepertoire'
 import { useAuth } from '../../auth/authContext'
 import { Badge } from '../../components/ui/Badge'
 import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
+import { RehearsalPanel } from '../../components/service/RehearsalPanel'
 import { ServiceSchedule } from '../../components/schedule/ServiceSchedule'
 import { createStageSession, startStageSession } from '../../application/stage/stageSessionService'
 import { getMyAccessContext } from '../../application/teams/teamMemberService'
@@ -282,10 +283,7 @@ export function ServiceDetailPage() {
       <h3 id="service-materials-title">Materiais</h3>
       <p>Em breve: cifras, áudios e arquivos do serviço.</p>
     </section>
-    <section aria-labelledby="service-rehearsal-title" className="service-placeholder">
-      <h3 id="service-rehearsal-title">Ensaio</h3>
-      <p>Em breve: data, local e pauta do ensaio.</p>
-    </section>
+    <RehearsalPanel serviceId={serviceId} items={items} itemLabel={itemLabel} final={final} />
 
     <ServiceSchedule service={service} access={access} currentUserId={user?.id ?? ''} />
   </section></main>
