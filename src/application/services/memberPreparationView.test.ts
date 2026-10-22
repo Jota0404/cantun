@@ -11,7 +11,7 @@ import { getMemberPreparationView, type MemberPreparationRepositories } from './
 
 import { materialRepository } from '../../db/repositories/materialRepository'
 import { defaultRehearsalRepositories } from './rehearsalService'
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDelete: vi.fn(), queueTargetDeleteAtomic: vi.fn(async (_e: string, _i: unknown, _t: unknown, write: () => Promise<void>) => write()) }))
+vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDeleteAtomic: vi.fn(async (_e: string, _i: unknown, _t: unknown, write: () => Promise<void>) => write()) }))
 
 const now = '2026-10-01T12:00:00Z'
 const service = { id: 's1', organizationId: 'org-1', teamId: 't1', name: 'Culto', startsAt: now, notes: 'Chegar cedo', status: 'draft' as const, createdByUserId: 'u1', createdAt: now, updatedAt: now }

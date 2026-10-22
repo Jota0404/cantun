@@ -113,8 +113,9 @@ export function isPermanent(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429
 }
 
-// Listas filhas puxadas inteiras e escritas só por este app: o pull também remove o que sumiu do servidor.
-const MIRRORED_ENTITIES = ['serviceItems', 'repertoireItems', 'servicePositions', 'memberAvailability'] as const
+// Listas puxadas inteiras (escopo do usuário): o pull também remove o que sumiu do servidor. Services e repertoires
+// também recebem `putLocal` (já confirmado pelo servidor); a proteção é a fila vazia e o snapshot local anterior ao GET.
+const MIRRORED_ENTITIES = ['services', 'repertoires', 'serviceItems', 'repertoireItems', 'servicePositions', 'memberAvailability'] as const
 const BATCHED_ENTITIES = ['serviceItems', 'repertoireItems'] as const
 const batchKey = (item: TargetSyncQueueItem) =>
   item.entity === 'serviceItems' ? (item.payload as ServiceItem).serviceId : (item.payload as RepertoireItem).repertoireId
@@ -286,12 +287,6 @@ export class TargetSyncEngine {
     void this.sync()
   }
 
-  async queueDelete(entity: TargetWritableEntityName, entityId: string, updatedAt = new Date().toISOString()): Promise<void> {
-    await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
-    await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt, attempts: 0 })
-    void this.sync()
-  }
-
   private failure(item: TargetSyncQueueItem, error: unknown): Partial<TargetSyncQueueItem> {
     const attempts = item.attempts + 1
     return isPermanent(error) ? { attempts, status: 'failed', lastError: error.message } : { attempts }
@@ -347,6 +342,36 @@ export class TargetSyncEngine {
     }
   }
 
+  /** Filhos de serviço apagado no servidor (ON DELETE CASCADE): somem aqui também, com o que estava na fila deles (o pai não existe mais). */
+  private async cascadeService(serviceIds: string[]): Promise<void> {
+    const ids = async (table: Table<unknown, string>, index: string, owners: string[]) => (await table.where(index).anyOf(owners).primaryKeys()) as string[]
+    const rehearsalIds = await ids(this.db.rehearsals, 'serviceId', serviceIds)
+    const sessionIds = await ids(this.db.stageSessions, 'serviceId', serviceIds)
+    const byEntity: Array<[TargetEntityName, string[]]> = [
+      ['serviceItems', await ids(this.db.serviceItems, 'serviceId', serviceIds)],
+      ['servicePositions', await ids(this.db.servicePositions, 'serviceId', serviceIds)],
+      ['assignments', await ids(this.db.assignments, 'serviceId', serviceIds)],
+      ['servicePreparations', await ids(this.db.servicePreparations, 'serviceId', serviceIds)],
+      ['rehearsals', rehearsalIds],
+      ['materials', [...await ids(this.db.materials, 'serviceId', serviceIds), ...await ids(this.db.materials, 'rehearsalId', rehearsalIds)]],
+      ['stageSessions', sessionIds],
+      ['stageSessionStates', sessionIds],
+    ]
+    for (const [entity, entityIds] of byEntity) {
+      if (!entityIds.length) continue
+      await (localTable(this.db, entity) as Table<unknown, string>).bulkDelete(entityIds)
+      await this.db.targetSyncQueue.filter((i) => i.entity === entity && entityIds.includes(i.entityId)).delete()
+    }
+    await this.db.rehearsalSongs.where('rehearsalId').anyOf(rehearsalIds).delete()
+    await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && rehearsalIds.some((r) => i.entityId.startsWith(`${r}:`))).delete()
+  }
+
+  private async cascadeRepertoire(repertoireIds: string[]): Promise<void> {
+    const itemIds = (await this.db.repertoireItems.where('repertoireId').anyOf(repertoireIds).primaryKeys()) as string[]
+    await this.db.repertoireItems.bulkDelete(itemIds)
+    await this.db.targetSyncQueue.filter((i) => i.entity === 'repertoireItems' && itemIds.includes(i.entityId)).delete()
+  }
+
   async createOrganization(value: Organization): Promise<void> {
     await rpc('create_organization', { p_id: value.id, p_name: value.name })
     await this.db.organizations.put(value)
@@ -385,6 +410,7 @@ export class TargetSyncEngine {
       const pending = (await this.db.targetSyncQueue.orderBy('id').toArray()).filter((p) => p.status !== 'failed')
       const done = new Set<number | undefined>()
       for (const item of pending) {
+        if (this.stopped) return
         if (done.has(item.id)) continue
         // Itens do mesmo serviço (ou repertório) sobem num só lote (uma transação no servidor; unique de posição deferida).
         if ((BATCHED_ENTITIES as readonly string[]).includes(item.entity) && item.operation === 'upsert') {
@@ -447,22 +473,30 @@ export class TargetSyncEngine {
       }
 
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
-        const pullStartedAt = new Date().toISOString()
-        const rows = await selectRows(tables[entity]).catch(() => null)
-        if (!rows) continue
+        if (this.stopped) return
         const table = localTable(this.db, entity)
+        const mirrored = (MIRRORED_ENTITIES as readonly string[]).includes(entity)
+        // Ids locais ANTES do GET: só eles podem ser espelhados para fora (o que nasce durante o GET não depende de relógios).
+        const localIdsBeforePull = mirrored ? new Set((await table.toArray() as unknown as { id: string }[]).map((l) => l.id)) : null
+        // Pull completo = GET sem filtro respondeu (o servidor devolve o escopo inteiro: invariante em platform/sync.ts).
+        // Erro/offline => null => nada é espelhado nem varrido para esta entidade. Não há sinal extra do servidor.
+        const rows = await selectRows(tables[entity]).catch(() => null)
+        if (this.stopped) return // signOut/exclusão em andamento: nada grava no Dexie depois de stop().
+        if (rows === null) continue
         // Delete pendente nesta fila: o pull não pode devolver a linha ao Dexie antes de o servidor apagar.
         // `failed` (recusado pelo servidor) não conta: o servidor vence e o pull restaura a linha (ADR-026).
         const entityQueue = await this.db.targetSyncQueue.where('entity').equals(entity).toArray()
         const pendingDeletes = new Set(entityQueue.filter((i) => i.operation === 'delete' && i.status !== 'failed').map((i) => i.entityId))
-        if ((MIRRORED_ENTITIES as readonly string[]).includes(entity)) {
+        if (localIdsBeforePull) {
           // Espelho do servidor (pull completo, sem filtro: o que o RLS devolve é o escopo do usuário): linha local que sumiu
-          // do servidor foi apagada em outro aparelho. Só com a fila da entidade vazia e só linhas anteriores a este pull
+          // do servidor foi apagada em outro aparelho. Só com a fila da entidade vazia e só linhas que já existiam antes do GET
           // (uma criada durante o pull ainda não foi enfileirada). Pull com erro/offline não chega aqui.
           const remoteIds = new Set(rows.map((r) => String((r as { id?: unknown }).id)))
           if (entityQueue.every((i) => i.operation === 'delete' && i.status === 'failed')) {
-            const stale = (await table.toArray() as unknown as { id: string; updatedAt: string }[]).filter((l) => !remoteIds.has(l.id) && l.updatedAt < pullStartedAt).map((l) => l.id)
+            const stale = [...localIdsBeforePull].filter((id) => !remoteIds.has(id))
             if (stale.length) {
+              if (entity === 'services') await this.cascadeService(stale)
+              if (entity === 'repertoires') await this.cascadeRepertoire(stale)
               if (entity === 'serviceItems') {
                 await this.db.rehearsalSongs.where('serviceItemId').anyOf(stale).delete()
                 await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && stale.some((x) => i.entityId.endsWith(`:${x}`))).delete()
@@ -496,6 +530,7 @@ export class TargetSyncEngine {
           }
         }
         for (const row of rows) {
+          if (this.stopped) return
           const value = fromRemoteRow(entity, row)
           if (entity === 'rehearsalSongs') {
             const song = value as RehearsalSong

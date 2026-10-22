@@ -130,6 +130,26 @@ describe('localSession', () => {
       expect(storage.data.has(LOCAL_DATA_OWNER_KEY)).toBe(false)
     })
 
+    it('stops sync after the pending check and before signing out and clearing', async () => {
+      await seedUserData()
+      const calls: string[] = []
+      await signOutWithLocalCleanup({
+        db, storage: memoryStorage(),
+        flushPendingChanges: async () => undefined,
+        stopSync: async () => { calls.push('stop'); expect(await db.songs.count()).toBe(1) },
+        signOutRemote: async () => { calls.push('signOut') },
+      })
+      expect(calls).toEqual(['stop', 'signOut'])
+    })
+
+    it('does not stop sync when the sign-out is refused for pending changes', async () => {
+      await seedUserData()
+      await seedPendingChanges()
+      const stopSync = vi.fn(async () => undefined)
+      await expect(signOutWithLocalCleanup({ db, storage: memoryStorage(), flushPendingChanges: async () => undefined, stopSync, signOutRemote: async () => undefined })).rejects.toThrow()
+      expect(stopSync).not.toHaveBeenCalled()
+    })
+
     it('treats changes synced by the flush as no longer pending', async () => {
       await seedUserData()
       await seedPendingChanges()

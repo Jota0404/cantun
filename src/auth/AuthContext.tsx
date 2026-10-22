@@ -4,6 +4,7 @@ import * as platformAuth from '../platform/auth'
 import type { AuthUser } from '../platform/auth'
 import { ApiError, isPlatformConfigured } from '../platform/http'
 import { realtime } from '../platform/realtime'
+import { startPeriodicPull } from '../sync/periodicPull'
 import { syncEngine, syncTargetDomain, targetSyncEngine } from '../sync/syncService'
 import { AuthContext, type AuthContextValue } from './authContext'
 import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
@@ -63,6 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [applyUser])
 
+  // Pull periódico só com sessão (#127); sair da sessão cancela o agendamento.
+  const signedIn = user !== null
+  useEffect(() => {
+    if (!signedIn) return
+    return startPeriodicPull(syncTargetDomain, () => platformAuth.getCurrentUser() !== null)
+  }, [signedIn])
+
   // Mesmo usuário: só atualiza os dados (ex.: `emailVerified`), sem refazer isolamento e bootstrap.
   const refresh = useCallback(async () => {
     const nextUser = await platformAuth.getSession()
@@ -101,7 +109,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await Promise.allSettled([syncEngine?.sync(userId), syncTargetDomain()])
         },
         signOutRemote: platformAuth.signOut,
-      }, options)
+        stopSync: () => Promise.all([syncEngine?.stop(), targetSyncEngine?.stop()]).then(() => undefined),
+      }, options).catch((error) => {
+        // Falha com a sessão ainda válida (recusada/antes do logout remoto): os motores voltam e sincronizam
+        // (stop() limpou o retry). Sessão já encerrada (ex.: IndexedDB falhou na limpeza): segue o logout local.
+        if (platformAuth.getCurrentUser() === null) return
+        syncEngine?.start()
+        targetSyncEngine?.start()
+        void syncTargetDomain()
+        throw error
+      })
       currentUserId.current = null
       setUser(null)
     },

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const access = vi.hoisted(() => vi.fn())
 vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'me', email: 'm@example.com', emailVerified: true, displayName: 'Eu' }) }))
 vi.mock('../teams/teamMemberService', () => ({ listTeamMembers: vi.fn(), getMyAccessContext: access }))
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetDelete: vi.fn() }))
+vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn() }))
 
 import { db } from '../../db/database'
 import type { Service } from '../../domain/services/service'

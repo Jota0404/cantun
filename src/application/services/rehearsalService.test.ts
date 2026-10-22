@@ -9,7 +9,7 @@ import type { AccessContext } from '../../domain/access/permissions'
 import { createRehearsal, deleteRehearsal, listRehearsals, updateRehearsal, type RehearsalRepositories } from './rehearsalService'
 
 const sync = vi.hoisted(() => ({
-  queueTargetUpsert: vi.fn(), queueTargetDelete: vi.fn(),
+  queueTargetUpsert: vi.fn(),
   queueTargetUpserts: vi.fn(async (_e: string, _p: unknown, _t: unknown, write: () => Promise<void>) => write()),
   queueTargetDeleteAtomic: vi.fn(async (_e: string, _i: string, _t: unknown, write: () => Promise<void>) => write()),
 }))
