@@ -85,6 +85,8 @@ export async function dataRoutes(app: FastifyInstance, { pool, catalog, afterRpc
     const table = getTable(catalog, request.params.table)
     const params: unknown[] = []
     const where = whereClause(table, request.query, params)
+    // INVARIANTE: sem filtro, devolve TODAS as linhas que a RLS permite (sem LIMIT, paginação nem pull incremental).
+    // O cliente (TargetSyncEngine, F-B) espelha o servidor e apaga o que não vier aqui; mudar isso exige um marcador de "pull completo".
     const { rows } = await asUser(pool, userId, (client) => client.query(`select * from public.${ident(table.name)} ${where}`, params))
     return rows
   })

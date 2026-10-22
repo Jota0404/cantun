@@ -1,7 +1,7 @@
 import type { ServiceItem } from '../../domain/services/serviceItem'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
-import { queueTargetDelete, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
+import { queueTargetDeleteAtomic, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
 
 export class ServiceItemRepository {
   private readonly db: SalmodiaDatabase
@@ -16,14 +16,17 @@ export class ServiceItemRepository {
   async getById(id: string): Promise<ServiceItem | undefined> { return this.db.serviceItems.get(id) }
   async listByServiceId(serviceId: string): Promise<ServiceItem[]> { return this.db.serviceItems.where('serviceId').equals(serviceId).sortBy('position') }
   async update(value: ServiceItem): Promise<void> { await this.db.serviceItems.put(value); await queueTargetUpsert('serviceItems', value) }
+  /** Apaga o item e as reprises/medleys que o referenciam (RN-11, cascata do banco) e enfileira os deletes, dependentes primeiro, numa transação. */
   async remove(id: string): Promise<void> {
+    const item = await this.db.serviceItems.get(id)
+    const dependents = item ? (await this.listByServiceId(item.serviceId)).filter((other) => other.refItemId === id).map((other) => other.id) : []
+    const ids = [...dependents, id]
     // O banco apaga as linhas de ensaio em cascata; aqui só espelha o efeito local (sem fila).
-    await this.db.transaction('rw', [this.db.serviceItems, this.db.rehearsalSongs, this.db.targetSyncQueue], async () => {
-      await this.db.serviceItems.delete(id)
-      await this.db.rehearsalSongs.where('serviceItemId').equals(id).delete()
-      await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && i.entityId.endsWith(`:${id}`)).delete()
+    await queueTargetDeleteAtomic('serviceItems', ids, [this.db.serviceItems, this.db.rehearsalSongs, this.db.targetSyncQueue], async () => {
+      await this.db.serviceItems.bulkDelete(ids)
+      await this.db.rehearsalSongs.where('serviceItemId').anyOf(ids).delete()
+      await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && ids.some((x) => i.entityId.endsWith(`:${x}`))).delete()
     })
-    await queueTargetDelete('serviceItems', id)
   }
 }
 export const serviceItemRepository = new ServiceItemRepository()

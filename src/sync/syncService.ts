@@ -36,7 +36,7 @@ export async function queueTargetDelete(entity: TargetWritableEntityName, entity
 }
 
 /** Apaga e enfileira o delete em uma transação; sem sync configurado, só apaga. */
-export async function queueTargetDeleteAtomic(entity: TargetWritableEntityName, entityId: string, tables: Table[], write: () => Promise<void>) {
+export async function queueTargetDeleteAtomic(entity: TargetWritableEntityName, entityId: string | string[], tables: Table[], write: () => Promise<void>) {
   if (!targetSyncEngine) return db.transaction('rw', tables, write)
   await targetSyncEngine.queueDeleteAtomic(entity, entityId, tables, write)
 }

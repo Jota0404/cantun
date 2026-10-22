@@ -113,6 +113,8 @@ export function isPermanent(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429
 }
 
+// Listas filhas puxadas inteiras e escritas só por este app: o pull também remove o que sumiu do servidor.
+const MIRRORED_ENTITIES = ['serviceItems', 'repertoireItems', 'servicePositions', 'memberAvailability'] as const
 const BATCHED_ENTITIES = ['serviceItems', 'repertoireItems'] as const
 const batchKey = (item: TargetSyncQueueItem) =>
   item.entity === 'serviceItems' ? (item.payload as ServiceItem).serviceId : (item.payload as RepertoireItem).repertoireId
@@ -297,13 +299,16 @@ export class TargetSyncEngine {
 
   /** `true` quando a entidade não tem mais alteração na fila: o servidor aceitou o que o aparelho enviou. */
   /** Apaga e enfileira o delete numa transação (o pull não enxerga o meio-termo). */
-  async queueDeleteAtomic(entity: TargetWritableEntityName, entityId: string, tables: Table[], write: () => Promise<void>): Promise<void> {
+  async queueDeleteAtomic(entity: TargetWritableEntityName, entityIds: string | string[], tables: Table[], write: () => Promise<void>): Promise<void> {
     await this.db.transaction('rw', [this.db.targetSyncQueue, ...tables], async () => {
       await write()
-      await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
-      // Ensaio criado e excluído offline: as músicas pendentes não podem subir (o ensaio nunca existiu no servidor).
-      if (entity === 'rehearsals') await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && i.entityId.startsWith(`${entityId}:`)).delete()
-      await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt: new Date().toISOString(), attempts: 0 })
+      // Vários ids: a fila respeita a ordem recebida (dependentes antes do alvo).
+      for (const entityId of [entityIds].flat()) {
+        await this.db.targetSyncQueue.where('[entity+entityId]').equals([entity, entityId]).delete()
+        // Ensaio criado e excluído offline: as músicas pendentes não podem subir (o ensaio nunca existiu no servidor).
+        if (entity === 'rehearsals') await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && i.entityId.startsWith(`${entityId}:`)).delete()
+        await this.db.targetSyncQueue.add({ entity, entityId, operation: 'delete', updatedAt: new Date().toISOString(), attempts: 0 })
+      }
     })
     void this.sync()
   }
@@ -442,9 +447,30 @@ export class TargetSyncEngine {
       }
 
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
+        const pullStartedAt = new Date().toISOString()
         const rows = await selectRows(tables[entity]).catch(() => null)
         if (!rows) continue
         const table = localTable(this.db, entity)
+        // Delete pendente nesta fila: o pull não pode devolver a linha ao Dexie antes de o servidor apagar.
+        // `failed` (recusado pelo servidor) não conta: o servidor vence e o pull restaura a linha (ADR-026).
+        const entityQueue = await this.db.targetSyncQueue.where('entity').equals(entity).toArray()
+        const pendingDeletes = new Set(entityQueue.filter((i) => i.operation === 'delete' && i.status !== 'failed').map((i) => i.entityId))
+        if ((MIRRORED_ENTITIES as readonly string[]).includes(entity)) {
+          // Espelho do servidor (pull completo, sem filtro: o que o RLS devolve é o escopo do usuário): linha local que sumiu
+          // do servidor foi apagada em outro aparelho. Só com a fila da entidade vazia e só linhas anteriores a este pull
+          // (uma criada durante o pull ainda não foi enfileirada). Pull com erro/offline não chega aqui.
+          const remoteIds = new Set(rows.map((r) => String((r as { id?: unknown }).id)))
+          if (entityQueue.every((i) => i.operation === 'delete' && i.status === 'failed')) {
+            const stale = (await table.toArray() as unknown as { id: string; updatedAt: string }[]).filter((l) => !remoteIds.has(l.id) && l.updatedAt < pullStartedAt).map((l) => l.id)
+            if (stale.length) {
+              if (entity === 'serviceItems') {
+                await this.db.rehearsalSongs.where('serviceItemId').anyOf(stale).delete()
+                await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && stale.some((x) => i.entityId.endsWith(`:${x}`))).delete()
+              }
+              await table.bulkDelete(stale)
+            }
+          }
+        }
         if (entity === 'servicePreparations') {
           // Desmarcado em outro aparelho: a linha sumiu do servidor (o pull não apaga); só preserva o que ainda está na fila.
           const remoteIds = new Set(rows.map((r) => preparationId(String(r.service_id), String(r.user_id))))
@@ -479,6 +505,7 @@ export class TargetSyncEngine {
           const valueId = entity === 'stageSessionStates'
             ? (value as StageSessionState).stageSessionId
             : (value as Exclude<TargetEntity, StageSessionState | RehearsalSong>).id
+          if (pendingDeletes.has(valueId)) continue
           if (entity === 'services') {
             // `status` é do servidor: sobrescreve sem LWW; demais campos seguem LWW.
             const remote = value as Service

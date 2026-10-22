@@ -11,6 +11,7 @@ import { preparationId } from '../../domain/services/servicePreparation'
 import { buildRehearsalViews, defaultRehearsalRepositories, type RehearsalRepositories, type RehearsalView } from './rehearsalService'
 import { listServiceMaterialViews, type MaterialView } from './materialService'
 import { materialRepository } from '../../db/repositories/materialRepository'
+import { canPrepareService } from './servicePreparationService'
 import { getMyAccessContext } from '../teams/teamMemberService'
 
 export interface MemberPreparationItem {
@@ -38,6 +39,8 @@ export interface MemberPreparationView {
   serviceNotes?: string
   /** RN-15: estado próprio de "preparado". */
   prepared: boolean
+  /** RN-16: pode marcar "preparado" (membro ativo da equipe, serviço aberto). */
+  canPrepare: boolean
   rehearsals: RehearsalView[]
   /** RN-22…25: materiais do serviço, dos ensaios e das músicas da ordem. */
   materials: MaterialView[]
@@ -87,6 +90,6 @@ export async function getMemberPreparationView(serviceId: string, repositories =
   const materials = await listServiceMaterialViews(serviceId, rehearsals.map((r) => r.id), ordered.flatMap((i) => (i.songId ? [i.songId] : [])), repositories.materials)
   return {
     success: true,
-    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, rehearsals, materials },
+    view: { serviceId, serviceName: service.name, startsAt: service.startsAt, myFunction: mine?.musicalFunction ?? null, items: view, serviceNotes: service.notes, prepared, canPrepare: canPrepareService(service, access), rehearsals, materials },
   }
 }

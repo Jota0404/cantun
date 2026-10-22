@@ -21,6 +21,11 @@ export const defaultPreparationRepositories: PreparationRepositories = {
   access: getMyAccessContext, currentUserId: () => getCurrentUser()?.id, displayNames: getMemberDisplayNames,
 }
 
+/** RN-16: membro ativo da equipe do serviço e serviço fora de completed/cancelled. */
+export function canPrepareService(service: { status: Parameters<typeof isFinalStatus>[0]; teamId?: string | null }, access: AccessContext): boolean {
+  return !isFinalStatus(service.status) && Boolean(service.teamId) && access.teamRole != null && access.teamStatus === 'active'
+}
+
 export type SetPreparationResult = { success: true } | { success: false; errors: string[] }
 
 /** RN-16: só a própria pessoa, membro ativo da equipe, serviço fora de completed/cancelled. Offline ok (classe A). */
@@ -31,7 +36,7 @@ export async function setPreparation(serviceId: string, prepared: boolean, repos
   if (!service) return { success: false, errors: ['Serviço não encontrado.'] }
   if (isFinalStatus(service.status)) return { success: false, errors: ['Serviço encerrado não aceita alteração.'] }
   const access = await repositories.access({ organizationId: service.organizationId, teamId: service.teamId ?? undefined })
-  if (!service.teamId || access.teamRole == null || access.teamStatus !== 'active') return { success: false, errors: ['Só membros ativos da equipe podem marcar preparação.'] }
+  if (!canPrepareService(service, access)) return { success: false, errors: ['Só membros ativos da equipe podem marcar preparação.'] }
   const id = preparationId(serviceId, userId)
   if (!prepared) await repositories.preparations.remove(id)
   else if (!(await repositories.preparations.get(id))) {

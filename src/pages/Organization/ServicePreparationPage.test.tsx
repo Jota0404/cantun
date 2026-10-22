@@ -22,7 +22,7 @@ const view = (over = {}) => ({
       { id: 'i1', type: 'song', songId: 'sg1', title: 'Grande é o Senhor', artist: 'Ana', effectiveKey: 'D', bpm: 72, notes: 'Entrada suave' },
       { id: 'i2', type: 'reprise', title: 'Refrão final', refPosition: 2 },
     ],
-    prepared: false, serviceNotes: 'Chegar às 9h', rehearsals: [], materials: [], ...over,
+    prepared: false, canPrepare: true, serviceNotes: 'Chegar às 9h', rehearsals: [], materials: [], ...over,
   },
 })
 const renderPage = () => render(<MemoryRouter initialEntries={['/services/s1/prepare']}><Routes><Route path="/services/:serviceId/prepare" element={<ServicePreparationPage />} /></Routes></MemoryRouter>)
@@ -64,6 +64,12 @@ describe('ServicePreparationPage', () => {
     expect(screen.getByText('Músicas em foco: Grande é o Senhor')).toBeTruthy()
   })
 
+  it('traduz a função musical', async () => {
+    m.get.mockResolvedValue(view({ myFunction: 'drums' }))
+    renderPage()
+    expect(await screen.findByText('Sua função: Bateria')).toBeTruthy()
+  })
+
   it('sem escala', async () => {
     m.get.mockResolvedValue(view({ myFunction: null }))
     renderPage()
@@ -80,6 +86,14 @@ describe('ServicePreparationPage', () => {
     m.impl = () => Promise.reject(new Error('x'))
     renderPage()
     expect((await screen.findByRole('alert')).textContent).toBe('Não foi possível carregar a preparação.')
+  })
+
+  it('desabilita Preparado quando canPrepare é false', async () => {
+    m.get.mockResolvedValue(view({ canPrepare: false }))
+    renderPage()
+    expect((await screen.findByRole('button', { name: 'Preparado' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/Preparação indisponível/)).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Preparado" })).toHaveAccessibleDescription(/Preparação indisponível/)
   })
 
   it('marca e desmarca preparado', async () => {

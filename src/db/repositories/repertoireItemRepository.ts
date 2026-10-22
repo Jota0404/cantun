@@ -1,7 +1,7 @@
 import type { RepertoireItem } from '../../domain/repertoires/repertoireItem'
 import type { SalmodiaDatabase } from '../database'
 import { db as defaultDb } from '../database'
-import { queueTargetDelete, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
+import { queueTargetDeleteAtomic, queueTargetUpsert, queueTargetUpserts } from '../../sync/syncService'
 
 export class RepertoireItemRepository {
   private readonly db: SalmodiaDatabase
@@ -19,6 +19,6 @@ export class RepertoireItemRepository {
   /** Grava o que o servidor já confirmou (importação): sem fila de sync. */
   async putLocal(values: RepertoireItem[]): Promise<void> { await this.db.repertoireItems.bulkPut(values) }
   async update(value: RepertoireItem): Promise<void> { await this.db.repertoireItems.put(value); await queueTargetUpsert('repertoireItems', value) }
-  async remove(id: string): Promise<void> { await this.db.repertoireItems.delete(id); await queueTargetDelete('repertoireItems', id) }
+  async remove(id: string): Promise<void> { await queueTargetDeleteAtomic('repertoireItems', id, [this.db.repertoireItems], async () => { await this.db.repertoireItems.delete(id) }) }
 }
 export const repertoireItemRepository = new RepertoireItemRepository()

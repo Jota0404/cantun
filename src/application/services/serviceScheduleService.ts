@@ -92,9 +92,7 @@ export async function removeServiceItem(serviceItemId: string, repositories = de
   if (!item) return { success: false, errors: ['Item não encontrado.'] }
   const blocked = await editableError(item.serviceId, repositories)
   if (blocked) return { success: false, errors: [blocked] }
-  // RN-11: o banco apaga as reprises/medleys do alvo em cascata; o Dexie acompanha (e a fila não sobe reprise órfã).
-  const dependents = (await repositories.items.listByServiceId(item.serviceId)).filter((other) => other.refItemId === serviceItemId)
-  for (const dependent of dependents) await repositories.items.remove(dependent.id)
+  // RN-11: `remove` apaga também as reprises/medleys do alvo, numa transação só.
   await repositories.items.remove(serviceItemId)
   const remaining = await repositories.items.listByServiceId(item.serviceId)
   return { success: true, items: await saveRenumbered(item.serviceId, renumber(remaining), repositories) }

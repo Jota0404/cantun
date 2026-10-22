@@ -1,7 +1,7 @@
 import type { Team } from '../../domain/teams/team'
 import type { TeamMembership } from '../../domain/teams/teamMembership'
 import { db as defaultDb, type SalmodiaDatabase } from '../database'
-import { queueTargetDelete, queueTargetUpsert } from '../../sync/syncService'
+import { queueTargetDeleteAtomic, queueTargetUpsert } from '../../sync/syncService'
 
 export class TeamRepository {
   private readonly db: SalmodiaDatabase
@@ -12,7 +12,7 @@ export class TeamRepository {
   async getById(id: string) { return this.db.teams.get(id) }
   async listByOrganizationId(organizationId: string) { return this.db.teams.where('organizationId').equals(organizationId).toArray() }
   async update(value: Team) { await this.db.teams.put(value); await queueTargetUpsert('teams', value) }
-  async remove(id: string) { await this.db.teams.delete(id); await queueTargetDelete('teams', id) }
+  async remove(id: string) { await queueTargetDeleteAtomic('teams', id, [this.db.teams], async () => { await this.db.teams.delete(id) }) }
 }
 
 export class TeamMembershipRepository {
@@ -27,7 +27,7 @@ export class TeamMembershipRepository {
   async listByTeamId(teamId: string) { return this.db.teamMemberships.where('teamId').equals(teamId).toArray() }
   async findByTeamAndUser(teamId: string, userId: string) { return this.db.teamMemberships.where('[teamId+userId]').equals([teamId, userId]).first() }
   async update(value: TeamMembership) { await this.db.teamMemberships.put(value); await queueTargetUpsert('teamMemberships', value) }
-  async remove(id: string) { await this.db.teamMemberships.delete(id); await queueTargetDelete('teamMemberships', id) }
+  async remove(id: string) { await queueTargetDeleteAtomic('teamMemberships', id, [this.db.teamMemberships], async () => { await this.db.teamMemberships.delete(id) }) }
   /** Remoção decidida pelo servidor (RPC `team_member_remove`): só o Dexie, sem fila. */
   async removeLocal(id: string) { await this.db.teamMemberships.delete(id) }
 }

@@ -10,7 +10,7 @@ vi.mock('../../platform/http', async (importOriginal) => ({ ...await importOrigi
 const access = vi.hoisted(() => vi.fn())
 vi.mock('../teams/teamMemberService', () => ({ listTeamMembers: members, getMyAccessContext: access }))
 const queued = vi.hoisted(() => ({ upsert: vi.fn(), remove: vi.fn() }))
-vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: queued.upsert, queueTargetDelete: queued.remove }))
+vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: queued.upsert, queueTargetDeleteAtomic: async (_e: string, _i: unknown, _t: unknown, write: () => Promise<void>) => { queued.remove(); await write() } }))
 
 import { db } from '../../db/database'
 import { ApiError } from '../../platform/http'
