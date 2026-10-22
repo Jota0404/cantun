@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 vi.mock('../../platform/sync', () => remote)
 vi.mock('../../platform/rpc', () => ({ rpc: vi.fn() }))
+vi.mock('../../application/teams/teamMemberService', async (orig) => ({ ...(await orig<object>()), getMyAccessContext: async () => ({ organizationRole: 'owner' }) }))
 vi.mock('../../sync/syncService', async () => {
   const { db } = await import('../database')
   const { TargetSyncEngine } = await import('../../sync/targetSyncEngine')
