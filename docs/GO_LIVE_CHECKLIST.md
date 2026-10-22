@@ -95,7 +95,7 @@ read -rs DATABASE_URL && export DATABASE_URL
 ```bash
 psql "$DATABASE_URL" -c "select version, applied_at from app.schema_migrations order by version"
 ```
-Compare com a lista abaixo. As que **não** aparecem são as pendentes. Se aparecer até `0016_minimum_age`, está tudo aplicado e o passo 5 só publica o código. Se o Render estiver com **Auto-Deploy ligado**, parte delas já pode ter rodado sozinha no último push em `main` (OPERATIONS §9). `[A CONFIRMAR]` qual é a última aplicada em produção; é o que este comando mostra.
+Compare com a lista abaixo. As que **não** aparecem são as pendentes. Se aparecer até `0025_stage_open_unique`, está tudo aplicado e o passo 5 só publica o código. Se o Render estiver com **Auto-Deploy ligado**, parte delas já pode ter rodado sozinha no último push em `main` (OPERATIONS §9). `[A CONFIRMAR]` qual é a última aplicada em produção; é o que este comando mostra.
 
 | Migration | O que faz | Apaga dados? |
 |---|---|---|
@@ -109,12 +109,21 @@ Compare com a lista abaixo. As que **não** aparecem são as pendentes. Se apare
 | 0014 org_membership_writes | **Corrige furo de segurança urgente:** um Admin podia se promover a dono ou apagar o dono; e quem não era membro podia mexer em vínculos. | Não. **Não adie esta.** |
 | 0015 user_consents | Aceite de Política e Termos (versão `2026-10-17`, texto ainda rascunho). | Não. |
 | 0016 minimum_age | Declaração de 16 anos no cadastro. **Muda a assinatura de `accept_consents`.** | Não. |
+| 0017 service_item_key | Tom da música por serviço; o Palco do serviço usa esse tom. | Não (só acrescenta coluna). |
+| 0018 service_item_reprise | Itens de reprise e medley no serviço. | Não ao aplicar (depois, excluir a música do serviço apaga suas reprises/medleys). |
+| 0019 session_reauth | Excluir a conta exige ter digitado a senha nos últimos 5 minutos. **O servidor novo lê `reauth_at` das sessões: esta tem de estar aplicada ANTES do servidor novo subir.** | Não. |
+| 0020 service_preparations | Cria tabela: marcar "preparado" por serviço. | Não. |
+| 0021 rehearsals | Cria tabelas de ensaio e músicas em foco. | Não. |
+| 0022 materials_links | Cria tabela de materiais (links https). | Não ao aplicar (depois, excluir uma música apaga os materiais dela). |
+| 0023 execution_history | Registro do serviço concluído (músicas, tom, equipe confirmada). Concluir fica bloqueado enquanto houver Palco aberto do serviço. **Não gera registro para serviços já concluídos antes dela.** Decisões D1–D3 `[A CONFIRMAR]` com você. | Não. |
+| 0024 activity_events | Log de atividade somente leitura. Guarda 90 dias. | Não ao aplicar (depois, eventos com mais de 90 dias são apagados automaticamente). Decisões D4/D5 `[A CONFIRMAR]`. |
+| 0025 stage_open_unique | No máximo uma sessão de Palco aberta por serviço. | **SIM (pouco):** encerra (não apaga) sessões de Palco abertas duplicadas do mesmo serviço; fica a ao vivo ou a mais recente. |
 
 Como só há dados de teste, as perdas da 0007/0008 foram aceitas (ADR-059 §1, decisão de 2026-10-16). Se o passo 2 deixou dúvida, não siga.
 
 ## 5. Aplicar migrations e publicar servidor + front, juntos
 
-**Por que juntos:** a 0016 troca a assinatura de `accept_consents`. Servidor **antigo** + migration **nova** = o cadastro quebra. O servidor novo só funciona com a 0016. Por isso a ordem é migration e servidor na mesma subida, janela curta.
+**Por que juntos:** a 0016 troca a assinatura de `accept_consents` (servidor **antigo** + migration **nova** = o cadastro quebra) e o servidor novo lê `app.sessions.reauth_at`, que só existe depois da 0019 (servidor **novo** + banco **antigo** = login/sessão quebra). O servidor novo só funciona com o banco na 0025. Por isso a ordem é migration e servidor na mesma subida, janela curta.
 
 **O caminho recomendado não usa o `migrate.sh` na mão:** o `startCommand` do Render roda `node src/migrate.ts` e só depois sobe o servidor (render.yaml). Então um único deploy aplica as migrations e o servidor novo, nessa ordem. Rodar `scripts/db/migrate.sh` antes seria deixar o servidor antigo com a migration nova. Use o `migrate.sh` só se o lead pedir (aí, imediatamente antes do deploy, na mesma janela).
 
@@ -123,7 +132,7 @@ Passos:
 2. Confira que o `main` do GitHub tem o código que você quer (último merge, CI verde). `git log -1 --oneline` no Mac e a aba **Actions** do GitHub.
 3. Avise quem testa que o app ficará fora do ar por alguns minutos. Faça fora do culto.
 4. Render → serviço `cantum` → **Manual Deploy → Deploy latest commit**.
-5. Acompanhe em **Logs**. **Veja**, nesta ordem: linhas `aplicada  0007_song_copies` … `aplicada  0016_minimum_age` (só as que faltavam), depois `migrations em dia`, depois o status **Live**.
+5. Acompanhe em **Logs**. **Veja**, nesta ordem: linhas `aplicada  0007_song_copies` … `aplicada  0025_stage_open_unique` (só as que faltavam), depois `migrations em dia`, depois o status **Live**.
 6. Teste `https://<sua-url>/health`. **Veja:** `{"ok":true}`.
 
 **Se der errado:** `migration ... falhou` nos Logs = cada migration roda em uma transação, então a que falhou não fica pela metade, mas as anteriores ficam aplicadas. Não mexa no banco. Pare e mande ao lead a mensagem (sem segredos). `getaddrinfo` ou `password authentication failed` = `DATABASE_URL` do Render errada (OPERATIONS §6).
@@ -142,14 +151,18 @@ Marque cada item:
 - [ ] Criar uma música, um repertório e um serviço com a música.
 - [ ] Abrir o serviço e entrar no **Modo Palco**: abre, troca de música, volta.
 - [ ] Segurança (0014): com uma conta Admin que não é a dona, tentar se promover a dona ou remover a dona não funciona. `[A CONFIRMAR]` o roteiro de UI; se não conseguir testar, peça ao QA.
-- [ ] Conferir as migrations: `psql "$DATABASE_URL" -tA -c "select max(version) from app.schema_migrations"` mostra `0016_minimum_age`.
+- [ ] Conferir as migrations: `psql "$DATABASE_URL" -tA -c "select max(version) from app.schema_migrations"` mostra `0025_stage_open_unique`.
+- [ ] Tabelas novas existem (só leitura; cada uma devolve um número, sem `ERROR`): `psql "$DATABASE_URL" -tA -c "select (select count(*) from public.service_preparations), (select count(*) from public.rehearsals), (select count(*) from public.materials), (select count(*) from public.service_executions), (select count(*) from public.activity_events)"`.
+- [ ] 0025: nenhum serviço com duas sessões de Palco abertas: `psql "$DATABASE_URL" -tA -c "select count(*) from (select service_id from public.stage_sessions where status in ('lobby','live') group by service_id having count(*) > 1) d"` mostra `0`.
+- [ ] No app: definir o tom de uma música no serviço e abrir o Palco nesse tom; criar um ensaio e um material (link); marcar "preparado"; concluir o serviço (com o Palco encerrado) e ver o registro. `[A CONFIRMAR]` o roteiro de UI; se não conseguir, peça ao QA.
+- [ ] Excluir conta pede a senha de novo (0019). Teste com uma conta descartável.
 
 Depois: `unset DATABASE_URL` e feche o Terminal.
 
 ### Rollback (voltar atrás)
 
 Quando: o cadastro ou login não funciona, ou os dados ficaram errados e não tem conserto rápido.
-- **Só código ruim** (banco ok): Render → **Events → (deploy anterior) → Rollback**. Cuidado: o rollback **não** desfaz migrations. Voltar o código antigo com o banco na 0016 **quebra o cadastro**. Então prefira corrigir para frente (novo deploy) ou restaurar o banco.
+- **Só código ruim** (banco ok): Render → **Events → (deploy anterior) → Rollback**. Cuidado: o rollback **não** desfaz migrations. Voltar o código antigo com o banco na 0025 **quebra o cadastro** (0016) e a exclusão de conta (0019). Então prefira corrigir para frente (novo deploy) ou restaurar o banco.
 - **Voltar o banco ao dump:** `[A CONFIRMAR]`, o roteiro detalhado de restore em produção ainda não foi ensaiado (BACKUP_RECOVERY §4). Em resumo, o lead acompanha: criar um banco/branch novo no Neon, `pg_restore --no-owner --dbname "$DATABASE_URL" arquivo.dump`, trocar a `DATABASE_URL` no Render e redeployar com o **código antigo** compatível com a migration do dump. Alternativa mais simples para o Neon: **Branches → Restore** para um horário antes do passo 5 (OPERATIONS §8.1; confira a janela de histórico do plano).
 - **O que se perde:** tudo o que foi criado entre o dump e a restauração (contas, músicas, serviços; limite de 24 h do RPO). Depois de restaurar, invalide sessões e peça novo login (BACKUP_RECOVERY §5).
 
