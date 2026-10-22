@@ -9,6 +9,7 @@ import { queueTargetDeleteAtomic } from '../../sync/syncService'
 import { addReprise, type AddRepriseRepositories } from './addReprise'
 import { removeServiceItem } from './serviceScheduleService'
 
+vi.mock('../teams/teamMemberService', async (orig) => ({ ...(await orig<object>()), getMyAccessContext: async () => ({ organizationRole: 'owner' }) }))
 vi.mock('../../sync/syncService', () => ({ queueTargetUpsert: vi.fn(), queueTargetUpserts: vi.fn(async (_e: string, _v: unknown, _t: unknown, write: () => Promise<void>) => write()), queueTargetDeleteAtomic: vi.fn(async (_e: string, _id: unknown, _t: unknown, write: () => Promise<void>) => write()) }))
 
 const now = '2026-10-01T12:00:00Z'

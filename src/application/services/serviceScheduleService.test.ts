@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpc = vi.hoisted(() => vi.fn())
 const deleteRows = vi.hoisted(() => vi.fn())
+const access = vi.hoisted(() => ({ current: { organizationRole: 'owner' } as Record<string, unknown> }))
+vi.mock('../teams/teamMemberService', async (orig) => ({ ...(await orig<object>()), getMyAccessContext: async () => access.current }))
 vi.mock('../../platform/rpc', () => ({ rpc }))
 vi.mock('../../platform/sync', () => ({ deleteRows }))
 vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'u1', email: 'u@example.com', emailVerified: true, displayName: 'U' }) }))
@@ -18,6 +20,7 @@ const base: Service = { id: 's1', organizationId: 'o1', teamId: 't1', name: 'Cul
 describe('service use cases', () => {
   beforeEach(async () => {
     vi.resetAllMocks()
+    access.current = { organizationRole: 'owner' }
     await Promise.all([db.services.clear(), db.serviceItems.clear()])
     await db.services.put(base)
   })
@@ -108,5 +111,24 @@ describe('service use cases', () => {
     rpc.mockRejectedValueOnce(new Error('Você não tem permissão para esta ação.'))
     await db.songs.put({ id: 'mine2', title: 'Outra', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
     expect(await addServiceItem('s1', { type: 'song', songId: 'mine2' })).toEqual({ success: false, errors: ['Você não tem permissão para esta ação.'] })
+  })
+
+  it.each([
+    ['member', { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' }],
+    ['inactive leader', { organizationRole: 'member', teamRole: 'leader', teamStatus: 'inactive' }],
+  ])('denies item edits to a %s without writing locally (#117)', async (_name, denied) => {
+    await db.serviceItems.put({ id: 'i1', serviceId: 's1', type: 'prayer', title: 'Oração', position: 0, updatedAt: now })
+    access.current = denied
+    const failure = { success: false, errors: ['Você não tem permissão para editar a ordem deste serviço.'] }
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Nova' })).toEqual(failure)
+    expect(await moveServiceItem('s1', 'i1', 0)).toEqual(failure)
+    expect(await removeServiceItem('i1')).toEqual(failure)
+    expect(await db.serviceItems.toArray()).toHaveLength(1)
+    expect(await db.targetSyncQueue.count()).toBe(0)
+  })
+
+  it('allows a team leader to edit items', async () => {
+    access.current = { organizationRole: 'member', teamRole: 'leader', teamStatus: 'active' }
+    expect(await addServiceItem('s1', { type: 'prayer', title: 'Nova' })).toMatchObject({ success: true })
   })
 })
