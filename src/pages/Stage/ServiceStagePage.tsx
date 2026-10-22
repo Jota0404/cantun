@@ -13,6 +13,8 @@ import { ServiceStageControls } from '../../components/stage/ServiceStageControl
 import { labels } from '../../ui/labels'
 import { stageConnectionLabel } from './stageConnectionLabel'
 import { useServiceStageSession } from './useServiceStageSession'
+import { useScrollTopOnChange } from './useScrollTopOnChange'
+import { useWakeLock } from './useWakeLock'
 import './ServiceStagePage.css'
 
 export function ServiceStagePage() {
@@ -24,6 +26,8 @@ export function ServiceStagePage() {
   // `currentIndex` é a `position` do item no serviço (itens não musicais ficam de fora de `songs`).
   const activeIndex = Math.max(0, songs.findIndex((song) => song.position === executionState?.currentIndex))
   const activeSong = songs[activeIndex]
+  useScrollTopOnChange(activeSong?.position)
+  useWakeLock()
 
   const displayedLyrics = useMemo(() => {
     if (!activeSong) return ''
@@ -126,8 +130,7 @@ export function ServiceStagePage() {
             disabled={!live || busy}
             onChange={s.setAnnotationDraft}
             onSave={() => void s.saveAnnotation()}
-            // Comportamento atual preservado: o rascunho antigo é salvo (ver testes de caracterização).
-            onClear={() => { s.setAnnotationDraft(''); void s.saveAnnotation() }}
+            onClear={() => { s.setAnnotationDraft(''); void s.saveAnnotation('') }}
           />
           <ServiceStageControls
             busy={busy}
