@@ -30,6 +30,8 @@ import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
+const NOT_FOUND = 'Serviço não encontrado.'
+
 export function ServiceDetailPage() {
   const { serviceId = '' } = useParams()
   const navigate = useNavigate()
@@ -56,7 +58,7 @@ export function ServiceDetailPage() {
   const load = useCallback(async () => {
     try {
       const current = await getService(serviceId)
-      if (!current) { setError('Serviço não encontrado.'); return }
+      if (!current) { setService(undefined); setError(NOT_FOUND); return }
       const [serviceItems, personal, ministrySongs, context] = await Promise.all([
         listServiceItems(serviceId),
         listSongs(),
@@ -166,6 +168,7 @@ export function ServiceDetailPage() {
     navigate(`/organizations/${service.organizationId}`, { replace: true })
   }
 
+  if (!service && error === NOT_FOUND) return <main className="organization-page"><p role="alert">{NOT_FOUND}</p><Link to="/servicos">Voltar para Serviços</Link></main>
   if (!service) return <main className="organization-page"><p role={error ? 'alert' : undefined}>{error || 'Carregando serviço…'}</p></main>
 
   const final = isFinalStatus(service.status)

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,6 +24,7 @@ const m = vi.hoisted(() => ({
   setServiceItemKey: vi.fn(),
   addReprise: vi.fn(),
   orgSongs: [] as unknown[],
+  applied: [] as Array<() => void>,
 }))
 vi.mock('../../application/services/executionHistoryService', () => ({ getServiceExecution: async () => ({ success: true, execution: null }) }))
 vi.mock('../../application/songs/listOrganizationSongs', () => ({ listOrganizationSongs: async () => m.orgSongs }))
@@ -33,7 +34,7 @@ vi.mock('../../application/services/addReprise', () => ({ addReprise: m.addRepri
 vi.mock('../../application/services/applyRepertoire', () => ({ setServiceItemKey: m.setServiceItemKey }))
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'me' } }) }))
 vi.mock('../../components/schedule/ServiceSchedule', () => ({ ServiceSchedule: () => <section aria-label="Escala" /> }))
-vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
+vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (cb: () => void) => { m.applied.push(cb); return () => undefined } }))
 vi.mock('../../application/services/rehearsalService', () => ({ listRehearsals: async () => ({ success: true, rehearsals: [], canManage: false }), createRehearsal: vi.fn(), updateRehearsal: vi.fn(), deleteRehearsal: vi.fn() }))
 vi.mock('../../application/services/materialService', () => ({ listMaterials: async () => ({ success: true, materials: [], canManage: false }), addMaterial: vi.fn(), updateMaterial: vi.fn(), deleteMaterial: vi.fn() }))
 vi.mock('../../application/teams/teamMemberService', () => ({ getMyAccessContext: async () => m.access }))
@@ -62,6 +63,17 @@ function renderWith(service: Partial<Service>, access: AccessContext, list: Serv
 
 describe('ServiceDetailPage', () => {
   beforeEach(() => { m.setServiceItemKey.mockReset().mockResolvedValue({ success: true }); [m.transitionService, m.addServiceItem, m.moveServiceItem, m.removeServiceItem].forEach((fn) => fn.mockReset().mockResolvedValue({ success: true, items: [] })) })
+
+  it('service deleted remotely shows only the not-found state with a way back', async () => {
+    renderWith({}, leader)
+    expect(await screen.findByText('Em planejamento')).toBeInTheDocument()
+    m.service = undefined
+    await act(async () => { m.applied.forEach((cb) => cb()) })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Serviço não encontrado.')
+    expect(screen.getByRole('link', { name: 'Voltar para Serviços' })).toHaveAttribute('href', '/servicos')
+    expect(screen.queryByRole('region', { name: 'Mudar status' })).toBeNull()
+    expect(screen.queryByText('Em planejamento')).toBeNull()
+  })
 
   it('shows status in text and only allowed transitions', async () => {
     renderWith({}, leader)
