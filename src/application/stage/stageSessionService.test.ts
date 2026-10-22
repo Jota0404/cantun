@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }))
+vi.mock('../../platform/auth', () => ({ getCurrentUser: () => ({ id: 'me' }) }))
 vi.mock('../../platform/rpc', () => ({ rpc: mocks.rpc }))
 vi.mock('../../platform/http', () => ({ isPlatformConfigured: false }))
 
@@ -35,5 +36,21 @@ describe('startOrResumeStage', () => {
       name === 'create_target_stage_session' ? sessionRow(args.p_session_id, 'lobby') : stateRow(args.p_stage_session_id))
     await startOrResumeStage('s1')
     expect(mocks.rpc.mock.calls.map((c) => c[0])).toEqual(['create_target_stage_session', 'target_stage_start'])
+  })
+  it('MD é outra pessoa: entra sem chamar start', async () => {
+    await stageSessionRepository.put({ ...sess('c', 'lobby'), mdUserId: 'other' })
+    expect((await startOrResumeStage('s1')).id).toBe('c')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('MD próprio e live: não chama start', async () => {
+    await stageSessionRepository.put({ ...sess('d', 'live'), mdUserId: 'me' })
+    await startOrResumeStage('s1')
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+  it('MD próprio em lobby: chama start', async () => {
+    await stageSessionRepository.put({ ...sess('e', 'lobby'), mdUserId: 'me' })
+    mocks.rpc.mockResolvedValue(stateRow('e'))
+    await startOrResumeStage('s1')
+    expect(mocks.rpc).toHaveBeenCalledWith('target_stage_start', { p_stage_session_id: 'e' })
   })
 })

@@ -1109,3 +1109,53 @@ describe('reautenticação para excluir a conta (B8, ADR-065)', () => {
     assert.equal((await pool.query('select reauth_at from app.sessions where token_hash = $1', [token.hash])).rows[0].reauth_at, null)
   })
 })
+
+describe('Palco único por serviço (0025)', () => {
+  test('tomada concorrente com target_stage_* na mesma ordem de locks não dá deadlock; 2º create devolve a aberta', async () => {
+    const join = async (email: string) => {
+      const response = await app.inject({ method: 'POST', url: '/auth/signup', remoteAddress: '10.0.0.126', payload: { consentVersion: CONSENT_VERSION, ageDeclared: true, email, password: 'senha-forte-123', displayName: 'P' } })
+      assert.equal(response.statusCode, 201, response.body)
+      return { cookie: cookieOf(response), id: response.json().user.id as string }
+    }
+    const olga = await join('olga.palco@teste.local')
+    const lia = await join('lia.palco@teste.local')
+    const orgId = crypto.randomUUID(), teamId = crypto.randomUUID(), serviceId = crypto.randomUUID(), songId = crypto.randomUUID(), stageId = crypto.randomUUID()
+    const rpc = (user: { cookie: string }, name: string, payload: object) => app.inject({ method: 'POST', url: `/rpc/${name}`, headers: { cookie: user.cookie }, payload })
+    assert.equal((await rpc(olga, 'create_organization', { p_id: orgId, p_name: 'Igreja P' })).statusCode, 200)
+    await pool.query('insert into public.teams (id, organization_id, name) values ($1, $2, $3)', [teamId, orgId, 'Louvor'])
+    await pool.query(`insert into public.organization_memberships (organization_id, user_id, role) values ($1, $2, 'member')`, [orgId, lia.id])
+    await pool.query(`insert into public.team_memberships (team_id, user_id, role) values ($1, $2, 'leader')`, [teamId, lia.id])
+    await pool.query(`insert into public.songs (user_id, id, organization_id, title, original_key, current_key, lyrics, created_at, updated_at) values ($1, $2, $3, 'M', 'C', 'C', 'x', now(), now())`, [olga.id, songId, orgId])
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id, status) values ($1, $2, $3, 'Culto', now(), $4, 'in_progress')`, [serviceId, orgId, teamId, olga.id])
+    await pool.query(`insert into public.service_items (service_id, type, song_id, position) values ($1, 'song', $2, 0)`, [serviceId, songId])
+
+    const first = await rpc(lia, 'create_target_stage_session', { p_service_id: serviceId, p_session_id: stageId })
+    assert.equal(first.statusCode, 200, first.body)
+    const again = await rpc(olga, 'create_target_stage_session', { p_service_id: serviceId, p_session_id: crypto.randomUUID() })
+    assert.equal(again.json().id, stageId, 'devolve a aberta')
+    const otherId = crypto.randomUUID()
+    await pool.query(`insert into public.services (id, organization_id, team_id, name, starts_at, created_by_user_id) values ($1, $2, $3, 'Outro', now(), $4)`, [otherId, orgId, teamId, olga.id])
+    const reused = await rpc(lia, 'create_target_stage_session', { p_service_id: otherId, p_session_id: stageId })
+    assert.equal(reused.statusCode, 409, 'id de sessão de outro serviço')
+
+    // Líder inativo: o create do owner faz a tomada. Uma transação na ordem de target_stage_start/end
+    // (sessão, depois serviço) segura a sessão; o create espera por ela sem travar o serviço antes.
+    await pool.query('update public.team_memberships set status = $1 where user_id = $2', ['inactive', lia.id])
+    const holder = await pool.connect()
+    try {
+      await holder.query('begin')
+      await holder.query('select 1 from public.stage_sessions where id = $1 for update', [stageId])
+      const takeover = rpc(olga, 'create_target_stage_session', { p_service_id: serviceId, p_session_id: crypto.randomUUID() })
+      for (let i = 0; i < 50 && (await pool.query('select 1 from pg_locks where not granted')).rowCount === 0; i++) await new Promise((r) => setTimeout(r, 20))
+      await holder.query('select 1 from public.services where id = $1 for update', [serviceId])
+      await holder.query('commit')
+      const response = await takeover
+      assert.equal(response.statusCode, 200, response.body)
+      assert.notEqual(response.json().id, stageId)
+      assert.equal(response.json().md_user_id, olga.id)
+    } finally {
+      holder.release()
+    }
+    assert.equal((await pool.query('select status from public.stage_sessions where id = $1', [stageId])).rows[0].status, 'ended')
+  })
+})

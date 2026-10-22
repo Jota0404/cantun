@@ -54,6 +54,7 @@ export function fromPgError(error: unknown): HttpError | null {
   if (code === '42501') return new HttpError(403, (error as Error).message === 'recent authentication required' ? 'reauth_required' : 'acesso negado')
   if (code === 'P0001') return new HttpError(400, (error as Error).message)
   if (code.startsWith('23')) return new HttpError(409, 'conflito de dados')
+  if (code === '40P01') return new HttpError(409, 'conflito de concorrência, tente de novo')
   if (code.startsWith('22')) return new HttpError(400, 'dados inválidos')
   if (code === '42883' || code === '42703') return new HttpError(400, 'parâmetros inválidos')
   return null
