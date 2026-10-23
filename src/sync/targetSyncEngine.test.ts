@@ -5,6 +5,8 @@ import type { TargetSyncQueueItem } from './targetSyncEngine'
 import { TargetSyncEngine } from './targetSyncEngine'
 import { onRemoteDataApplied } from './remoteChanges'
 import { ApiError } from '../platform/http'
+import { rpc } from '../platform/rpc'
+import type { Song } from '../domain/songs/song'
 
 const remote = vi.hoisted(() => ({ selectRows: vi.fn(), upsertRows: vi.fn(), updateRows: vi.fn(), deleteRows: vi.fn() }))
 vi.mock('../platform/sync', () => remote)
@@ -612,10 +614,166 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
   })
 
   it('does not sweep non-mirrored entities', async () => {
-    await db.organizations.put({ id: 'org-x', name: 'x', createdAt: now, updatedAt: now })
+    await db.servicePreparations.put({ id: 'x:u', serviceId: 'x', userId: 'u', preparedAt: now, updatedAt: now })
+    await db.stageSessions.put({ id: 'ss-x', serviceId: 'x', status: 'lobby', createdAt: now, updatedAt: now } as never)
     await new TargetSyncEngine(db).sync()
-    expect(await db.organizations.get('org-x')).toBeDefined()
-    await db.organizations.clear()
+    // stageSessions é cascata de serviço, não espelho próprio; preparations seguem a regra isSent (fila vazia => remove).
+    expect(await db.stageSessions.get('ss-x')).toBeDefined()
+    await db.servicePreparations.clear()
+    await db.stageSessions.clear()
+  })
+
+  describe('access loss mirror (organization removed)', () => {
+    const song = (id: string, organizationId?: string): Song => ({ id, title: id, originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, organizationId, createdAt: now, updatedAt: now })
+    const orgRow = { id: 'o2', name: 'Fica', created_at: now, updated_at: now }
+    const all = () => [db.organizations, db.organizationMemberships, db.teams, db.teamMemberships, db.services, db.serviceItems, db.repertoires, db.repertoireItems, db.songs, db.memberAvailability, db.memberProfiles, db.materials, db.rehearsals, db.rehearsalSongs, db.servicePositions, db.targetSyncQueue, db.syncQueue]
+    beforeEach(async () => {
+      await Promise.all(all().map((t) => t.clear()))
+      await db.organizations.bulkPut([{ id: 'o1', name: 'Perdida', createdAt: now, updatedAt: now }, { id: 'o2', name: 'Fica', createdAt: now, updatedAt: now }])
+      await db.organizationMemberships.bulkPut([{ id: 'om1', organizationId: 'o1', userId: 'u', role: 'member', createdAt: now, updatedAt: now }, { id: 'om2', organizationId: 'o2', userId: 'u', role: 'member', createdAt: now, updatedAt: now }] as never)
+      await db.teams.bulkPut([{ id: 't1', organizationId: 'o1', name: 'a', createdAt: now, updatedAt: now }, { id: 't2', organizationId: 'o2', name: 'b', createdAt: now, updatedAt: now }])
+      await db.teamMemberships.bulkPut([{ id: 'tm1', teamId: 't1', userId: 'u', role: 'member', status: 'active', createdAt: now, updatedAt: now }, { id: 'tm2', teamId: 't2', userId: 'u', role: 'member', status: 'active', createdAt: now, updatedAt: now }] as never)
+      await db.services.bulkPut([{ id: 's1', organizationId: 'o1', teamId: 't1', name: 's1', startsAt: now, status: 'draft', createdByUserId: 'u', createdAt: now, updatedAt: now }, { id: 's2', organizationId: 'o2', teamId: 't2', name: 's2', startsAt: now, status: 'draft', createdByUserId: 'u', createdAt: now, updatedAt: now }] as never)
+      await db.repertoires.bulkPut([{ id: 'r1', organizationId: 'o1', name: 'r1', createdByUserId: 'u', version: 1, createdAt: now, updatedAt: now }, { id: 'rp', name: 'pessoal', createdByUserId: 'u', version: 1, createdAt: now, updatedAt: now }] as never)
+      await db.songs.bulkPut([song('m1', 'o1'), song('m2', 'o2'), song('p1')])
+      await db.serviceItems.bulkPut([{ id: 'si1', serviceId: 's1', type: 'song', songId: 'm1', position: 0, updatedAt: now }, { id: 'si2', serviceId: 's2', type: 'song', songId: 'm2', position: 0, updatedAt: now }] as never)
+      await db.repertoireItems.bulkPut([{ id: 'ri1', repertoireId: 'r1', songId: 'm1', position: 0, updatedAt: now }, { id: 'rip', repertoireId: 'rp', songId: 'p1', position: 0, updatedAt: now }])
+      await db.memberAvailability.bulkPut([{ id: 'av1', userId: 'u', organizationId: 'o1', date: '2026-10-01', status: 'available', createdAt: now, updatedAt: now }, { id: 'av2', userId: 'u', organizationId: 'o2', date: '2026-10-01', status: 'available', createdAt: now, updatedAt: now }] as never)
+      await db.memberProfiles.put({ organizationId: 'o1', userId: 'u', displayName: 'U' } as never)
+    })
+    const serverKeeps = (extra: Record<string, unknown[]> = {}) => remote.selectRows.mockImplementation(async (table: string) => ({
+      organizations: [orgRow],
+      organization_memberships: [{ id: 'om2', organization_id: 'o2', user_id: 'u', role: 'member', created_at: now, updated_at: now }],
+      teams: [{ id: 't2', organization_id: 'o2', name: 'b', created_at: now, updated_at: now }],
+      team_memberships: [{ id: 'tm2', team_id: 't2', user_id: 'u', role: 'member', status: 'active', created_at: now, updated_at: now }],
+      services: [{ id: 's2', organization_id: 'o2', team_id: 't2', name: 's2', starts_at: now, status: 'draft', created_by_user_id: 'u', created_at: now, updated_at: now }],
+      service_items: [{ id: 'si2', service_id: 's2', type: 'song', song_id: 'm2', position: 0, updated_at: now }],
+      repertoires: [{ id: 'rp', organization_id: null, team_id: null, name: 'pessoal', created_by_user_id: 'u', version: 1, created_at: now, updated_at: now }],
+      repertoire_items: [{ id: 'rip', repertoire_id: 'rp', song_id: 'p1', position: 0, updated_at: now }],
+      member_availability: [{ id: 'av2', user_id: 'u', organization_id: 'o2', date: '2026-10-01', status: 'available', created_at: now, updated_at: now }],
+      ...extra,
+    } as Record<string, unknown[]>)[table] ?? [])
+
+    it('removes everything of the lost organization, keeps the other one and personal data', async () => {
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      expect((await db.organizations.toArray()).map((o) => o.id)).toEqual(['o2'])
+      expect((await db.organizationMemberships.toArray()).map((o) => o.id)).toEqual(['om2'])
+      expect((await db.teams.toArray()).map((o) => o.id)).toEqual(['t2'])
+      expect((await db.teamMemberships.toArray()).map((o) => o.id)).toEqual(['tm2'])
+      expect((await db.services.toArray()).map((o) => o.id)).toEqual(['s2'])
+      expect((await db.serviceItems.toArray()).map((o) => o.id)).toEqual(['si2'])
+      expect((await db.repertoires.toArray()).map((o) => o.id)).toEqual(['rp'])
+      expect((await db.repertoireItems.toArray()).map((o) => o.id)).toEqual(['rip'])
+      expect((await db.songs.toArray()).map((o) => o.id).sort()).toEqual(['m2', 'p1'])
+      expect((await db.memberAvailability.toArray()).map((o) => o.id)).toEqual(['av2'])
+      expect(await db.memberProfiles.count()).toBe(0)
+    })
+
+    const cascaded = async () => (await db.organizations.count()) === 1
+    const intact = async () => {
+      expect(await db.organizations.count()).toBe(2)
+      expect(await db.songs.count()).toBe(3)
+      expect(await db.services.count()).toBe(2)
+      expect(await db.serviceItems.count()).toBe(2)
+      expect(await db.repertoires.count()).toBe(2)
+      expect(await db.teams.count()).toBe(2)
+      expect(await db.memberAvailability.count()).toBe(2)
+    }
+
+    it('keeps the whole organization while a Ministry copy edit is pending offline (syncQueue), until it is discarded', async () => {
+      const copy = { ...song('m1', 'o1'), lyrics: 'editada offline' }
+      const queued = await db.syncQueue.add({ userId: 'u', entity: 'songs', entityId: 'm1', operation: 'upsert', payload: copy, updatedAt: now, attempts: 0 })
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      await intact()
+      expect(await db.syncQueue.count()).toBe(1)
+      // o servidor recusa: vira failed e continua bloqueando até o usuário descartar
+      await db.syncQueue.update(queued, { status: 'failed' })
+      await new TargetSyncEngine(db).sync()
+      await intact()
+      await db.syncQueue.clear()
+      await new TargetSyncEngine(db).sync()
+      expect(await cascaded()).toBe(true)
+      expect((await db.songs.toArray()).map((o) => o.id).sort()).toEqual(['m2', 'p1'])
+    })
+
+    it.each([['pending', undefined], ['failed', 'failed' as const]])('a %s child item in the target queue blocks the cascade; discarding it releases', async (_n, status) => {
+      remote.upsertRows.mockRejectedValue(new Error('offline'))
+      const id = await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'si1', operation: 'upsert', payload: { id: 'si1', serviceId: 's1', type: 'song', songId: 'm1', position: 0, updatedAt: now } as never, updatedAt: now, attempts: 0, status })
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      await intact()
+      expect(await db.targetSyncQueue.get(id)).toBeDefined()
+      await db.targetSyncQueue.clear()
+      await new TargetSyncEngine(db).sync()
+      expect(await cascaded()).toBe(true)
+    })
+
+    it('a valid empty answer with a pending write deletes nothing of the organization that has it', async () => {
+      remote.upsertRows.mockRejectedValue(new Error('offline'))
+      await db.targetSyncQueue.add({ entity: 'services', entityId: 's1', operation: 'upsert', payload: await db.services.get('s1') as never, updatedAt: now, attempts: 0 })
+      remote.selectRows.mockResolvedValue([])
+      await new TargetSyncEngine(db).sync()
+      expect((await db.organizations.toArray()).map((o) => o.id)).toEqual(['o1'])
+      expect((await db.services.toArray()).map((o) => o.id)).toEqual(['s1'])
+      expect((await db.serviceItems.toArray()).map((o) => o.id)).toEqual(['si1'])
+      expect((await db.songs.toArray()).map((o) => o.id).sort()).toEqual(['m1', 'p1'])
+      expect((await db.teams.toArray()).map((o) => o.id)).toEqual(['t1'])
+    })
+
+    it('a delete without payload cannot be attributed and blocks conservatively', async () => {
+      await db.targetSyncQueue.add({ entity: 'serviceItems', entityId: 'unknown', operation: 'delete', updatedAt: now, attempts: 1, status: 'failed' })
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      await intact()
+    })
+
+    it('protects the optimistic leader membership while its team is still queued', async () => {
+      remote.upsertRows.mockRejectedValue(new Error('offline'))
+      const team = { id: 't3', organizationId: 'o2', name: 'nova', createdAt: now, updatedAt: now }
+      await db.teams.put(team)
+      await db.teamMemberships.put({ id: 'tm3', teamId: 't3', userId: 'u', role: 'leader', status: 'active', createdAt: now, updatedAt: now } as never)
+      await db.targetSyncQueue.add({ entity: 'teams', entityId: 't3', operation: 'upsert', payload: team, updatedAt: now, attempts: 0 })
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      expect(await db.teamMemberships.get('tm3')).toBeDefined()
+    })
+
+    it('drops only the team services (with children) when a single team disappears', async () => {
+      // Filas de services/serviceItems de outra equipe tornam os espelhos delas inativos: só cascadeTeam pode remover s1/si1.
+      remote.upsertRows.mockRejectedValue(new Error('offline'))
+      await db.targetSyncQueue.bulkAdd([
+        { entity: 'services', entityId: 's2', operation: 'upsert', payload: await db.services.get('s2') as never, updatedAt: now, attempts: 0 },
+        { entity: 'serviceItems', entityId: 'si2', operation: 'upsert', payload: await db.serviceItems.get('si2') as never, updatedAt: now, attempts: 0 },
+      ])
+      serverKeeps({ organizations: [orgRow, { id: 'o1', name: 'Perdida', created_at: now, updated_at: now }] })
+      await new TargetSyncEngine(db).sync()
+      expect((await db.teams.toArray()).map((o) => o.id)).toEqual(['t2'])
+      expect((await db.teamMemberships.toArray()).map((o) => o.id)).toEqual(['tm2'])
+      expect((await db.services.toArray()).map((o) => o.id)).toEqual(['s2'])
+      expect((await db.serviceItems.toArray()).map((o) => o.id)).toEqual(['si2'])
+      expect(await db.targetSyncQueue.count()).toBe(2)
+      expect(await db.organizations.count()).toBe(2)
+      expect(await db.songs.count()).toBe(3)
+    })
+
+    it('does nothing when the pull fails (offline, 401)', async () => {
+      remote.selectRows.mockRejectedValue(new ApiError(401, 'x'))
+      await new TargetSyncEngine(db).sync()
+      expect(await db.organizations.count()).toBe(2)
+      expect(await db.songs.count()).toBe(3)
+      expect(await db.services.count()).toBe(2)
+    })
+
+    it('keeps organizations while one is still queued to be created', async () => {
+      remote.updateRows.mockRejectedValue(new Error('offline'))
+      vi.mocked(rpc).mockRejectedValue(new Error('offline'))
+      await db.targetSyncQueue.add({ entity: 'organizations', entityId: 'o1', operation: 'upsert', payload: { id: 'o1', name: 'Perdida', createdAt: now, updatedAt: now }, updatedAt: now, attempts: 0 })
+      serverKeeps()
+      await new TargetSyncEngine(db).sync()
+      expect(await db.organizations.count()).toBe(2)
+    })
   })
 
   describe('mirror of services and repertoires (#127)', () => {
