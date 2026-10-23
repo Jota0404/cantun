@@ -576,6 +576,13 @@ describe('registro da execução (VS-06, RN-01…07)', () => {
     assert.equal(write.statusCode, 403, write.body)
     assert.equal((await app.inject({ method: 'DELETE', url: `/sync/service_execution_songs?service_id=${serviceId}`, headers: { cookie: olga.cookie } })).statusCode, 403)
     assert.equal((await app.inject({ method: 'POST', url: '/rpc/record_service_execution', headers: { cookie: olga.cookie }, payload: { p_service_id: serviceId } })).statusCode, 404, 'gerador fora da allowlist')
+
+    // 0027: concluído não se exclui; quem passaria pela RLS recebe 403 service_completed, os demais 0 linhas.
+    const remove = await app.inject({ method: 'DELETE', url: `/sync/services?id=${serviceId}`, headers: { cookie: olga.cookie } })
+    assert.equal(remove.statusCode, 403, remove.body)
+    assert.equal(remove.json().error, 'service_completed')
+    assert.equal((await app.inject({ method: 'DELETE', url: `/sync/services?id=${serviceId}`, headers: { cookie: mauro.cookie } })).json().count, 0)
+    assert.equal((await rpc(mauro, 'get_service_execution', { p_service_id: serviceId })).json().service_id, serviceId, 'registro preservado')
   })
 })
 

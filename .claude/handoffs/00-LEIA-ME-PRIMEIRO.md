@@ -11,13 +11,17 @@ Para qualquer agente ou sessão que continue o CANTUM. Fonte de verdade continua
 - **D1–D6 do VS-06 decididas pelo owner em 2026-10-22** (D1 tom efetivo, D2 bloquear concluir com Palco aberto de MD ativo, D3 só `confirmed`, D4 recusa/substituição só para quem gerencia a equipe, D5 log 90 dias e registro enquanto existir, D6 RF-HIS no Blueprint). Mudar é migration aditiva.
 - Fechados depois do QA do B7: **0025** (no máximo uma sessão de Palco `lobby`/`live` por serviço; criar devolve a existente; PR #140), **0026** (trocar de item no Palco zera o tom ao vivo; #145), "Meus serviços" com a seção "Realizados" do membro (#138), tela cheia nos dois Palcos do serviço (#144). Restam: o status `declined` segue legível em `assignments` (D4 esconde só o evento); a purga de 90 dias só roda quando a organização ganha evento (levar ao B8/LGPD); `GET /sync/activity_events` ignora a janela de 30 dias; corrida residual de `transition_service` concluindo no mesmo instante de um create de Palco.
 
+## Decisões de 2026-10-23
+- Serviço concluído não pode ser excluído por ninguém (migration **0027**, 403 `service_completed`); o Registro da execução só sai com a organização; exclusão de conta não apaga serviços.
+- Acesso perdido: em PR.
+
 ## Ideias adiadas pelo owner (NÃO propor nem implementar sem ele retomar)
 `docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md`: importação de músicas além do `.txt` (colar texto, PDF/Word, OCR; IA só com decisão) e áudio por música com player fora do Palco. Não crie spec/ADR delas.
 
 ## Pendências do owner (nada disto a IA faz)
-1. **Produção:** aplicar as migrations 0007–0025 seguindo `docs/GO_LIVE_CHECKLIST.md`, com a **0019 antes do servidor novo** (o servidor seleciona `reauth_at`; sem a coluna vira 500). Confirmar antes que o banco só tem dados de teste; restore testado (BACKUP_RECOVERY).
+1. **Produção:** aplicar as migrations 0007–0027 seguindo `docs/GO_LIVE_CHECKLIST.md`, com a **0019 antes do servidor novo** (o servidor seleciona `reauth_at`; sem a coluna vira 500). Confirmar antes que o banco só tem dados de teste; restore testado (BACKUP_RECOVERY).
 2. **Texto jurídico** do B8 (D6): contato do controlador, bases legais, retenção, subprocessadores, validação dos 16 anos.
-3. **Hospedagem de produção no Brasil:** decidir antes do primeiro usuário real; comparativo em `docs/HOSTING_OPTIONS_BR.md` (substitui o ADR-060 quando decidido). Brief para o advogado em `docs/privacy/LEGAL_REVIEW_BRIEF.md`.
+3. **Hospedagem de produção no Brasil:** preferência do owner por **AWS**; decidir perto do lançamento ("deixar pra mexer quando o app estiver pronto para ser lançado"); comparativo em `docs/HOSTING_OPTIONS_BR.md` (substitui o ADR-060 quando decidido). Brief para o advogado em `docs/privacy/LEGAL_REVIEW_BRIEF.md`.
 
 ## Ambiente local (nada disto vai ao Git)
 - Banco de teste `cantum_teste` no PostgreSQL local; `server/.env` (copiar de `server/.env.example`) e `.env.local` na raiz com `VITE_API_URL=http://localhost:8787` (use `localhost`, não `127.0.0.1`). Migrations: `node server/src/migrate.ts` com `DATABASE_URL`. Não peça nem leia segredos/`.env` (ADR-050).

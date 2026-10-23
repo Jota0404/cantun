@@ -50,8 +50,11 @@ export class HttpError extends Error {
 export function fromPgError(error: unknown): HttpError | null {
   const code = (error as { code?: unknown }).code
   if (typeof code !== 'string') return null
-  // Só o par 42501 + mensagem de delete_my_account; o cliente usa o código para pedir a senha.
-  if (code === '42501') return new HttpError(403, (error as Error).message === 'recent authentication required' ? 'reauth_required' : 'acesso negado')
+  // Códigos estáveis só para 42501 com mensagem conhecida: reauth (delete_my_account) e serviço concluído (0027).
+  if (code === '42501') {
+    const message = (error as Error).message
+    return new HttpError(403, message === 'recent authentication required' ? 'reauth_required' : message === 'completed service cannot be deleted' ? 'service_completed' : 'acesso negado')
+  }
   if (code === 'P0001') return new HttpError(400, (error as Error).message)
   if (code.startsWith('23')) return new HttpError(409, 'conflito de dados')
   if (code === '40P01') return new HttpError(409, 'conflito de concorrência, tente de novo')

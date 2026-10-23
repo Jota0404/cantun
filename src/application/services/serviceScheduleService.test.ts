@@ -95,6 +95,19 @@ describe('service use cases', () => {
     expect(await db.services.get('s1')).toBeUndefined()
     expect(await db.serviceItems.get('it')).toBeUndefined()
   })
+  it('refuses to delete a completed service and changes nothing; other statuses pass', async () => {
+    await db.serviceItems.put({ id: 'it', serviceId: 's1', type: 'other', title: 'x', position: 0, updatedAt: now })
+    await db.services.put({ ...base, status: 'completed' })
+    await expect(deleteService('s1')).resolves.toEqual({ success: false, errors: ['Serviço concluído não pode ser excluído; o Registro da execução é preservado.'] })
+    expect(deleteRows).not.toHaveBeenCalled()
+    expect(await db.services.get('s1')).toBeDefined()
+    expect(await db.serviceItems.get('it')).toBeDefined()
+    for (const status of ['draft', 'ready', 'in_progress', 'cancelled'] as const) {
+      await db.services.put({ ...base, status })
+      deleteRows.mockResolvedValueOnce({ count: 1 })
+      await expect(deleteService('s1')).resolves.toEqual({ success: true })
+    }
+  })
   it('refuses a song already in the order (RN-A8) but allows repeated non-song items', async () => {
     await db.songs.put({ id: 'song-1', title: 'Oceano', organizationId: 'o1', originalKey: 'G', currentKey: 'G', lyrics: '', isFavorite: false, createdAt: now, updatedAt: now })
     expect(await addServiceItem('s1', { type: 'song', songId: 'song-1' })).toMatchObject({ success: true })

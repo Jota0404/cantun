@@ -28,7 +28,7 @@ Tornar o serviço o centro operacional que o B4 (escala) e o B6 (repertório e m
 - **RN-05** A ordem é `position` única por serviço; reordenar e remover renumeram de forma contígua.
 - **RN-06** Serviço `completed` ou `cancelled` não aceita edição de informações nem da ordem.
 - **RN-07** O Stage lê só itens `song`, por `position`; anterior/próxima pulam itens não musicais (D6: ajuste mínimo, sem feature nova).
-- **RN-08** Permissões (novas capacidades, escopo de equipe = equipe do serviço): `service.create`, `service.edit` (informações e ordem), `service.transition`: Owner, Admin e **Líder ativo da equipe do serviço**. `service.delete`: Owner e Admin; o Líder só exclui em `draft`. Leitura: membro ativo na organização (`PERMISSIONS.md` §4). Decididas no banco por `app.has_permission`; `permissions.ts` só espelha (NFR-005).
+- **RN-08** Permissões (novas capacidades, escopo de equipe = equipe do serviço): `service.create`, `service.edit` (informações e ordem), `service.transition`: Owner, Admin e **Líder ativo da equipe do serviço**. `service.delete`: Owner e Admin; o Líder só exclui em `draft`; serviço `completed`: ninguém exclui (emenda 2026-10-23, 0027). Leitura: membro ativo na organização (`PERMISSIONS.md` §4). Decididas no banco por `app.has_permission`; `permissions.ts` só espelha (NFR-005).
 - **RN-09** Sem calendário como produto (§8.2): lista por agrupamento, não grade de datas.
 
 ## Acceptance Criteria
