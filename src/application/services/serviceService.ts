@@ -117,6 +117,9 @@ export function listServiceAssignments(serviceId: string, repository = assignmen
  * Depois limpa o Dexie; as exclusões enfileiradas viram no-op no servidor.
  */
 export async function deleteService(serviceId: string): Promise<{ success: true } | { success: false; errors: string[] }> {
+  if ((await serviceRepository.getById(serviceId))?.status === 'completed') {
+    return { success: false, errors: ['Serviço concluído não pode ser excluído; o Registro da execução é preservado.'] }
+  }
   try {
     const { count } = await deleteRows('services', { id: serviceId })
     if (count === 0) return { success: false, errors: ['Você não tem permissão para excluir este serviço.'] }

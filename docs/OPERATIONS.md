@@ -148,6 +148,7 @@ O número de contas tem de bater com o do app. Anote a data do teste.
 
 - **Automático:** todo push (ou merge de PR) na branch padrão do repositório (`main`) dispara um novo deploy. As migrations novas rodam sozinhas na subida, antes do servidor aceitar acessos.
 - **Desfazer um deploy ruim:** no serviço, **Events → (deploy anterior) → Rollback**. Atenção: o rollback volta o código, mas **não** desfaz migrations já aplicadas no banco. Se a falha for no banco, restaure pelo Neon (8.1) e abra uma issue.
+- **Limpeza manual de dados de teste em produção:** um `DELETE` direto de serviço concluído é bloqueado pelo trigger da 0027, até pelo dono do banco. Exclua a organização (cascata) ou use `set session_replication_role = replica` só em manutenção supervisionada.
 - **Pausar os deploys automáticos:** **Settings → Build & Deploy → Auto-Deploy → Off**.
 
 ## 10. Segurança

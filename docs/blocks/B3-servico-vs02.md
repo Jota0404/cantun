@@ -19,7 +19,7 @@ O **Service** vira o centro operacional: pertence a uma equipe, tem estado claro
 - Estados `draft ↔ ready → in_progress → completed`, mais `cancelled` a partir de qualquer estado não final. Migração: `planned → draft`, `confirmed → ready`. Transições no domínio (`serviceLifecycle.ts`) e só pela RPC `transition_service` (trigger de guarda no `status`).
 - `ServiceItem.type`: `song | opening | prayer | preaching | announcement | offering | closing | other` (lista final). `title` obrigatório quando `type ≠ song`; `song_id` obrigatório só quando `type = song` (constraint `check`). `notes`, `duration_minutes` opcionais.
 - O Stage continua lendo apenas itens `song`, na ordem: filtro `type = 'song'` nas sete funções (D6).
-- Permissão: `service.create/edit/transition` para Owner, Admin e Líder ativo da equipe do serviço; `service.delete` Owner/Admin (Líder só em `draft`); Membro lê.
+- Permissão: `service.create/edit/transition` para Owner, Admin e Líder ativo da equipe do serviço; `service.delete` Owner/Admin (Líder só em `draft`; `completed`: ninguém exclui, emenda 2026-10-23, 0027); Membro lê.
 
 ## Escopo
 

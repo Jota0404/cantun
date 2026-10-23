@@ -252,11 +252,10 @@ delete from public.songs where id = '40000000-0000-0000-0000-000000002303';
 select pg_temp.ok((select song_id is null and title = 'Música C' from public.service_execution_songs
                    where service_id = '60000000-0000-0000-0000-000000002303' and position = 1), 'H3 música excluída');
 
--- RN-02: o registro sai com o serviço (Owner exclui serviço concluído).
+-- RN-02: serviço concluído não se exclui desde 0027 (o registro fica; cascata da organização em db/tests/0027).
 set local role cantum_user;
 select pg_temp.as_user('00000000-0000-0000-0000-000000002301');
-delete from public.services where id = '60000000-0000-0000-0000-000000002303';
-select pg_temp.ok(pg_temp.seen() = 232, 'cascata ao excluir o serviço');
+select pg_temp.fails_with($$delete from public.services where id = '60000000-0000-0000-0000-000000002303'$$, 'completed service cannot be deleted');
 
 -- D2: sessão aberta de MD excluído (md nulo), inativo ou sem vínculo não trava; MD ativo (Admin) segue bloqueando.
 select pg_temp.ok((select md_user_id is null from public.stage_sessions where id = '80000000-0000-0000-0000-000000002305'), 'MD excluído vira nulo');

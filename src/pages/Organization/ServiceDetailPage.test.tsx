@@ -135,9 +135,10 @@ describe('ServiceDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Excluir serviço' })).not.toBeInTheDocument()
   })
 
-  it('final service hides stage start and roster, owner still deletes', async () => {
+  it('final service hides stage start and roster, not even the owner deletes', async () => {
     renderWith({ status: 'completed' }, { organizationRole: 'owner' })
-    expect(await screen.findByRole('button', { name: 'Excluir serviço' })).toBeInTheDocument()
+    await screen.findByRole('note')
+    expect(screen.queryByRole('button', { name: 'Excluir serviço' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Iniciar palco' })).not.toBeInTheDocument()
   })
 

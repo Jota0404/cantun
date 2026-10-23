@@ -24,5 +24,5 @@ export function isFinalStatus(status: ServiceStatus): boolean {
 
 /** S7: o Líder só exclui em `draft`; Owner e Admin sempre. `canDelete` = `hasPermission(ctx, 'service.delete')`. */
 export function canDeleteService(status: ServiceStatus, canDelete: boolean, isOrganizationAdmin: boolean): boolean {
-  return canDelete && (isOrganizationAdmin || status === 'draft')
+  return canDelete && status !== 'completed' && (isOrganizationAdmin || status === 'draft')
 }

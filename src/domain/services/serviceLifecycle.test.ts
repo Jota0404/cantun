@@ -17,6 +17,7 @@ describe('service lifecycle (RN-02)', () => {
     expect(canDeleteService('ready', true, false)).toBe(false)
     expect(canDeleteService('ready', true, true)).toBe(true)
     expect(canDeleteService('draft', false, false)).toBe(false)
+    expect(canDeleteService('completed', true, true)).toBe(false)
   })
 })
 

@@ -23,6 +23,7 @@ export class ApiError extends Error {
 
 // Mensagens P0001 do banco (chegam como 400 `{ error }`) traduzidas para a UI.
 const SERVER_MESSAGES: Record<string, string> = {
+  service_completed: 'Serviço concluído não pode ser excluído; o Registro da execução é preservado.',
   'position not found or not authorized': 'Vaga não encontrada ou sem permissão.',
   'assignment not found or not authorized': 'Escala não encontrada ou sem permissão.',
   'service is completed or cancelled': 'Serviço encerrado não aceita mudanças na escala.',
