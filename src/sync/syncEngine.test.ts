@@ -247,4 +247,41 @@ describe('SyncEngine (songs)', () => {
     await engine.sync('user-1')
     expect(await engine.getStatus()).toEqual({ pending: 1, failed: [] })
   })
+
+  describe('Ministry copies mirror', () => {
+    const copy = (id: string, organizationId = 'o1'): Song => ({ ...song('2026-10-01T00:00:00Z'), id, organizationId })
+    const row = (id: string) => ({ ...remoteRow('2026-10-01T00:00:00Z'), id, organization_id: 'o1' })
+    beforeEach(async () => {
+      await db.organizations.clear()
+      await db.organizations.put({ id: 'o1', name: 'M', createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' })
+      await db.songs.bulkPut([copy('keep'), copy('gone'), copy('queued'), { ...song('2026-10-01T00:00:00Z'), id: 'personal' }])
+      await queue(copy('queued'))
+      db.syncQueue.toCollection().modify({ entityId: 'queued' })
+    })
+
+    it('removes copies the server no longer returns, keeping pending and personal songs', async () => {
+      remote.selectRows.mockImplementation(async (_t: string, filter?: Record<string, string>) => filter?.organization_id ? [row('keep')] : [])
+      await new SyncEngine(db).sync('user-1')
+      expect((await db.songs.toArray()).map((s) => s.id).sort()).toEqual(['keep', 'personal', 'queued'])
+    })
+
+    it('writes nothing after stop() when the Ministry pull was in flight', async () => {
+      let release: (rows: unknown[]) => void = () => undefined
+      remote.selectRows.mockImplementation((_t: string, filter?: Record<string, string>) => filter?.organization_id ? new Promise((resolve) => { release = resolve }) : Promise.resolve([]))
+      const engine = new SyncEngine(db)
+      const running = engine.sync('user-1')
+      await vi.waitFor(() => expect(release).not.toBeUndefined())
+      await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledWith('songs', { organization_id: 'o1' }))
+      const stopping = engine.stop()
+      release([])
+      await Promise.all([running, stopping])
+      expect(await db.songs.count()).toBe(4)
+    })
+
+    it('keeps everything when the Ministry pull fails', async () => {
+      remote.selectRows.mockImplementation(async (_t: string, filter?: Record<string, string>) => { if (filter?.organization_id) throw new ApiError(401, 'x'); return [] })
+      await new SyncEngine(db).sync('user-1')
+      expect(await db.songs.count()).toBe(4)
+    })
+  })
 })

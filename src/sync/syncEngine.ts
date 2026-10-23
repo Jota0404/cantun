@@ -190,11 +190,20 @@ export class SyncEngine {
         if (!row.organization_id) await this.applyRemote(userId, entity, row, epoch)
       }
     }
+    // ponytail: só varre cópias de organizações ainda no Dexie; cópias órfãs (organização já removida) não são varridas aqui.
     // RN-A6: uma requisição por Ministério traz as cópias de todos, respeitando a RLS.
     for (const organization of await this.db.organizations.toArray()) {
+      // Cópias locais anteriores ao GET: só elas podem ser espelhadas para fora (o que nasce durante o GET fica).
+      const localIds = (await this.db.songs.where('organizationId').equals(organization.id).primaryKeys()) as string[]
       const rows = await selectRows<RemoteRow>('songs', { organization_id: organization.id }).catch(() => null)
       if (epoch !== this.epoch) return
       if (!rows) continue
+      // Espelho: cópia que o servidor não devolve mais (acesso perdido/removida) sai daqui, salvo escrita pendente na fila.
+      const remoteIds = new Set(rows.map((row) => row.id))
+      for (const id of localIds) {
+        if (remoteIds.has(id) || epoch !== this.epoch) continue
+        if (!await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, 'songs', id]).first() && epoch === this.epoch) await this.db.songs.delete(id)
+      }
       for (const row of rows) {
         if (epoch !== this.epoch) return
         await this.applyRemote(userId, 'songs', row, epoch)

@@ -115,7 +115,7 @@ export function isPermanent(error: unknown): error is ApiError {
 
 // Listas puxadas inteiras (escopo do usuário): o pull também remove o que sumiu do servidor. Services e repertoires
 // também recebem `putLocal` (já confirmado pelo servidor); a proteção é a fila vazia e o snapshot local anterior ao GET.
-const MIRRORED_ENTITIES = ['services', 'repertoires', 'serviceItems', 'repertoireItems', 'servicePositions', 'memberAvailability'] as const
+const MIRRORED_ENTITIES = ['organizations', 'organizationMemberships', 'teams', 'teamMemberships', 'services', 'repertoires', 'serviceItems', 'repertoireItems', 'servicePositions', 'memberAvailability'] as const
 const BATCHED_ENTITIES = ['serviceItems', 'repertoireItems'] as const
 const batchKey = (item: TargetSyncQueueItem) =>
   item.entity === 'serviceItems' ? (item.payload as ServiceItem).serviceId : (item.payload as RepertoireItem).repertoireId
@@ -378,6 +378,74 @@ export class TargetSyncEngine {
     await this.db.targetSyncQueue.filter((i) => i.entity === 'rehearsalSongs' && rehearsalIds.some((r) => i.entityId.startsWith(`${r}:`))).delete()
   }
 
+  private async dropRows(entity: TargetEntityName, ids: string[]): Promise<void> {
+    if (ids.length) await localTable(this.db, entity).bulkDelete(ids)
+  }
+
+  /** Tudo que o aparelho guarda de organizações/equipes perdidas (ids), para decidir se há fila ligada e para a cascata. */
+  private async scopeIds(orgIds: string[], teamIds: string[]) {
+    const pk = async (table: Table<unknown, string>, index: string, owners: string[]) => (await table.where(index).anyOf(owners).primaryKeys()) as string[]
+    const t = <T>(table: Table<T, string>) => table as unknown as Table<unknown, string>
+    const songs = await pk(t(this.db.songs), 'organizationId', orgIds)
+    const teams = [...teamIds, ...await pk(t(this.db.teams), 'organizationId', orgIds)]
+    const services = [...new Set([...await pk(t(this.db.services), 'organizationId', orgIds), ...await pk(t(this.db.services), 'teamId', teams)])]
+    const repertoires = await pk(t(this.db.repertoires), 'organizationId', orgIds)
+    const rehearsals = await pk(t(this.db.rehearsals), 'serviceId', services)
+    const serviceItems = [...new Set([...await pk(t(this.db.serviceItems), 'serviceId', services), ...await pk(t(this.db.serviceItems), 'songId', songs)])]
+    const repertoireItems = [...new Set([...await pk(t(this.db.repertoireItems), 'repertoireId', repertoires), ...await pk(t(this.db.repertoireItems), 'songId', songs)])]
+    const materials = (await this.db.materials.filter((m) => orgIds.includes(m.organizationId) || (!!m.serviceId && services.includes(m.serviceId)) || (!!m.rehearsalId && rehearsals.includes(m.rehearsalId))).primaryKeys()) as string[]
+    const teamMemberships = await pk(t(this.db.teamMemberships), 'teamId', teams)
+    const availability = await pk(t(this.db.memberAvailability), 'organizationId', orgIds)
+    const orgMemberships = await pk(t(this.db.organizationMemberships), 'organizationId', orgIds)
+    const all = new Set([...orgIds, ...teams, ...songs, ...services, ...repertoires, ...rehearsals, ...serviceItems, ...repertoireItems, ...materials, ...teamMemberships, ...availability, ...orgMemberships])
+    return { songs, teams, services, repertoires, serviceItems, repertoireItems, materials, teamMemberships, availability, orgMemberships, all }
+  }
+
+  /** Há item de fila (pendente OU failed) de qualquer motor ligado ao escopo? Delete sem payload não se atribui: conta como ligado. */
+  private async hasQueueFor(all: Set<string>): Promise<boolean> {
+    const linked = (item: { entityId: string; operation: string; payload?: unknown }) => {
+      if (all.has(item.entityId) || all.has(item.entityId.split(':')[0])) return true
+      if (!item.payload) return item.operation === 'delete'
+      const payload = item.payload as Record<string, unknown>
+      return ['organizationId', 'serviceId', 'rehearsalId', 'songId', 'repertoireId', 'teamId'].some((k) => typeof payload[k] === 'string' && all.has(payload[k] as string))
+    }
+    return (await this.db.targetSyncQueue.toArray()).some(linked) || (await this.db.syncQueue.toArray()).some(linked)
+  }
+
+  /**
+   * Organizações/equipes que o servidor não devolve mais (acesso perdido). Para cada uma: se houver QUALQUER item de fila ligado a ela
+   * (pendente ou failed; ADR-026), a cascata NÃO roda e nenhuma escrita é apagada: o push recebe 403, o item vira failed e o usuário
+   * o descarta; só então a cascata roda num pull seguinte. Consistência parcial (sem perda de escrita): linhas sem fila ainda podem sair
+   * por outros caminhos (cópias de músicas do SyncEngine, servicePositions e as varreduras por isSent de ensaios/materiais/preparações). Sem fila: some tudo dela, incluindo cópias de músicas do Ministério;
+   * músicas e repertórios pessoais (sem organizationId) ficam (ADR-048). O que ficou protegido não é varrido pelos outros espelhos.
+   */
+  private async cascadeLost(kind: 'organizations' | 'teams', ids: string[], protectedIds: Set<string>): Promise<void> {
+    for (const id of ids) {
+      const scope = await this.scopeIds(kind === 'organizations' ? [id] : [], kind === 'teams' ? [id] : [])
+      if (await this.hasQueueFor(new Set([id, ...scope.all]))) {
+        protectedIds.add(id)
+        for (const x of scope.all) protectedIds.add(x)
+        continue
+      }
+      await this.db.rehearsalSongs.where('serviceItemId').anyOf(scope.serviceItems).delete()
+      await this.dropRows('serviceItems', scope.serviceItems)
+      await this.dropRows('repertoireItems', scope.repertoireItems)
+      await this.dropRows('materials', scope.materials)
+      await this.db.songs.bulkDelete(scope.songs)
+      await this.cascadeService(scope.services)
+      await this.dropRows('services', scope.services)
+      await this.cascadeRepertoire(scope.repertoires)
+      await this.dropRows('repertoires', scope.repertoires)
+      await this.dropRows('teamMemberships', scope.teamMemberships)
+      await this.dropRows('memberAvailability', scope.availability)
+      await this.dropRows('organizationMemberships', scope.orgMemberships)
+      if (kind === 'organizations') {
+        await this.dropRows('teams', scope.teams)
+        await this.db.memberProfiles.where('organizationId').equals(id).delete()
+      }
+    }
+  }
+
   private async cascadeRepertoire(repertoireIds: string[]): Promise<void> {
     const itemIds = (await this.db.repertoireItems.where('repertoireId').anyOf(repertoireIds).primaryKeys()) as string[]
     await this.db.repertoireItems.bulkDelete(itemIds)
@@ -509,6 +577,7 @@ export class TargetSyncEngine {
         }
       }
 
+      const protectedIds = new Set<string>() // ligados a organização/equipe perdida com fila: nenhum espelho os varre neste ciclo
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
         if (epoch !== this.epoch) return
         const table = localTable(this.db, entity)
@@ -531,9 +600,19 @@ export class TargetSyncEngine {
           // (uma criada durante o pull ainda não foi enfileirada). Pull com erro/offline não chega aqui.
           const remoteIds = new Set(rows.map((r) => String((r as { id?: unknown }).id)))
           if (entityQueue.every((i) => i.operation === 'delete' && i.status === 'failed')) {
-            const stale = [...localIdsBeforePull].filter((id) => !remoteIds.has(id))
+            let stale = [...localIdsBeforePull].filter((id) => !remoteIds.has(id) && !protectedIds.has(id))
+            if (entity === 'teamMemberships' && stale.length) {
+              // Vínculo otimista do líder (putLocal, sem fila): protegido enquanto a equipe ainda está na fila.
+              const queuedTeams = new Set((await this.db.targetSyncQueue.where('entity').equals('teams').toArray()).map((i) => i.entityId))
+              const memberships = await this.db.teamMemberships.bulkGet(stale)
+              stale = stale.filter((_, index) => !memberships[index] || !queuedTeams.has(memberships[index].teamId))
+            }
             if (stale.length) {
               if (epoch !== this.epoch) return
+              if (entity === 'organizations' || entity === 'teams') {
+                await this.cascadeLost(entity, stale, protectedIds)
+                stale = stale.filter((id) => !protectedIds.has(id))
+              }
               if (entity === 'services') await this.cascadeService(stale)
               if (entity === 'repertoires') await this.cascadeRepertoire(stale)
               if (entity === 'serviceItems') {
