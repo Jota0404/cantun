@@ -262,7 +262,9 @@ function localTable(db: SalmodiaDatabase, entity: TargetEntityName): Table<{ upd
 export type QueueExtra = { deleteSongIds?: string[]; upsertSongs?: RehearsalSong[] }
 
 export class TargetSyncEngine {
-  private syncing = false
+  // Geração: start()/stop() incrementam; execução antiga (resposta tardia) descarta em vez de gravar (ADR-048).
+  private epoch = 0
+  private runningEpoch: number | null = null
   private stopped = false
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
@@ -402,18 +404,23 @@ export class TargetSyncEngine {
   /** Para o retry e espera o sync em andamento terminar; nada reagenda até `start()`. */
   async stop(): Promise<void> {
     this.stopped = true
+    this.epoch++
     window.clearTimeout(this.retryTimer)
     this.retryTimer = undefined
-    while (this.syncing) await new Promise((resolve) => setTimeout(resolve, 10))
+    while (this.runningEpoch !== null) await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
+  /** Idempotente: só abre nova geração se estava parado (senão liberaria uma 2ª run em paralelo). */
   start(): void {
+    if (!this.stopped) return
     this.stopped = false
+    this.epoch++
   }
 
   async sync(): Promise<void> {
-    if (this.syncing || this.stopped || !navigator.onLine) return
-    this.syncing = true
+    if (this.runningEpoch === this.epoch || this.stopped || !navigator.onLine) return
+    const epoch = this.epoch
+    this.runningEpoch = epoch
     try {
       // Itens de entidades só-leitura enfileirados por versões antigas nunca seriam aceitos.
       await this.db.targetSyncQueue.where('entity').anyOf([...READ_ONLY_ENTITIES, ...REMOVED_ENTITIES]).delete()
@@ -431,7 +438,7 @@ export class TargetSyncEngine {
       let blockedRank = Infinity
       const done = new Set<number | undefined>()
       for (const item of pending) {
-        if (this.stopped) return
+        if (epoch !== this.epoch) return
         if (done.has(item.id)) continue
         if (item.operation === 'upsert' && pushRank(item) > blockedRank) continue
         // Itens do mesmo serviço (ou repertório) sobem num só lote (uma transação no servidor; unique de posição deferida).
@@ -446,6 +453,7 @@ export class TargetSyncEngine {
           for (const p of all) {
             const ref = p.payload && 'refItemId' in p.payload ? p.payload.refItemId : undefined
             if (ref && !inBatch.has(ref) && !(await this.db.serviceItems.get(ref))) {
+              if (epoch !== this.epoch) return
               await this.db.serviceItems.delete(p.entityId)
               if (p.id !== undefined) await this.db.targetSyncQueue.delete(p.id)
             } else batch.push(p)
@@ -455,8 +463,10 @@ export class TargetSyncEngine {
           const rows = [...batch].sort((a, b) => refs(a) - refs(b)).map((p) => toRemoteRow(item.entity, p.payload!))
           try {
             await upsertRows(tables[item.entity], rows)
+            if (epoch !== this.epoch) return
             await this.db.targetSyncQueue.bulkDelete(batch.flatMap((p) => p.id === undefined ? [] : [p.id]))
           } catch (error) {
+            if (epoch !== this.epoch) return
             // 4xx permanente recusa o lote inteiro (uma transação): não dá para separar itens da mesma ordem
             // sem quebrar a unique de posição. O servidor vence (ADR-026); o usuário descarta e o pull restaura.
             for (const p of batch) if (p.id !== undefined) await this.db.targetSyncQueue.update(p.id, this.failure(p, error))
@@ -473,6 +483,7 @@ export class TargetSyncEngine {
           } else if (item.entity === 'organizations') {
             const organization = item.payload as Organization
             const [existing] = await selectRows(table, { id: item.entityId })
+            if (epoch !== this.epoch) return
             if (existing) {
               await updateRows(table, { id: item.entityId }, { name: organization.name, updated_at: organization.updatedAt })
             } else {
@@ -481,8 +492,10 @@ export class TargetSyncEngine {
           } else {
             await upsertRows(table, [toRemoteRow(item.entity, item.payload!)])
           }
+          if (epoch !== this.epoch) return
           if (item.id !== undefined) await this.db.targetSyncQueue.delete(item.id)
         } catch (error) {
+          if (epoch !== this.epoch) return
           if (item.id === undefined) continue
           // Unicidade violada por outro aparelho (mesma função no serviço / mesmo dia): o servidor vence.
           // Descarta o item e o registro local órfão; o próximo pull traz o equivalente.
@@ -497,7 +510,7 @@ export class TargetSyncEngine {
       }
 
       for (const entity of Object.keys(tables) as TargetEntityName[]) {
-        if (this.stopped) return
+        if (epoch !== this.epoch) return
         const table = localTable(this.db, entity)
         const mirrored = (MIRRORED_ENTITIES as readonly string[]).includes(entity)
         // Ids locais ANTES do GET: só eles podem ser espelhados para fora (o que nasce durante o GET não depende de relógios).
@@ -505,11 +518,12 @@ export class TargetSyncEngine {
         // Pull completo = GET sem filtro respondeu (o servidor devolve o escopo inteiro: invariante em platform/sync.ts).
         // Erro/offline => null => nada é espelhado nem varrido para esta entidade. Não há sinal extra do servidor.
         const rows = await selectRows(tables[entity]).catch(() => null)
-        if (this.stopped) return // signOut/exclusão em andamento: nada grava no Dexie depois de stop().
+        if (epoch !== this.epoch) return // signOut/exclusão em andamento: nada grava no Dexie depois de stop().
         if (rows === null) continue
         // Delete pendente nesta fila: o pull não pode devolver a linha ao Dexie antes de o servidor apagar.
         // `failed` (recusado pelo servidor) não conta: o servidor vence e o pull restaura a linha (ADR-026).
         const entityQueue = await this.db.targetSyncQueue.where('entity').equals(entity).toArray()
+        if (epoch !== this.epoch) return
         const pendingDeletes = new Set(entityQueue.filter((i) => i.operation === 'delete' && i.status !== 'failed').map((i) => i.entityId))
         if (localIdsBeforePull) {
           // Espelho do servidor (pull completo, sem filtro: o que o RLS devolve é o escopo do usuário): linha local que sumiu
@@ -519,6 +533,7 @@ export class TargetSyncEngine {
           if (entityQueue.every((i) => i.operation === 'delete' && i.status === 'failed')) {
             const stale = [...localIdsBeforePull].filter((id) => !remoteIds.has(id))
             if (stale.length) {
+              if (epoch !== this.epoch) return
               if (entity === 'services') await this.cascadeService(stale)
               if (entity === 'repertoires') await this.cascadeRepertoire(stale)
               if (entity === 'serviceItems') {
@@ -533,14 +548,20 @@ export class TargetSyncEngine {
           // Desmarcado em outro aparelho: a linha sumiu do servidor (o pull não apaga); só preserva o que ainda está na fila.
           const remoteIds = new Set(rows.map((r) => preparationId(String(r.service_id), String(r.user_id))))
           for (const local of await this.db.servicePreparations.toArray()) {
-            if (!remoteIds.has(local.id) && await this.isSent('servicePreparations', local.id)) await this.db.servicePreparations.delete(local.id)
+            if (!remoteIds.has(local.id) && await this.isSent('servicePreparations', local.id)) {
+              if (epoch !== this.epoch) return
+              await this.db.servicePreparations.delete(local.id)
+            }
           }
         }
         if (entity === 'materials') {
           // Apagado em outro aparelho: o pull não apaga; só preserva o que ainda está na fila.
           const remoteIds = new Set(rows.map((r) => String(r.id)))
           for (const local of await this.db.materials.toArray()) {
-            if (!remoteIds.has(local.id) && await this.isSent('materials', local.id)) await this.db.materials.delete(local.id)
+            if (!remoteIds.has(local.id) && await this.isSent('materials', local.id)) {
+              if (epoch !== this.epoch) return
+              await this.db.materials.delete(local.id)
+            }
           }
         }
         if (entity === 'rehearsals' || entity === 'rehearsalSongs') {
@@ -550,15 +571,18 @@ export class TargetSyncEngine {
             ? (await this.db.rehearsals.toArray()).map((l) => ({ id: l.id, rowId: l.id }))
             : (await this.db.rehearsalSongs.toArray()).map((l) => ({ id: rehearsalSongId(l.rehearsalId, l.serviceItemId), rowId: [l.rehearsalId, l.serviceItemId] }))
           for (const local of locals) {
-            if (!remoteIds.has(local.id) && await this.isSent(entity, local.id)) await (table as unknown as Table<unknown, string | [string, string]>).delete(local.rowId)
+            if (!remoteIds.has(local.id) && await this.isSent(entity, local.id)) {
+              if (epoch !== this.epoch) return
+              await (table as unknown as Table<unknown, string | [string, string]>).delete(local.rowId)
+            }
           }
         }
         for (const row of rows) {
-          if (this.stopped) return
+          if (epoch !== this.epoch) return
           const value = fromRemoteRow(entity, row)
           if (entity === 'rehearsalSongs') {
             const song = value as RehearsalSong
-            if (await this.isSent('rehearsalSongs', rehearsalSongId(song.rehearsalId, song.serviceItemId))) await this.db.rehearsalSongs.put(song)
+            if (await this.isSent('rehearsalSongs', rehearsalSongId(song.rehearsalId, song.serviceItemId)) && epoch === this.epoch) await this.db.rehearsalSongs.put(song)
             continue
           }
           const valueId = entity === 'stageSessionStates'
@@ -569,27 +593,32 @@ export class TargetSyncEngine {
             // `status` é do servidor: sobrescreve sem LWW; demais campos seguem LWW.
             const remote = value as Service
             const local = await this.db.services.get(remote.id)
+            if (epoch !== this.epoch) return
             await this.db.services.put(local && local.updatedAt > remote.updatedAt ? { ...local, status: remote.status } : remote)
             continue
           }
           if (entity === 'assignments') {
             // Autoridade do servidor (ADR-057): sobrescreve sem LWW.
+            if (epoch !== this.epoch) return
             await table.put(value as never)
             continue
           }
           if (entity === 'teamMemberships') {
+            if (epoch !== this.epoch) return
             await this.applyTeamMembership(value as TeamMembership)
             continue
           }
           const local = await table.get(valueId)
+          if (epoch !== this.epoch) return
           if (local && local.updatedAt > (value as { updatedAt: string }).updatedAt) continue
           await table.put(value as never)
         }
       }
-      notifyRemoteDataApplied()
+      if (epoch === this.epoch) notifyRemoteDataApplied()
     } finally {
-      this.syncing = false
+      if (this.runningEpoch === epoch) this.runningEpoch = null
     }
+    if (epoch !== this.epoch) return
     // Só o que ainda pode dar certo: itens `failed` esperam o usuário descartar.
     const retryable = await this.db.targetSyncQueue.filter((i) => i.status !== 'failed').toArray()
     if (retryable.length > 0 && !this.stopped && this.retryTimer === undefined && navigator.onLine) {

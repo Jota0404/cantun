@@ -732,6 +732,97 @@ describe('TargetSyncEngine delete consistency (issue #116)', () => {
     })
   })
 
+  describe('epoch (late responses after stop + clear + start)', () => {
+    const svcRow = { id: 'srv', organization_id: 'o', team_id: null, name: 'x', starts_at: now, status: 'draft', created_by_user_id: 'u', created_at: now, updated_at: now }
+    const repRow = { id: 'rep', organization_id: 'o', team_id: null, name: 'r', created_at: now, updated_at: now }
+    const itemRow = { id: 'it', service_id: 'srv', type: 'song', position: 0, created_at: now, updated_at: now }
+
+    const repertoireValue = (id: string) => ({ id, name: id, createdByUserId: 'u', version: 1, createdAt: now, updatedAt: now })
+
+    it.each([
+      ['services', svcRow, () => db.services.count()],
+      ['repertoires', repRow, () => db.repertoires.count()],
+      ['service_items', itemRow, () => db.serviceItems.count()],
+    ])('drops a late %s pull so the next user starts clean', async (table, row, count) => {
+      let release: (rows: unknown[]) => void = () => undefined
+      remote.selectRows.mockImplementation((name: string) => name === table
+        ? new Promise((resolve) => { release = resolve })
+        : Promise.resolve([]))
+      const engine = new TargetSyncEngine(db)
+      const running = engine.sync()
+      await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledWith(table))
+      const stopping = engine.stop()
+      await db.services.clear()
+      engine.start()
+      release([row])
+      await Promise.all([running, stopping])
+      expect(await count()).toBe(0)
+    })
+
+    it('a late organization select does not call create_organization after stop + start', async () => {
+      const { rpc } = await import('../platform/rpc')
+      let release: (rows: unknown[]) => void = () => undefined
+      remote.selectRows.mockImplementation((name: string) => name === 'organizations' ? new Promise((resolve) => { release = resolve }) : Promise.resolve([]))
+      const engine = new TargetSyncEngine(db)
+      await db.targetSyncQueue.add({ entity: 'organizations', entityId: 'o', operation: 'upsert', payload: { id: 'o', name: 'Org', createdAt: now, updatedAt: now } as never, updatedAt: now, attempts: 0 })
+      const running = engine.sync()
+      await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledWith('organizations', { id: 'o' }))
+      const stopping = engine.stop()
+      await db.targetSyncQueue.clear()
+      engine.start()
+      release([])
+      await Promise.all([running, stopping])
+      expect(rpc).not.toHaveBeenCalled()
+    })
+
+    it('start() while running does not release a parallel run', async () => {
+      remote.selectRows.mockReturnValue(new Promise(() => undefined))
+      const engine = new TargetSyncEngine(db)
+      void engine.sync()
+      await vi.waitFor(() => expect(remote.selectRows).toHaveBeenCalledTimes(1))
+      engine.start()
+      await engine.sync()
+      expect(remote.selectRows).toHaveBeenCalledTimes(1)
+    })
+
+    it('a hung first upsert answered after stop + clear + start sends the second queued item zero times', async () => {
+      let release: (v: unknown) => void = () => undefined
+      remote.selectRows.mockResolvedValue([])
+      remote.upsertRows.mockImplementationOnce(() => new Promise((resolve) => { release = resolve }))
+      const engine = new TargetSyncEngine(db)
+      await db.targetSyncQueue.bulkAdd([
+        { entity: 'repertoires', entityId: 'a', operation: 'upsert', payload: repertoireValue('a') as never, updatedAt: now, attempts: 0 },
+        { entity: 'repertoires', entityId: 'b', operation: 'upsert', payload: repertoireValue('b') as never, updatedAt: now, attempts: 0 },
+      ])
+      const old = engine.sync()
+      await vi.waitFor(() => expect(remote.upsertRows).toHaveBeenCalledTimes(1))
+      const stopping = engine.stop()
+      await db.targetSyncQueue.clear()
+      engine.start()
+      release(undefined)
+      await Promise.all([old, stopping])
+      expect(remote.upsertRows).toHaveBeenCalledTimes(1)
+    })
+
+    it('runs a new sync while the old one is hung', async () => {
+      let release: (v: unknown) => void = () => undefined
+      remote.upsertRows.mockImplementationOnce(() => new Promise((resolve) => { release = resolve }))
+      const engine = new TargetSyncEngine(db)
+      await db.targetSyncQueue.add({ entity: 'repertoires', entityId: 'a', operation: 'upsert', payload: repertoireValue('a') as never, updatedAt: now, attempts: 0 })
+      const old = engine.sync()
+      await vi.waitFor(() => expect(remote.upsertRows).toHaveBeenCalledTimes(1))
+      void engine.stop()
+      await db.targetSyncQueue.clear()
+      engine.start()
+      await db.targetSyncQueue.add({ entity: 'repertoires', entityId: 'b', operation: 'upsert', payload: repertoireValue('b') as never, updatedAt: now, attempts: 0 })
+      remote.upsertRows.mockResolvedValue(undefined)
+      await engine.sync()
+      expect(remote.upsertRows).toHaveBeenCalledTimes(2)
+      release(undefined)
+      await old
+    })
+  })
+
   it('a failed pull of one entity does not wipe it nor the others', async () => {
     await db.serviceItems.put(item('a', 0) as never)
     await db.servicePositions.put(position('gone') as never)

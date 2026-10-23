@@ -9,7 +9,7 @@ import { syncEngine, syncTargetDomain, targetSyncEngine } from '../sync/syncServ
 import { AuthContext, type AuthContextValue } from './authContext'
 import { deleteMyAccount } from '../application/privacy/deleteMyAccount'
 import { recordConsent } from '../application/privacy/recordConsent'
-import { ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
+import { PendingLocalChangesError, ensureLocalDataOwner, signOutWithLocalCleanup } from './localSession'
 
 /** Servidor que aceita a conexão e não responde não pode prender o app em "Carregando…". */
 export const SESSION_LOAD_TIMEOUT_MS = 8000
@@ -23,6 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Os dados locais precisam pertencer ao usuário da sessão ANTES de a UI ler
   // ou de a sincronização enviar qualquer coisa (Blueprint §50.3, ADR-048).
   const applyUser = useCallback(async (nextUser: AuthUser | null) => {
+    // Sem sessão ou outro usuário (ex.: sessão expirou e B entrou sem signOut): invalida a run de A no ato
+    // (stop() é síncrono no epoch) antes de qualquer gravação de B; o start() abaixo é idempotente para o mesmo id.
+    if (!nextUser || nextUser.id !== currentUserId.current) {
+      void syncEngine?.stop()
+      void targetSyncEngine?.stop()
+    }
     if (nextUser) {
       syncEngine?.start()
       targetSyncEngine?.start()
@@ -114,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Falha com a sessão ainda válida (recusada/antes do logout remoto): os motores voltam e sincronizam
         // (stop() limpou o retry). Sessão já encerrada (ex.: IndexedDB falhou na limpeza): segue o logout local.
         if (platformAuth.getCurrentUser() === null) return
+        if (error instanceof PendingLocalChangesError) throw error // motores nem foram parados
         syncEngine?.start()
         targetSyncEngine?.start()
         void syncTargetDomain()

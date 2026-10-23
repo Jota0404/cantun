@@ -34,8 +34,10 @@ const tables: Record<EntityName, string> = { songs: 'songs' }
 const SYNC_RETRY_DELAY_MS = 10000
 
 export class SyncEngine {
-  private syncing = false
+  // Geração: start()/stop() incrementam; execução antiga (resposta tardia) descarta em vez de gravar (ADR-048).
+  private epoch = 0
   private stopped = false
+  private runningEpoch: number | null = null
   private retryTimer: number | undefined
   private readonly db: SalmodiaDatabase
 
@@ -58,8 +60,10 @@ export class SyncEngine {
 
   async bootstrap(userId: string) {
     if (!navigator.onLine) return
+    const epoch = this.epoch
     // ponytail: baixa as linhas só para contar; trocar por contagem no servidor se a biblioteca crescer.
     const remoteIsEmpty = await selectRows<RemoteRow>('songs', { user_id: userId }).then((rows) => rows.every((row) => row.organization_id), () => false)
+    if (epoch !== this.epoch) return
     if (!remoteIsEmpty) return this.sync(userId)
 
     const songs = await this.db.songs.filter((song) => !song.organizationId).toArray()
@@ -68,18 +72,20 @@ export class SyncEngine {
   }
 
   async sync(userId: string) {
-    if (this.syncing || this.stopped) return
+    if (this.runningEpoch === this.epoch || this.stopped) return
 
-    this.syncing = true
+    const epoch = this.epoch
+    this.runningEpoch = epoch
     try {
       if (navigator.onLine) {
-        await this.pushPending(userId)
-        await this.pull(userId)
-        notifyRemoteDataApplied()
+        await this.pushPending(userId, epoch)
+        await this.pull(userId, epoch)
+        if (epoch === this.epoch) notifyRemoteDataApplied()
       }
     } finally {
-      this.syncing = false
+      if (this.runningEpoch === epoch) this.runningEpoch = null
     }
+    if (epoch !== this.epoch) return
 
     const remaining = (await this.db.syncQueue.where('userId').equals(userId).toArray()).filter((i) => i.status !== 'failed').length
     if (remaining > 0) {
@@ -92,12 +98,16 @@ export class SyncEngine {
   /** Para o retry e espera o sync em andamento terminar; nada reagenda até `start()`. */
   async stop() {
     this.stopped = true
+    this.epoch++
     this.clearRetry()
-    while (this.syncing) await new Promise((resolve) => setTimeout(resolve, 10))
+    while (this.runningEpoch !== null) await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
+  /** Idempotente: só abre nova geração se estava parado (senão liberaria uma 2ª run em paralelo). */
   start() {
+    if (!this.stopped) return
     this.stopped = false
+    this.epoch++
   }
 
   private scheduleRetry(userId: string) {
@@ -114,13 +124,15 @@ export class SyncEngine {
     this.retryTimer = undefined
   }
 
-  private async pushPending(userId: string) {
+  private async pushPending(userId: string, epoch: number) {
     const pending = (await this.db.syncQueue.where('userId').equals(userId).sortBy('id')).filter((i) => i.status !== 'failed')
     for (const item of pending) {
       try {
-        await this.pushItem(userId, item)
+        await this.pushItem(userId, item, epoch)
+        if (epoch !== this.epoch) return
         if (item.id !== undefined) await this.db.syncQueue.delete(item.id)
       } catch (error) {
+        if (epoch !== this.epoch) return
         if (item.id === undefined) continue
         const attempts = item.attempts + 1
         await this.db.syncQueue.update(item.id, isPermanent(error) ? { attempts, status: 'failed', lastError: error.message } : { attempts })
@@ -143,11 +155,12 @@ export class SyncEngine {
     }
   }
 
-  private async pushItem(userId: string, item: SyncQueueItem) {
+  private async pushItem(userId: string, item: SyncQueueItem, epoch: number) {
     const table = tables[item.entity]
     const isCopy = Boolean(item.payload?.organizationId)
     const [remote] = await selectRows<RemoteRow>(table, isCopy ? { id: item.entityId } : { user_id: userId, id: item.entityId })
 
+    if (epoch !== this.epoch) return
     const remoteUpdatedAt = remote ? getRemoteUpdatedAt(remote) : undefined
     if (remoteUpdatedAt && remoteUpdatedAt >= item.updatedAt) return
 
@@ -166,29 +179,39 @@ export class SyncEngine {
     await upsertRows(table, [{ ...toRemoteRow(item.payload!), user_id: userId, deleted_at: null }])
   }
 
-  private async pull(userId: string) {
+  private async pull(userId: string, epoch: number) {
     for (const entity of Object.keys(tables) as EntityName[]) {
       const rows = await selectRows<RemoteRow>(tables[entity], { user_id: userId }).catch(() => null)
+      if (epoch !== this.epoch) return
       if (!rows) continue
       // As cópias que eu criei chegam pelo pull do Ministério (abaixo), não por aqui.
-      for (const row of rows) if (!row.organization_id) await this.applyRemote(userId, entity, row)
+      for (const row of rows) {
+        if (epoch !== this.epoch) return
+        if (!row.organization_id) await this.applyRemote(userId, entity, row, epoch)
+      }
     }
     // RN-A6: uma requisição por Ministério traz as cópias de todos, respeitando a RLS.
     for (const organization of await this.db.organizations.toArray()) {
       const rows = await selectRows<RemoteRow>('songs', { organization_id: organization.id }).catch(() => null)
+      if (epoch !== this.epoch) return
       if (!rows) continue
-      for (const row of rows) await this.applyRemote(userId, 'songs', row)
+      for (const row of rows) {
+        if (epoch !== this.epoch) return
+        await this.applyRemote(userId, 'songs', row, epoch)
+      }
     }
   }
 
-  private async applyRemote(userId: string, entity: EntityName, remote: RemoteRow) {
+  private async applyRemote(userId: string, entity: EntityName, remote: RemoteRow, epoch: number) {
+    if (epoch !== this.epoch) return
     const pending = await this.db.syncQueue.where('[userId+entity+entityId]').equals([userId, entity, remote.id]).first()
-    if (pending) return
+    if (pending || epoch !== this.epoch) return
 
     const local = await this.db.songs.get(remote.id)
     const remoteUpdatedAt = getRemoteUpdatedAt(remote)
     if (!remoteUpdatedAt || (local && getUpdatedAt(local) > remoteUpdatedAt)) return
 
+    if (epoch !== this.epoch) return
     if (remote.deleted_at) {
       await this.db.songs.delete(remote.id)
       return

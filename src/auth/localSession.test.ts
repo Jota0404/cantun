@@ -8,6 +8,7 @@ import {
   clearLocalUserData,
   countPendingLocalChanges,
   ensureLocalDataOwner,
+  SIGN_OUT_FLUSH_TIMEOUT_MS,
   signOutWithLocalCleanup,
   type KeyValueStorage,
 } from './localSession'
@@ -215,6 +216,35 @@ describe('localSession', () => {
 
       expect(await db.songs.count()).toBe(1)
       expect(storage.data.get(LOCAL_DATA_OWNER_KEY)).toBe('user-a')
+    })
+  })
+
+  describe('signOutWithLocalCleanup with a hung server', () => {
+    it('does not wait forever for the flush', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const never = () => new Promise<void>(() => undefined)
+        const signOutRemote = vi.fn(async () => undefined)
+        const done = signOutWithLocalCleanup({ db, flushPendingChanges: never, signOutRemote, storage: null })
+        await vi.advanceTimersByTimeAsync(SIGN_OUT_FLUSH_TIMEOUT_MS)
+        await done
+        expect(signOutRemote).toHaveBeenCalledOnce()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('keeps pending changes protected when flush hangs', async () => {
+      await seedPendingChanges()
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const done = signOutWithLocalCleanup({ db, flushPendingChanges: () => new Promise<void>(() => undefined), signOutRemote: async () => undefined, storage: null })
+        const assertion = expect(done).rejects.toBeInstanceOf(PendingLocalChangesError)
+        await vi.advanceTimersByTimeAsync(SIGN_OUT_FLUSH_TIMEOUT_MS)
+        await assertion
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

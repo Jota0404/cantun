@@ -25,6 +25,18 @@ describe('MorePage', () => {
     expect(await axeViolations(container)).toEqual([])
   })
 
+  it('shows a busy state while signing out and restores it on error', async () => {
+    const user = userEvent.setup()
+    let fail: (e: Error) => void = () => {}
+    signOut.mockReturnValueOnce(new Promise((_, reject) => { fail = reject }))
+    render(<MemoryRouter><MorePage /></MemoryRouter>)
+    await user.click(screen.getByRole('button', { name: 'Sair' }))
+    expect(screen.getByRole('button', { name: 'Saindo…' })).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent('Saindo da conta…')
+    await act(async () => fail(new Error('Falhou')))
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeEnabled()
+  })
+
   it('signs out, asking before discarding unsynced changes', async () => {
     const user = userEvent.setup()
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)

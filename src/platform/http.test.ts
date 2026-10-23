@@ -23,7 +23,59 @@ describe('apiRequest', () => {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: '{"p_id":"1"}',
+      signal: expect.any(AbortSignal),
     })
+  })
+
+  it('turns a hung request into a retryable network error (status 0)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      vi.stubGlobal('fetch', vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) => {
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+      })))
+      const { apiRequest, ApiError, REQUEST_TIMEOUT_MS } = await loadHttp()
+      const pending = apiRequest('GET', '/sync/songs').catch((e: unknown) => e)
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS)
+      const error = await pending
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toMatchObject({ status: 0 })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('lets a slow body finish after the header timeout, aborts a hung body at the body ceiling and clears the timer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      let signal: AbortSignal | undefined
+      const slowBody = (delay: number) => vi.fn(async (_url: string, init: RequestInit) => {
+        signal = init.signal ?? undefined
+        return {
+          ok: true, status: 200,
+          json: () => new Promise((resolve, reject) => {
+            const t = setTimeout(() => resolve({ ok: true }), delay)
+            signal?.addEventListener('abort', () => { clearTimeout(t); reject(signal?.reason) })
+          }),
+        } as unknown as Response
+      })
+      vi.stubGlobal('fetch', slowBody(50_000))
+      const { apiRequest, ApiError, REQUEST_TIMEOUT_MS, BODY_TIMEOUT_MS } = await loadHttp()
+      const slow = apiRequest('GET', '/sync/songs')
+      await vi.advanceTimersByTimeAsync(50_000)
+      await expect(slow).resolves.toEqual({ ok: true })
+      expect(vi.getTimerCount()).toBe(0)
+      expect(50_000).toBeGreaterThan(REQUEST_TIMEOUT_MS)
+
+      vi.stubGlobal('fetch', slowBody(BODY_TIMEOUT_MS * 2))
+      const hung = apiRequest('GET', '/sync/songs').catch((e: unknown) => e)
+      await vi.advanceTimersByTimeAsync(BODY_TIMEOUT_MS)
+      const error = await hung
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toMatchObject({ status: 0 })
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('returns undefined on 204 and throws ApiError with the server message', async () => {

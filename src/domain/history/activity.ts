@@ -26,6 +26,8 @@ export function activityText(event: ActivityEvent, names: Record<string, string>
     case 'assignment.replacement_needed': return `Precisa de substituto em ${t}`
     case 'rehearsal.created': return `${author} criou um ensaio em ${t}`
     case 'material.added': return `${author} adicionou o material ${t}`
-    case 'repertoire.updated': return `${author} atualizou o repertório ${t}`
+    case 'repertoire.updated': return event.entityTitle
+      ? `${author} atualizou o repertório ${t}`
+      : `${author} atualizou um repertório que foi excluído`
   }
 }
