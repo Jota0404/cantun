@@ -1,0 +1,33 @@
+.ui-tabs__list {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  overflow-x: auto;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+}
+
+/* Seletores com 2 classes vencem `.shell button` (App.css). */
+.ui-tabs .ui-tabs__tab {
+  flex: 1 0 auto;
+  padding-inline: var(--space-4);
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.ui-tabs .ui-tabs__tab:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--color-text);
+}
+
+.ui-tabs .ui-tabs__tab[aria-selected='true'],
+.ui-tabs .ui-tabs__tab[aria-selected='true']:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.ui-tabs [role='tabpanel'] {
+  margin-top: var(--space-4);
+}

@@ -19,11 +19,12 @@
 
 .app-nav a {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-1);
   min-height: var(--size-touch-min);
   padding: var(--space-2) var(--space-1);
-  border-top: 3px solid transparent;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -31,11 +32,22 @@
   text-decoration: none;
 }
 
-/* Indicação além de cor (RN-04): barra no destino ativo e peso da fonte. */
+.app-nav__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+}
+
+/* Indicação além de cor (RN-04): realce em pílula, cor forte e peso da fonte. */
 .app-nav a[aria-current='page'] {
-  border-top-color: var(--color-primary);
-  color: var(--color-text);
+  color: var(--color-primary-strong);
   font-weight: 800;
+}
+
+.app-nav a[aria-current='page'] .app-nav__icon {
+  background: var(--color-surface-raised);
 }
 
 /* Espaço para a barra não cobrir o fim da página. */
@@ -61,17 +73,25 @@
   }
 
   .app-nav a {
+    flex-direction: row;
     justify-content: flex-start;
+    gap: var(--space-3);
     padding-inline: var(--space-3);
-    border-top: 0;
-    border-left: 3px solid transparent;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-pill);
     font-size: var(--font-size-md);
   }
 
+  .app-nav__icon {
+    width: 24px;
+    height: 24px;
+  }
+
   .app-nav a[aria-current='page'] {
-    border-left-color: var(--color-primary);
     background: var(--color-surface-raised);
+  }
+
+  .app-nav a[aria-current='page'] .app-nav__icon {
+    background: transparent;
   }
 
   .shell:has(> .app-nav) {

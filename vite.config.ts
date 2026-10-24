@@ -23,6 +23,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Padrão do Workbox + woff2: a Nunito Sans (ADR-066) precisa estar no cache para o app abrir offline.
+      workbox: { globPatterns: ['**/*.{js,css,html,woff2}'] },
       manifest: {
         name: 'CANTUM',
         short_name: 'CANTUM',
@@ -30,8 +32,8 @@ export default defineConfig({
           'Cifras, repertórios e modo palco offline para músicos de igreja.',
         start_url: './',
         display: 'standalone',
-        background_color: '#121212',
-        theme_color: '#121212',
+        background_color: '#0d1620',
+        theme_color: '#0d1620',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png' },

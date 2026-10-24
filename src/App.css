@@ -32,14 +32,28 @@
   color: var(--color-primary-strong);
 }
 
-.shell button {
+/* Botão padrão = secundário em pílula (ADR-066). O Palco (.shell--stage) mantém o estilo anterior (D6). */
+.shell:where(:not(.shell--stage)) button {
+  min-height: var(--size-touch-min);
+  padding: 9px var(--space-4);
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.shell--stage button {
   min-height: var(--size-touch-min);
   padding: 9px 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;

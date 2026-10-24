@@ -41,6 +41,7 @@ const PAIRS: Array<[string, string, number]> = [
   ['color-success', 'color-surface', 4.5],
   ['color-success', 'color-success-surface', 4.5],
   ['color-info', 'color-surface', 4.5],
+  ['color-on-live', 'color-live', 4.5],
   ['color-border-control', 'color-bg', 3],
   ['color-border-control', 'color-surface', 3],
   ['color-focus', 'color-bg', 3],

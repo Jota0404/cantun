@@ -10,11 +10,12 @@ const resendVerification = vi.fn()
 vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user, resendVerification }) }))
 
 describe('EmailVerificationNotice', () => {
-  it('explains why verification matters when the e-mail is not verified', () => {
+  it('asks to confirm the e-mail when it is not verified', () => {
     user = { id: 'u1', email: 'ana@example.com', emailVerified: false, displayName: 'Ana' }
     render(<EmailVerificationNotice />)
 
-    expect(screen.getByRole('note')).toHaveTextContent(/E-mail não verificado.*ana@example.com.*aceitar convites/)
+    expect(screen.getByRole('note')).toHaveTextContent('Confirme seu e-mail (ana@example.com)')
+    expect(screen.getByText('Necessário para aceitar convites por e-mail.')).toBeVisible()
   })
 
   it('renders nothing for verified or anonymous users', () => {
@@ -32,7 +33,7 @@ describe('EmailVerificationNotice', () => {
     resendVerification.mockResolvedValue(undefined)
     user = { id: 'u1', email: 'ana@example.com', emailVerified: false, displayName: 'Ana' }
     render(<EmailVerificationNotice />)
-    const button = screen.getByRole('button', { name: 'Reenviar e-mail' })
+    const button = screen.getByRole('button', { name: 'Reenviar' })
 
     await act(async () => { fireEvent.click(button) })
 
