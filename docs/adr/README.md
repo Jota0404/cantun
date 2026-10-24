@@ -1,6 +1,6 @@
 # Architecture Decision Records — índice
 
-> Atualizado em 2026-10-17. Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
+> Atualizado em 2026-10-23 (conferido com os arquivos: só ADR-060 e ADR-064 seguem `Proposed`). Ao criar um ADR, use o próximo número livre e adicione a linha aqui.
 
 | ADR | Título | Status |
 |---|---|---|
@@ -50,7 +50,7 @@
 | [ADR-044](ADR-044-canonical-stage-runtime-final-cutover.md) | Canonical Stage Runtime Final Cutover | Accepted |
 | [ADR-045](ADR-045-legacy-stage-compatibility-boundary.md) | Legacy Stage Isolated to Compatibility Routes | Accepted (encerrado pelo ADR-059: legado removido no B1) |
 | [ADR-046](ADR-046-target-stage-execution-direct-boundary.md) | Direct Target Stage Execution Boundary | Accepted |
-| [ADR-047](ADR-047-target-stage-native-execution-finalization.md) | Finalização da transição do Stage para o domínio canônico | Accepted |
+| [ADR-047](ADR-047-target-stage-native-execution-finalization.md) | Finalização da transição do Stage para o domínio canônico | Accepted (Realtime alterado pelo ADR-059 e `docs/REALTIME_CONTRACT.md`) |
 | [ADR-048](ADR-048-local-data-session-isolation.md) | Isolamento de dados locais por sessão | Accepted |
 | [ADR-049](ADR-049-postgres-portability-and-own-backend.md) | Portabilidade PostgreSQL e backend próprio | Accepted (cronograma substituído pelo ADR-059) |
 | [ADR-050](ADR-050-claude-code-under-human-control.md) | Revisão do ADR-009: Claude Code sob controle humano | Accepted (emendado pelo ADR-058) |
@@ -62,11 +62,11 @@
 | [ADR-054](ADR-054-canal-de-notificacao.md) | Canal de notificação | Accepted |
 | [ADR-055](ADR-055-design-system-tokens.md) | Design system: tokens em CSS custom properties | Accepted |
 | [ADR-057](ADR-057-consistencia-por-entidade.md) | Política de consistência por entidade | Accepted |
-| [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed |
+| [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed (ambiente de teste; produção no Brasil a decidir pelo owner, ver `docs/HOSTING_OPTIONS_BR.md`) |
 | [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
 | [ADR-062](ADR-062-repertorio-pessoal.md) | Repertório pessoal e importação para a organização (revisa o ADR-022) | Accepted |
 | [ADR-063](ADR-063-saida-do-titular-e-anonimizacao.md) | Saída do titular: exclusão de conta, anonimização de autoria e exportação | Accepted |
-| [ADR-064](ADR-064-materiais-e-storage.md) | Materiais e storage de arquivos (substitui a reserva do 056) | Proposed |
+| [ADR-064](ADR-064-materiais-e-storage.md) | Materiais e storage de arquivos (substitui a reserva do 056) | Proposed (upload adiado pelo owner, D10 de 2026-10-22) |
 | [ADR-065](ADR-065-reautenticacao-acoes-destrutivas.md) | Reautenticação para ações destrutivas (exclusão de conta; #101) | Accepted |
 
 ## Números reservados

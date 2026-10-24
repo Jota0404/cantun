@@ -1,6 +1,7 @@
 # Feature Spec — Privacidade mínima (LGPD) e recuperação
 
-- **Status:** Aprovada (decisões D1–D7 do Jota, 2026-10-17; D6 depende do jurídico)
+- **Status:** Implementada em código (B8: PRs #96–#98, #102–#106, #110, #119; 0011–0016, 0019). Decisões D1–D7 do Jota (2026-10-17). **Pendente do owner:** texto jurídico (D6) e restore de dump real
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B8 (`docs/blocks/B8-privacidade-minima.md`)
 - **Fatia vertical:** VS-07
 - **Autor / data:** planner, 2026-10-17
@@ -38,20 +39,20 @@ Liberar uso por igrejas reais com transparência e recuperação (Blueprint §30
 - NFR-RN13 Nenhuma regra de recência em TypeScript: o servidor só repassa o fato; a senha nunca vai ao SQL nem aos logs.
 
 ## Acceptance Criteria
-- [ ] Cadastro sem aceite é recusado no servidor (não só na UI); com aceite grava `user_consents` com a versão vigente.
-- [ ] Subir a versão da política força novo aceite no próximo login.
-- [ ] `/privacidade` e `/termos` abrem deslogados e offline após o primeiro acesso (PWA).
-- [ ] Excluir conta: `app.users` do titular, `sessions`, `email_tokens`, vínculos, atribuições (futuras e passadas, a vaga fica aberta) e músicas/repertórios pessoais deixam de existir (teste SQL).
-- [ ] Após a exclusão, cópias de música do Ministério continuam existindo, com autoria "Ex-membro", e outros membros as leem.
-- [ ] Único Owner não consegue excluir a conta (erro claro, nada alterado).
-- [ ] Exclusão do MD durante Palco ativo não derruba o Stage dos demais.
-- [ ] Exportação devolve JSON só do titular; teste prova ausência de dados de outro usuário.
-- [ ] `team_member.remove` conforme RN-07; casos negativos abaixo negados.
-- [ ] `admin_events` gravado nas ações de RN-09 e sem campos de conteúdo; Membro não lê.
-- [ ] Restore documentado e executado ao menos uma vez; data e resultado no `BACKUP_RECOVERY.md`.
-- [ ] Regra de menores implementada conforme decisão registrada.
-- [ ] (Fatia 9) `delete_my_account` sem reauth recente na sessão é recusada pelo banco e nada muda; com `POST /auth/reauth` correto e a exclusão dentro de 5 min, funciona.
-- [ ] (Fatia 9) A UI pede a senha, reutiliza a reautenticação na janela e reabre o passo ao receber `reauth_required`; senha errada mostra erro sem excluir.
+- [x] Cadastro sem aceite é recusado no servidor (não só na UI); com aceite grava `user_consents` com a versão vigente.
+- [x] Subir a versão da política força novo aceite no próximo login.
+- [x] `/privacidade` e `/termos` abrem deslogados e offline após o primeiro acesso (PWA).
+- [x] Excluir conta: `app.users` do titular, `sessions`, `email_tokens`, vínculos, atribuições (futuras e passadas, a vaga fica aberta) e músicas/repertórios pessoais deixam de existir (teste SQL).
+- [x] Após a exclusão, cópias de música do Ministério continuam existindo, com autoria "Ex-membro", e outros membros as leem.
+- [x] Único Owner não consegue excluir a conta (erro claro, nada alterado).
+- [x] Exclusão do MD durante Palco ativo não derruba o Stage dos demais.
+- [x] Exportação devolve JSON só do titular; teste prova ausência de dados de outro usuário.
+- [x] `team_member.remove` conforme RN-07; casos negativos abaixo negados.
+- [x] `admin_events` gravado nas ações de RN-09 e sem campos de conteúdo; Membro não lê.
+- [ ] Restore documentado e executado ao menos uma vez; data e resultado no `BACKUP_RECOVERY.md`. (Documentado e scripts testados em banco local; falta o restore de um dump real registrado no §7, pelo owner.)
+- [ ] Regra de menores implementada conforme decisão registrada. (Idade mínima 16 por autodeclaração, 0016; falta a validação jurídica.)
+- [x] (Fatia 9) `delete_my_account` sem reauth recente na sessão é recusada pelo banco e nada muda; com `POST /auth/reauth` correto e a exclusão dentro de 5 min, funciona.
+- [x] (Fatia 9) A UI pede a senha, reutiliza a reautenticação na janela e reabre o passo ao receber `reauth_required`; senha errada mostra erro sem excluir.
 
 ### Fatia 9 — casos negativos obrigatórios (SQL/servidor/UI)
 | # | Caso | Esperado |
@@ -160,4 +161,4 @@ Aprovadas em 2026-10-17, como recomendado:
 | Dado pessoal em dumps após exclusão | Definir retenção de dumps (ex.: 30 dias) no BACKUP_RECOVERY |
 
 ## Issues
-- [ ] #<n> — uma por fatia 1–8
+- [x] Fatias entregues pelos PRs #96–#98, #102–#106, #110, #119 (épico #52 fechado)

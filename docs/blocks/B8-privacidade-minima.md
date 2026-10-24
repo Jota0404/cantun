@@ -1,6 +1,8 @@
 # B8 — Privacidade mínima (LGPD) e recuperação
 
 > Fase 0/1 · Esforço: 1–2 semanas · Depende de: B2 · **Obrigatório antes de qualquer igreja real usar** · Blueprint §15, §30, §50, NFR-005, NFR-006, NFR-009 · Auditoria de viabilidade: B1, B2
+>
+> **Status (2026-10-23): ✅ concluído em código** (PRs #95–#112, #119; 0011–0016, 0019). **Pendente do owner:** texto jurídico final (`docs/privacy/LEGAL_REVIEW_BRIEF.md`) e restore de dump real registrado (`docs/BACKUP_RECOVERY.md` §7). Épico #52 fechado. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 Permitir uso real com base legal, transparência e recuperação de dados, considerando que **filiação a igreja já é dado pessoal sensível no core** (LGPD art. 5º II e art. 11) e que há adolescentes nas equipes (art. 14).

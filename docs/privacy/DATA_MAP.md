@@ -1,6 +1,6 @@
 # Mapa de dados, retenção e subprocessadores
 
-> Material técnico para o jurídico (VS-07). Não é texto legal: o texto ao titular está em `privacy-policy.md` e `terms.md` (rascunhos). Itens `[JURÍDICO]` aguardam decisão.
+> Material técnico para o jurídico (VS-07). Conferido com as migrations até a 0027 em 2026-10-23. Não é texto legal: o texto ao titular está em `privacy-policy.md` e `terms.md` (rascunhos). Itens `[JURÍDICO]` aguardam decisão.
 
 ## Índice
 - `privacy-policy.md`, `terms.md` — textos públicos (rascunho, versão em `README.md`).
@@ -16,10 +16,13 @@
 | Tokens de e-mail | hash de token de confirmação/redefinição | verificar e-mail, trocar senha | Não | Expira; apagado na exclusão |
 | Vínculos | organização, equipe, papel, funções musicais | controlar acesso e escalar | **Sim, potencial** (filiação a igreja, LGPD art. 11) `[JURÍDICO: base legal]` | Até remoção do vínculo ou exclusão |
 | Escala e disponibilidade | atribuições, datas indisponíveis | montar escalas | Não | Apagadas na exclusão (futuras e passadas) |
-| Conteúdo musical | músicas, repertórios, serviços | operar o ministério | Não | Pessoal: apagado na exclusão. Do ministério: permanece com a organização, autoria "Ex-membro" (ADR-062/063) |
+| "Preparado" | serviço + usuário que marcou que se preparou (0020) | preparação do músico | Não | Apagado na exclusão; entra na exportação |
+| Conteúdo musical | músicas, repertórios, serviços, ensaios, materiais por link (0021, 0022) | operar o ministério | Não | Pessoal: apagado na exclusão. Do ministério: permanece com a organização, autoria "Ex-membro" (ADR-062/063) |
 | Consentimento | documento (`privacy`, `terms` e a declaração de idade `age`), versão, data do aceite | prova do aceite | Não | Apagado na exclusão `[JURÍDICO: manter prova?]` |
+| Registro da execução | serviço concluído: músicas, tons, quem tocou e em que função (0023) | histórico do ministério | **Sim, potencial** (participação em culto) `[JURÍDICO: base legal]` | Enquanto a organização existir (serviço concluído não se exclui, 0027); na exclusão da conta o usuário vira nulo ("Ex-membro"); participações do titular entram na exportação |
+| Log de atividade | só ids + tipo do evento e autor (0024) | transparência operacional, somente leitura | Não | 90 dias (purga na próxima inserção da organização: em organização sem atividade nova, eventos antigos ficam até lá); leitura mostra 30 dias; autor vira nulo na exclusão |
 | Log administrativo | tipo de ação, data, organização (sem e-mail nem conteúdo) | auditoria do Owner | Não | Titular vira nulo na exclusão; `[JURÍDICO: prazo]` |
-| Logs do servidor | método, rota, status, tempo (sem corpo, cookie, token ou link) | operação e segurança | Não | Conforme o Render `[JURÍDICO: prazo]` |
+| Logs do servidor | método, rota, status, tempo, IP do cliente (sem corpo, cookie, token ou link) | operação e segurança, limite de tentativas | Não | Conforme o Render `[JURÍDICO: prazo]` |
 | Cópias de segurança | tudo acima, em dump | recuperação | Herda | 30 dias (proposto) `[JURÍDICO]`; ver BACKUP_RECOVERY §6 |
 | Local no aparelho | cópia Dexie do usuário | uso offline | Herda | Apagada na exclusão e no logout (ADR-048) |
 

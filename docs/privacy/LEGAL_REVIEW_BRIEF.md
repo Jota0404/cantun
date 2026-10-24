@@ -1,6 +1,6 @@
 # CANTUM — Briefing para revisão jurídica (LGPD, Política e Termos)
 
-> **Rascunho técnico para o advogado. NÃO é aconselhamento jurídico** nem texto ao titular. Descreve o que o sistema faz hoje (código em `main`, migrations até a 0025) e o que falta decidir. Bases legais aqui são **sugestões a confirmar**; nada foi validado juridicamente. Itens marcados "a confirmar" são suposições ou fatos não verificados.
+> **Rascunho técnico para o advogado. NÃO é aconselhamento jurídico** nem texto ao titular. Descreve o que o sistema faz hoje (código em `main` @ `826eafa`, migrations até a 0027) e o que falta decidir. Bases legais aqui são **sugestões a confirmar**; nada foi validado juridicamente. Itens marcados "a confirmar" são suposições ou fatos não verificados.
 > Fontes no repo: `docs/privacy/DATA_MAP.md`, `privacy-policy.md`, `terms.md`, `docs/BACKUP_RECOVERY.md`, ADR-060, ADR-063, ADR-065, `db/migrations/`, Blueprint §18.10, §30, §50.
 
 ## 0. O produto em uma linha
@@ -22,11 +22,11 @@ Partes: o **operador do CANTUM** (Jota, pessoa física hoje; a confirmar se have
 | "Preparado" por serviço | `service_preparations` | o membro marca que se preparou | execução de contrato | apagado na exclusão; entra na exportação | o próprio, Owner/Admin, Líder da equipe |
 | Conteúdo pessoal (músicas, repertórios sem organização) | `songs`, `repertoires` | biblioteca pessoal | execução de contrato | apagado na exclusão | só o titular |
 | Conteúdo da organização (músicas, repertórios, serviços, ensaios, materiais por link) | várias | operar o ministério | execução de contrato com a organização (a confirmar) | permanece com a organização; autoria vira "Ex-membro" (sentinela, ADR-063) | membros da organização |
-| Registro de execução (serviço concluído: músicas, tons, quem tocou) | `service_executions*` (0023) | histórico do ministério | legítimo interesse da organização (a confirmar) | enquanto o serviço/organização existir; na exclusão da conta, o usuário vira nulo ("Ex-membro") | membros ativos da organização |
-| Log de atividade (só ids + tipo de evento) | `activity_events` (0024) | transparência operacional, somente leitura | legítimo interesse (a confirmar) | **90 dias** (purga a cada inserção, por organização); leitura mostra 30 dias; ator vira nulo na exclusão | membros da organização; recusas/substituições só para gestores |
+| Registro de execução (serviço concluído: músicas, tons, quem tocou) | `service_executions*` (0023) | histórico do ministério | legítimo interesse da organização (a confirmar) | enquanto a organização existir (serviço concluído não pode ser excluído por ninguém, 0027; sai só com a organização); na exclusão da conta, o usuário vira nulo ("Ex-membro") | membros ativos da organização |
+| Log de atividade (só ids + tipo de evento) | `activity_events` (0024) | transparência operacional, somente leitura | legítimo interesse (a confirmar) | **90 dias** (purga a cada inserção, por organização: numa organização sem atividade nova, eventos antigos ficam até a próxima); leitura mostra 30 dias; ator vira nulo na exclusão | membros da organização; recusas/substituições só para gestores |
 | Log administrativo (remover membro, excluir conta, exportar) | `admin_events` (0011/0013) | auditoria de ações críticas | legítimo interesse / obrigação legal? (a confirmar) | **sem prazo de purga**; ator/alvo viram nulos na exclusão | Owner/Admin da organização |
 | Consentimento: `privacy`, `terms`, `age` (versão + data) | `user_consents` (0015/0016) | prova do aceite e da declaração de idade | cumprimento de obrigação / exercício de direitos (a confirmar) | **apagado na exclusão** (cascata); ver P8 | o titular (leitura) |
-| Logs do servidor (método, rota sem query, status, tempo, **IP do cliente** e do proxy) | painel do Render | operação e segurança, rate limit | legítimo interesse | conforme o Render (prazo a confirmar). **Divergência:** `DATA_MAP.md` §1 não cita o IP, mas `server/src/app.ts` o registra | operador (Jota) |
+| Logs do servidor (método, rota sem query, status, tempo, **IP do cliente** e do proxy) | painel do Render | operação e segurança, rate limit | legítimo interesse | conforme o Render (prazo a confirmar). `DATA_MAP.md` já cita o IP (corrigido em 2026-10-23) | operador (Jota) |
 | Cópias de segurança (`pg_dump` do banco inteiro) | disco do Jota + nuvem pessoal com 2FA | recuperação | legítimo interesse / segurança | **30 dias (proposto, manual)**; dump não criptografado por padrão | operador (Jota) |
 | Cópia local no aparelho (IndexedDB) | navegador do titular | uso offline | execução de contrato | apagada no logout e na exclusão (ADR-048) | o titular |
 
@@ -56,7 +56,7 @@ Confirmado no código/ADR:
 |---|---|---|---|
 | **Render** (web service Free) | hospeda o `server/` e o front, mesma origem (ADR-060) | todo o tráfego em trânsito; logs de acesso com IP | fora do Brasil (ADR-060 §8); região exata a confirmar no painel |
 | **Neon** (PostgreSQL Free) | banco de dados (ADR-060; `server/src/migrate.ts`) | todos os dados armazenados (§1) | fora do Brasil; região a confirmar |
-| **Brevo** (API de e-mail) | `server/src/mailer.ts` (`api.brevo.com/v3/smtp/email`) | e-mail e nome do destinatário, link; **e, no convite de escala, função musical, nome do serviço e data/hora** (`server/src/schedule.ts`). **Divergência:** `DATA_MAP.md` §2 diz que o Brevo não recebe escalas | a confirmar (empresa francesa; armazenamento a confirmar) |
+| **Brevo** (API de e-mail) | `server/src/mailer.ts` (`api.brevo.com/v3/smtp/email`) | e-mail e nome do destinatário, link; **e, no convite de escala, função musical, nome do serviço e data/hora** (`server/src/schedule.ts`; o `DATA_MAP.md` §2 já registra isso) | a confirmar (empresa francesa; armazenamento a confirmar) |
 | Nuvem pessoal do operador (Drive/iCloud) para dumps | `docs/BACKUP_RECOVERY.md` §1 | cópia integral do banco | a confirmar; a confirmar se conta como operador |
 
 Não encontrados no repo: analytics, APM, CDN externa, armazenamento de arquivos (upload adiado, ADR-064). GitHub Pages hospedou o front no passado; hoje o front sai pelo Render (a confirmar se o Pages ainda está publicado).
@@ -77,7 +77,7 @@ ADR-060 §8 aceita região fora do Brasil **só até o primeiro usuário real** 
 10. **Incidente/vazamento:** sem procedimento de comunicação à ANPD e aos titulares (art. 48).
 11. **Transferência internacional:** ver §3.
 12. **Termos gerais:** limitação de responsabilidade, SLA (serviço gratuito que "dorme", ADR-060), suspensão, foro, lei aplicável.
-13. **Divergências a corrigir no `DATA_MAP.md`** (técnicas, não jurídicas): IP nos logs do servidor; dados de escala enviados ao Brevo.
+13. **Divergências técnicas no `DATA_MAP.md`:** corrigidas em 2026-10-23 (IP nos logs, escala enviada ao Brevo, registro da execução, log de atividade e "preparado").
 
 ## 5. Perguntas para o advogado
 
@@ -105,8 +105,8 @@ ADR-060 §8 aceita região fora do Brasil **só até o primeiro usuário real** 
   1. substituir os dois `.md` pelo texto final e remover a linha `> RASCUNHO`;
   2. nova migration `db/migrations/NNNN_consent_version.sql` com `create or replace function app.current_consent_version()` devolvendo a nova versão (padrão da 0015);
   3. atualizar `CONSENT_VERSION` em `src/domain/privacy/consent.ts` e testes;
-  4. atualizar `docs/privacy/README.md`, `DATA_MAP.md` (incluindo as divergências do §4.13) e `BACKUP_RECOVERY.md` com os prazos decididos;
+  4. atualizar `docs/privacy/README.md`, `DATA_MAP.md` e `BACKUP_RECOVERY.md` com os prazos decididos;
   5. se o advogado alterar idade mínima: `src/domain/privacy/age.ts` e `app.minimum_account_age()` (nova migration);
   6. se mudar retenção do log de atividade (90 dias) ou criar purga de `admin_events`/convites/sessões: nova migration.
 - Efeito: todo usuário existente precisa aceitar de novo no próximo login (`app.consent_pending`).
-- Pré-requisitos de go-live que não dependem do texto: decisão de região (§3), registro de UUIDs excluídos (§4.7), procedimento de incidente (§4.10).
+- Pré-requisitos de go-live que não dependem do texto: decisão de região (§3; preferência do owner: AWS São Paulo, `docs/HOSTING_OPTIONS_BR.md` §5), registro de UUIDs excluídos (§4.7), procedimento de incidente (§4.10).

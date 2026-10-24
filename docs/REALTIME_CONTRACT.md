@@ -3,7 +3,7 @@
 - **Status:** Aceito (implementado no B1, PR 3)
 - **Decisão:** [ADR-059](adr/ADR-059-own-backend-now.md) §6 · Bloco [B1](blocks/B1-portabilidade-postgres.md), PR 3 (`feat/server-realtime`) · Plano: [`BACKEND_MIGRATION_PLAN.md`](BACKEND_MIGRATION_PLAN.md) §3
 - **Implementam:** `backend-engineer` (`server/`, `db/migrations/`) e `core-engineer` (`src/platform/realtime.ts`, `src/sync/stageRealtime.ts`)
-- **Atualizado:** 2026-10-09
+- **Atualizado:** 2026-10-23 (tempos, tópico e códigos conferidos por amostragem com `server/src/realtime.ts`; 0025 incluída no §4)
 
 Cobre só o Stage canônico (`StageSession`, ADR-047). O legado `band-stage:<id>` sai no B1 e não tem equivalente.
 
@@ -293,9 +293,9 @@ Os testes de cliente mockam `src/platform/realtime.ts`, sem tocar no Supabase. O
 1. **Texto dos ADR-043 e ADR-047 (sem conflito de decisão).**
    - O texto: o ADR-047 §Realtime e o ADR-043 descrevem broadcast publicado pelo cliente e `postgres_changes`. Este contrato elimina o broadcast do cliente.
    - Por que não é conflito: o ADR-059 §6 delega o realtime a este documento, e o ADR-043 já está marcado `superseded`.
-   - **Recomendação:** o lead anota no índice que o ADR-047 teve o "Realtime alterado pelo ADR-059", sem editar o ADR.
+   - **Resolvido (2026-10-23):** o índice `docs/adr/README.md` anota no ADR-047 "Realtime alterado pelo ADR-059"; o ADR não foi editado.
 2. **Fonte do nome exibido na presença (decidido, 2026-10-09).**
    - O servidor lê o nome da sessão (§5); o cliente não envia `displayName`.
    - B2 (`docs/specs/VS-01-equipe.md`, `0004_team_roles.sql`): `app.users.display_name not null`, obrigatório no `POST /auth/signup`; `displayNameFor` (`server/src/realtime.ts`) lê essa coluna. Sem fallback; usuário inexistente fecha com 4401.
 3. **Membro `inactive` no Stage (resolvido no B2).** `0004_team_roles.sql` passa `can_subscribe_stage_session`, `get_target_stage_snapshot`, `get_service_stage_session` e `get_service_stage_songs` a exigir `stage.run` (N11), valendo no `subscribe` e na revalidação de 60 s.
-4. **Número da migration.** O SQL do B2 também vai para `db/migrations/`. Use o próximo número livre no momento do merge.
+4. **Número da migration (resolvido).** O SQL do B2 entrou como `0004_team_roles.sql`.

@@ -1,5 +1,7 @@
 # Legacy Dexie Migration Gates
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 Status: compatibility stores retained.
 
 ## Target stores now available

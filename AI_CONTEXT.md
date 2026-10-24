@@ -1,7 +1,7 @@
 # CANTUM — AI Context
 
 > Contexto operacional para agentes de IA que trabalham no CANTUM. Curto de propósito: carregue sempre; consulte os documentos-fonte para detalhes.
-> Última revisão: 2026-10-21 (B5 e B8 concluídos; B6 na fatia 4).
+> Última revisão: 2026-10-23 (`main` @ `826eafa`: B0–B8 concluídos em código; falta o lançamento, que é do owner).
 
 ## 1. Identidade
 
@@ -21,13 +21,13 @@ Nasceu como MVP offline de cifras (nome provisório "Salmodia", concluído em ag
 
 ## 3. Estado atual (atualizar ao fechar cada fase)
 
-- **Concluído:** MVP v0.1; Supabase auth/sync (ADR-012); domínio canônico Organization → Team → Song/Repertoire → Service → ServiceItem → StageSession (ADR-014 em diante); Stage canônico autoritativo; presença/readiness efêmeras; **B0 Fundação** (CI em `main`, isolamento local ADR-048, portabilidade ADR-049, governança da IA ADR-050/058, templates, plano de blocos); spec do **B2 Equipe** (VS-01, ADR-051, `docs/PERMISSIONS.md`).
-- **Concluído também:** **B1 Backend próprio** (ADR-059): PostgreSQL (`db/`) + servidor Node.js (`server/`), cliente em `src/platform`, legado removido, Supabase fora do projeto.
-- **Concluído também:** **B2 Equipe**, **B3 Serviço** e **B4 Escala**; **FIX-01 jornada musical** (spec `docs/specs/FIX-01-jornada-musical.md`, ADR-062): música do Ministério é cópia, repertório pessoal e importação para o Ministério, tons menores, sync confiável com erro permanente tratado, Líder inicia o Palco (`stage.start`), Palco do serviço no tom atual (RN-C4). Banco em produção: aplicar as migrations 0007–0010 só depois de confirmar que há apenas dados de teste.
-- **Concluído também:** **B5 Navegação/Design System** (tokens, tema, navegação e Início contextual; PRs #92–#94) e **B8 Privacidade** (consentimento, exportação, exclusão de conta, remoção de membro, idade mínima 16, backup/restore e checklist de go-live; PRs #95–#112; textos legais ainda dependem de revisão jurídica). **Fatia 9** (reautenticação para excluir conta, ADR-065, migration 0019, #119) mesclada e com QA com servidor e banco reais ok (issue #101 fechada; três ajustes de UX de baixa severidade ficaram sem issue).
-- **Concluído também:** **B6 Música no serviço + Ensaio + Materiais por link** (spec `docs/specs/VS-04-05-preparacao.md`): aplicar repertório (#108), tom por serviço (#113, 0017), reprise/medley (#115, 0018), visão do músico `/services/:id/prepare` (#121), "preparado" (#123, 0020), ensaio (#124, 0021) e links de material (#125, 0022); QA do bloco com dois usuários ok. **Sync:** #126 corrigiu o delete offline que ressuscitava e o pull que não apagava (#116); follow-ups na issue #127. **Fatia 8 (upload) espera a ADR-064 e a D10 (storage)** e as ideias adiadas em `docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md`.
-- **Em andamento:** **B7 Execução & Histórico** (VS-06) implementado e com QA; D1–D6 decididas (2026-10-22); pendente do Jota: aplicação das migrations 0007–0025 em produção. Hospedagem de produção ainda não definida (owner, antes do primeiro usuário real). Follow-ups: #87 (timeout de sessão com servidor travado), #117 (use cases de serviço sem checagem local de `service.edit`), #127 (sync).
-- **Próximo:** QA e decisões do B7; B9/produção dependem do owner.
+Resumo para o owner: [`docs/STATUS_DO_PROJETO.md`](docs/STATUS_DO_PROJETO.md). Passagem entre sessões: `.claude/handoffs/00-LEIA-ME-PRIMEIRO.md`.
+
+- **Concluído (código em `main`, migrations 0001–0027, Dexie v21):** MVP v0.1; domínio canônico (ADR-014 em diante); **B0** Fundação; **B1** Backend próprio (ADR-059: PostgreSQL em `db/`, servidor Node.js em `server/`, cliente em `src/platform`; Supabase e legado removidos); **B2** Equipe (0004); **B3** Serviço (0005); **B4** Escala (0006); **FIX-01** jornada musical (0007–0010, ADR-062); **B5** Navegação/Design System; **B8** Privacidade (0011–0016 e 0019: consentimento, exportação, exclusão de conta com reautenticação, remoção de membro, idade mínima 16, backup/restore); **B6** fatias 1–7 (0017 tom por serviço, 0018 reprise/medley, 0020 "preparado", 0021 ensaio, 0022 materiais por link); **B7** fatias 1–7 + QA (0023 registro da execução, 0024 log de atividade, "Realizados", histórico na música, Palco renomeado e refatorado). D1–D6 do VS-06 decididas pelo owner (2026-10-22).
+- **Depois do QA do B7:** 0025 (uma sessão de Palco aberta por serviço), 0026 (trocar de item zera o tom ao vivo), 0027 (serviço concluído não se exclui), "Realizados" em Meus serviços, tela cheia/wake lock nos Palcos do serviço; follow-ups #87, #117, #127 itens 1/3/4/5, #132 itens 1–5 e sync (ordem pai→filho na fila, timeouts e `epoch`, acesso perdido, `signOut` limpo).
+- **Fora do MVP por decisão do owner:** B6 fatia 8 (upload de arquivos; D10, ADR-064 segue `Proposed`; materiais só como link `https`); ideias em `docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md` (não propor).
+- **Aberto (código):** #127 itens 2 e 6, #132 item 6, #42 (6 exceções de lint), #22 (Modo Passagem; Palco congelado). Épicos #50 (B6) e #51 (B7) ainda abertos no GitHub.
+- **Próximo (owner, não é tarefa da IA):** lançamento — hospedagem (preferência AWS, decidir perto do lançamento), migrations 0007–0027 em produção (0019 antes do servidor novo), restore real testado, texto jurídico. Ver `docs/GO_LIVE_CHECKLIST.md`.
 - **Legado:** `Band*`/`Setlist*`, `BandSyncEngine`, `bandStageRealtime` e as rotas `/bands*`, `/stage/setlist`, `/stage/session` foram **removidos** no B1 (ADR-059), não portados. Não recriar.
 
 ## 4. Stack
@@ -66,6 +66,7 @@ pages/ components/  →  application/  →  domain/  ←  db/ (Dexie)  ·  sync/
 Experiência crítica — "aplicação dentro da aplicação". Entrada: Service → Order → item musical → Stage.
 Escuro, alto contraste, poucos controles, alvos de toque grandes, anterior/próxima na ordem do serviço, transposição rápida, fonte ajustável, auto-scroll, fullscreen/wake lock quando suportado, tolerante a rede instável. Ao trocar de música: topo + reinício do auto-scroll. Só o MD (operador) muta o estado compartilhado.
 **Congelado para features novas até o fim da Fase 2 (D6):** só correções e o ajuste mínimo exigido pelo B3.
+Hoje o Palco do serviço (`/stage/service-session/*`) tem topo ao trocar de música, wake lock e tela cheia, mas **não** tem auto-scroll nem transposição rápida (só o Palco avulso `/stage/song/*`); acrescentar é feature, decisão do owner.
 
 ## 8. Fronteira do produto (Blueprint §3, §24, §37)
 

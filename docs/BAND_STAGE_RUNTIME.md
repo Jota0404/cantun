@@ -1,5 +1,7 @@
 # CANTUM — Band Stage Runtime
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 ## Tarefa M
 
 Esta camada implementa o runtime do Modo Banda sobre as RPCs de autoridade da Tarefa L.

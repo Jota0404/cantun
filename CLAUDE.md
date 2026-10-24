@@ -51,8 +51,8 @@ O legado Band/Setlist foi removido no B1 (ADR-059, PR 5); não recriar.
 - Use cases recebem repositório por parâmetro com default (`fn(input, repository = defaultRepository)`) e retornam `{ success: true, … } | { success: false, errors }` para validação.
 - Componente/página: `Foo.tsx` + `Foo.css` + `Foo.test.tsx` lado a lado.
 - Testes de UI por papel/label acessível (`getByRole`, `getByLabelText`), não por classe CSS. Remoto sempre mockado (`src/platform`); repositórios com `fake-indexeddb`.
-- Arquivos grandes (`ServiceStagePage.tsx`, `StagePage.tsx`): extrair hooks/serviços em vez de crescer.
-- `react-hooks/set-state-in-effect` está ativa; só 7 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
+- Arquivos grandes: extrair hooks/serviços em vez de crescer. O Palco já foi dividido (`ServiceStagePage.tsx` ~160 linhas e `StagePage.tsx` ~140, com hooks em `src/pages/Stage/` e componentes em `src/components/stage/`); mantenha assim.
+- `react-hooks/set-state-in-effect` está ativa; só 6 páginas têm exceção por arquivo em `eslint.config.js` (débito, issue #42). Não adicione arquivos a essa lista.
 
 ## Persistência
 

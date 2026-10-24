@@ -1,6 +1,7 @@
 # Feature Spec — VS-05 Navegação e Design System
 
-- **Status:** Aprovada (decisões fechadas em 2026-10-11)
+- **Status:** Implementada (B5: PRs #80, #81, #82, #92–#94; épico #49 fechado). Decisões fechadas em 2026-10-11
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B5 (`docs/blocks/B5-navegacao-design-system.md`)
 - **Fatia vertical:** VS-05
 - **Autor / data:** Claude Code (planner), para revisão do Jota · 2026-10-11
@@ -41,19 +42,19 @@ O próximo trabalho do usuário fica fácil de achar (§62.1), a função e as l
 - **RN-16** Movimento: respeita `prefers-reduced-motion`. A navegação funciona sem JavaScript de animação.
 
 ## Acceptance Criteria
-- [ ] No mobile há barra inferior com no máximo 5 destinos; no desktop, barra lateral; ambos com texto.
-- [ ] "Meus serviços" é alcançável em um toque a partir de Serviços e do Início; `/meus-servicos` abre direto.
-- [ ] O usuário novo cai no Início e vê o onboarding ou o próximo serviço.
-- [ ] O cabeçalho não mostra "Nova música", "Importar música", "Organizações" nem "MUSIC WORKSPACE"; as ações de música estão na tela Músicas.
-- [ ] Tema escuro por padrão; claro disponível; a escolha persiste; sem a escolha, abre escuro.
-- [ ] Contraste AA nos dois temas (verificado por teste automatizado e inspeção manual dos estados de foco e desabilitado).
-- [ ] Navegação completa por teclado no desktop, com foco visível e "Pular para o conteúdo".
-- [ ] Todo controle interativo mede ≥ 44 × 44 px no celular; no Modo Palco o menor controle mede ≥ 44 px e os primários ≥ 48 px.
-- [ ] Os badges de estado têm texto (e ícone nos de atenção); nenhum estado é só cor.
-- [ ] O Início mostra o próximo serviço, as confirmações pendentes e as vagas abertas conforme o papel.
-- [ ] `eslint-plugin-jsx-a11y` sem erros e `axe` sem violações nas páginas principais.
-- [ ] `prefers-reduced-motion`, `prefers-contrast: more` e `forced-colors` não quebram o layout.
-- [ ] As rotas existentes continuam funcionando.
+- [x] No mobile há barra inferior com no máximo 5 destinos; no desktop, barra lateral; ambos com texto.
+- [x] "Meus serviços" é alcançável em um toque a partir de Serviços e do Início; `/meus-servicos` abre direto.
+- [x] O usuário novo cai no Início e vê o onboarding ou o próximo serviço.
+- [x] O cabeçalho não mostra "Nova música", "Importar música", "Organizações" nem "MUSIC WORKSPACE"; as ações de música estão na tela Músicas.
+- [x] Tema escuro por padrão; claro disponível; a escolha persiste; sem a escolha, abre escuro.
+- [x] Contraste AA nos dois temas (verificado por teste automatizado e inspeção manual dos estados de foco e desabilitado).
+- [x] Navegação completa por teclado no desktop, com foco visível e "Pular para o conteúdo".
+- [x] Todo controle interativo mede ≥ 44 × 44 px no celular; no Modo Palco o menor controle mede ≥ 44 px e os primários ≥ 48 px.
+- [x] Os badges de estado têm texto (e ícone nos de atenção); nenhum estado é só cor.
+- [x] O Início mostra o próximo serviço, as confirmações pendentes e as vagas abertas conforme o papel.
+- [x] `eslint-plugin-jsx-a11y` sem erros e `axe` sem violações nas páginas principais.
+- [x] `prefers-reduced-motion`, `prefers-contrast: more` e `forced-colors` não quebram o layout.
+- [x] As rotas existentes continuam funcionando.
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -124,9 +125,9 @@ As oito propostas abaixo foram **aprovadas** pelo owner, repassadas pelo lead; `
 8. **Início mostra cartões de escala só quando os dados do B4 existem**, sem placeholders vazios.
 
 ## Issues
-- [ ] Épico B5 / VS-05
-- [ ] `docs/design-system-adr` — esta spec + ADR-055 (planner, lead revisa)
-- [ ] `feat/design-tokens-dark-default` — `tokens.css`, `docs/DESIGN_TOKENS.md`, tema, migração do `cantum-theme.css`, alvos de toque do Palco (ui-engineer)
-- [ ] `feat/app-navigation` — `AppNav` mobile/desktop, `/servicos`, `/bandas`, `/mais`, cabeçalho limpo (ui-engineer)
-- [ ] `feat/home-contextual` — Início por papel; `getHomeSummary` se necessário (core-engineer + ui-engineer; depende do B4)
-- [ ] `chore/a11y-lint` — `jsx-a11y` + `axe` (lead)
+- [x] Épico B5 / VS-05
+- [x] `docs/design-system-adr` — esta spec + ADR-055 (planner, lead revisa)
+- [x] `feat/design-tokens-dark-default` — `tokens.css`, `docs/DESIGN_TOKENS.md`, tema, migração do `cantum-theme.css`, alvos de toque do Palco (ui-engineer)
+- [x] `feat/app-navigation` — `AppNav` mobile/desktop, `/servicos`, `/bandas`, `/mais`, cabeçalho limpo (ui-engineer)
+- [x] `feat/home-contextual` — Início por papel; `getHomeSummary` se necessário (core-engineer + ui-engineer; depende do B4)
+- [x] `chore/a11y-lint` — `jsx-a11y` + `axe` (lead)

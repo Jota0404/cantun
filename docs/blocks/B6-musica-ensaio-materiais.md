@@ -1,6 +1,8 @@
 # B6 — Música no serviço, Ensaio e Materiais (VS-04 / VS-05)
 
 > Fase 2 · Esforço: 4–6 semanas · Depende de: B4 · Requisitos: RF-REP-004, RF-SVC-005, RF-REH-001…003, RF-MUS-005 · Blueprint §8.5, §8.7, §8.8, §16.4, §56
+>
+> **Status (2026-10-23): ✅ fatias 1–7 concluídas** (#108, #113, #115, #121, #123–#125; 0017, 0018, 0020–0022) e QA com dois usuários. **Fatia 8 (upload de arquivos) adiada pelo owner** (D10, 2026-10-22): fora do MVP, materiais só como link `https`; ADR-064 segue `Proposed` (o "ADR-056" abaixo virou o 064). Épico #50 ainda aberto no GitHub. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 O serviço concentra tudo o que o músico precisa para se preparar (§56): músicas, tons, materiais, ensaio e observações, sem procurar em outra ferramenta.

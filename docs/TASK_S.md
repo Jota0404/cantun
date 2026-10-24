@@ -1,5 +1,7 @@
 # CANTUM — Tarefa S: Personalização Efetiva do Modo Banda por Função Musical
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 A Tarefa S transforma a preferência `MusicalRole` criada na Tarefa R em comportamento observável no Modo Banda.
 
 ## Objetivo

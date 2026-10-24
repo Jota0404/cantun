@@ -1,6 +1,7 @@
 # Feature Spec — FIX-01 Jornada musical desbloqueada
 
-- **Status:** Aprovada (decisões D1–D4 e P1–P4 do Jota, 2026-10-15, dadas no chat do lead)
+- **Status:** Implementada (fatias A #84/#86, B #88, C #90; QA do bloco e rechecagem em `ec3deb2`). Decisões D1–D4 e P1–P4 do Jota, 2026-10-15
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** correção entre B4 e B6 (sem bloco próprio) · Fatias **A** (desbloquear, inclui o modelo de música do Ministério), **B** (confiabilidade e permissões) e **C** (repertório pessoal, importação, tons menores)
 - **Autor / data:** Claude Code (planner) · 2026-10-15
 - **Decisão associada:** [ADR-062](../adr/ADR-062-repertorio-pessoal.md) (Accepted; revisa o ADR-022) · nota no [ADR-007](../adr/ADR-007-transposition-domain-logic.md) · Base: ADR-051, ADR-052, ADR-057, ADR-059 · Evidência: auditoria do Revisor e do QA em 333cd73 e teste do Jota em produção
@@ -52,25 +53,25 @@ O músico consegue cadastrar ou importar músicas, montar repertórios e serviç
 - **RN-C4** (decisão do Jota, 2026-10-17) **Tom no Palco do serviço:** o Palco do serviço mostra o **tom atual** da música (`current_key`, o que o músico definiu e a cópia do Ministério herda), igual ao Palco solo e ao caminho offline; `get_service_stage_songs` devolve `songs.current_key` (migration 0010). O tom original continua disponível na música.
 
 ## Acceptance Criteria
-- [ ] Nenhum `window.prompt` para criar banda, criar ou renomear repertório ou adicionar música (confirmações destrutivas podem permanecer).
-- [ ] O seletor de músicas busca por título e artista; adicionar uma música pessoal a repertório/serviço do Ministério cria uma cópia do Ministério, e editar a cópia não muda a música pessoal.
-- [ ] A interface diz "Ministério" e "Banda" em todas as telas, vindo de um único módulo de textos; o seletor do serviço avisa "já está na ordem" para música repetida.
-- [ ] Importar cifra sem tom, com tom em minúsculas, com tom menor ou em windows-1252 funciona; o tom faltante é escolhido na revisão e os acentos ficam corretos.
-- [ ] Um membro vê no aparelho as músicas (cópias) dos seus Ministérios, puxadas numa requisição por Ministério.
-- [ ] Um Líder ou Admin que não é o autor edita e exclui a cópia; a música pessoal do autor não muda e nenhuma linha nova de autor aparece.
-- [ ] Com a lista atualizando ao vivo, o formulário de repertório aberto não perde o que foi digitado nem a tela é desmontada.
-- [ ] `Tom:`, `TOM:`, `Key:`, `Titulo:` e valores `Am`, `am`, `F#m` são aceitos na importação.
-- [ ] Sem rede, o seletor mostra "Sem conexão…" ao abrir "Da minha biblioteca" e não adiciona nada.
-- [ ] Adicionar música inexistente/invisível a um repertório mostra erro claro; repetir música no repertório ou no serviço é recusado com mensagem.
-- [ ] Reordenar um repertório de N músicas sobe numa só operação e não falha por colisão de posição.
-- [ ] Alteração recusada pelo servidor (403/409) deixa de ser retentada, conta em "alterações não enviadas" com o motivo geral e pode ser descartada após aviso; erro de rede continua retentando.
-- [ ] Conta nova abre o convite, cria a conta, verifica o e-mail, entra na equipe e abre a organização sem "Organização não encontrada".
-- [ ] Criar organização e equipe no onboarding só avança com a confirmação do servidor; falha mostra "tentar de novo".
-- [ ] O Líder ativo da equipe do serviço inicia o Palco; Membro e Líder de outra equipe não (negado no banco).
-- [ ] A aba Repertórios cria repertório pessoal; ele aparece nos outros aparelhos, funciona offline e ninguém mais o vê.
-- [ ] Líder, Admin e Owner importam um repertório pessoal: o repertório do Ministério tem as mesmas músicas e ordem, as músicas viram cópias do Ministério, e editar uma cópia não altera a original.
-- [ ] Apagar o Ministério apaga seus repertórios e suas cópias de músicas e **não** afeta as bibliotecas e os repertórios pessoais.
-- [ ] `Am`, `F#m` e `Bbm` podem ser salvas e transpostas sem perder o modo.
+- [x] Nenhum `window.prompt` para criar banda, criar ou renomear repertório ou adicionar música (confirmações destrutivas podem permanecer).
+- [x] O seletor de músicas busca por título e artista; adicionar uma música pessoal a repertório/serviço do Ministério cria uma cópia do Ministério, e editar a cópia não muda a música pessoal.
+- [x] A interface diz "Ministério" e "Banda" em todas as telas, vindo de um único módulo de textos; o seletor do serviço avisa "já está na ordem" para música repetida.
+- [x] Importar cifra sem tom, com tom em minúsculas, com tom menor ou em windows-1252 funciona; o tom faltante é escolhido na revisão e os acentos ficam corretos.
+- [x] Um membro vê no aparelho as músicas (cópias) dos seus Ministérios, puxadas numa requisição por Ministério.
+- [x] Um Líder ou Admin que não é o autor edita e exclui a cópia; a música pessoal do autor não muda e nenhuma linha nova de autor aparece.
+- [x] Com a lista atualizando ao vivo, o formulário de repertório aberto não perde o que foi digitado nem a tela é desmontada.
+- [x] `Tom:`, `TOM:`, `Key:`, `Titulo:` e valores `Am`, `am`, `F#m` são aceitos na importação.
+- [x] Sem rede, o seletor mostra "Sem conexão…" ao abrir "Da minha biblioteca" e não adiciona nada.
+- [x] Adicionar música inexistente/invisível a um repertório mostra erro claro; repetir música no repertório ou no serviço é recusado com mensagem.
+- [x] Reordenar um repertório de N músicas sobe numa só operação e não falha por colisão de posição.
+- [x] Alteração recusada pelo servidor (403/409) deixa de ser retentada, conta em "alterações não enviadas" com o motivo geral e pode ser descartada após aviso; erro de rede continua retentando.
+- [x] Conta nova abre o convite, cria a conta, verifica o e-mail, entra na equipe e abre a organização sem "Organização não encontrada".
+- [x] Criar organização e equipe no onboarding só avança com a confirmação do servidor; falha mostra "tentar de novo".
+- [x] O Líder ativo da equipe do serviço inicia o Palco; Membro e Líder de outra equipe não (negado no banco).
+- [x] A aba Repertórios cria repertório pessoal; ele aparece nos outros aparelhos, funciona offline e ninguém mais o vê.
+- [x] Líder, Admin e Owner importam um repertório pessoal: o repertório do Ministério tem as mesmas músicas e ordem, as músicas viram cópias do Ministério, e editar uma cópia não altera a original.
+- [x] Apagar o Ministério apaga seus repertórios e suas cópias de músicas e **não** afeta as bibliotecas e os repertórios pessoais.
+- [x] `Am`, `F#m` e `Bbm` podem ser salvas e transpostas sem perder o modo.
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -175,6 +176,6 @@ Cada fatia tem a **sua** migration (`db/migrations/NNNN_…sql`, próximo númer
 2. **Nome do módulo de rótulos** (`src/ui/labels.ts`): a critério do ui-engineer, sem decisão de produto.
 
 ## Issues
-- [ ] FIX-01 / A — `fix/music-unblock` — migration de músicas (cópia, políticas, RPC, FKs, limpeza de `organization_songs`), Dexie v16, formulários, seletor, importador, pull por Ministério, push da cópia, convite de conta nova, recarga ao vivo, rótulos e textos (backend-engineer + core-engineer + ui-engineer)
-- [ ] FIX-01 / B — `fix/sync-reliability` — migration (`unique` deferida, `unique` parcial, `stage.start`), lote, fila e contador, descarte, onboarding, botão do Líder (backend-engineer + core-engineer + ui-engineer)
-- [ ] FIX-01 / C — `feat/personal-repertoire` — migration (pessoal, importação), Dexie v18, sync, UI das abas, tons menores (backend-engineer + core-engineer + ui-engineer)
+- [x] FIX-01 / A — `fix/music-unblock` — migration de músicas (cópia, políticas, RPC, FKs, limpeza de `organization_songs`), Dexie v16, formulários, seletor, importador, pull por Ministério, push da cópia, convite de conta nova, recarga ao vivo, rótulos e textos (backend-engineer + core-engineer + ui-engineer)
+- [x] FIX-01 / B — `fix/sync-reliability` — migration (`unique` deferida, `unique` parcial, `stage.start`), lote, fila e contador, descarte, onboarding, botão do Líder (backend-engineer + core-engineer + ui-engineer)
+- [x] FIX-01 / C — `feat/personal-repertoire` — migration (pessoal, importação), Dexie v18, sync, UI das abas, tons menores (backend-engineer + core-engineer + ui-engineer)

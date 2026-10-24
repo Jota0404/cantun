@@ -1512,6 +1512,9 @@ Os requisitos abaixo servem como catálogo inicial. Eles deverão ser decomposto
 - **RF-SVC-003** — O serviço deve possuir uma ordem de itens.
 - **RF-SVC-004** — O serviço deve permitir associar equipe e escala.
 - **RF-SVC-005** — O serviço deve permitir associar repertório e materiais.
+- **RF-SVC-006** — O serviço deve permitir definir o tom de cada música para aquele serviço, sem alterar a música (§8.7, ADR-007). *(v1.2, D9 do VS-04/05)*
+- **RF-SVC-007** — O serviço deve oferecer a visão do músico, com tudo o que ele precisa para se preparar (§56). *(v1.2, D9 do VS-04/05)*
+- **RF-SVC-008** — O membro deve poder marcar que está "preparado" para o serviço (§8.8, §56). *(v1.2, D9 do VS-04/05)*
 
 **Escalas**
 

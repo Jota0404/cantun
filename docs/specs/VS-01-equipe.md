@@ -1,6 +1,7 @@
 # Feature Spec — VS-01 Equipe: papéis, pessoas e funções
 
-- **Status:** Aprovada
+- **Status:** Implementada (B2: PR #71, `0004_team_roles.sql`; issues #57–#60 e épico #46 fechados)
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B2 (`docs/blocks/B2-equipe-vs01.md`)
 - **Fatia vertical:** VS-01
 - **Autor / data:** Claude Code, sob revisão do Jota · 2026-10-01 · revisada em 2026-10-09 para o B1 (legado removido, Dexie v11, `db/migrations/`, auth e realtime próprios; ADR-059)
@@ -44,20 +45,20 @@ Owner e Admin estruturam a organização e as equipes; o Líder coordena a próp
 Detalhe de escopo, matriz e casos negativos: `docs/PERMISSIONS.md`.
 
 ## Acceptance Criteria
-- [ ] Quem cria a equipe é Líder dela; o Owner promove e rebaixa Líder.
-- [ ] O Líder adiciona e inativa membros e define funções **só na própria equipe**; tentar em outra equipe é negado pelo banco.
-- [ ] O Membro cria música e repertório, edita as próprias funções e não altera as dos outros.
-- [ ] Convite aparece como `pending_invite` (derivado de `organization_invites`) até ser aceito.
-- [ ] Um usuário novo completa o onboarding em até 5 passos.
-- [ ] Funciona offline para leitura. Mudança de papel, status e funções é **só online**: sem rede, a ação falha com aviso e a tela não muda. Demais mutações sobem pela fila e respeitam a autorização no servidor.
-- [ ] Todos os casos negativos N1–N18 do `PERMISSIONS.md` têm teste e passam (inclui o cliente que tenta se promover ou criar o próprio vínculo `leader`).
-- [ ] Membro `inactive` não age; Líder inativo perde poderes e só Owner ou Admin o reativam.
-- [ ] Admin renomeia a organização e não a exclui; Líder renomeia a própria equipe e não cria nem exclui equipes.
-- [ ] Tela de Equipe mostra papel, funções e status, filtros e destaque das funções sem ninguém (Blueprint §32.3).
-- [ ] Tela de Equipe e presença do Modo Palco mostram o `display_name`, nunca o `userId` nem o prefixo do e-mail.
-- [ ] Convite com e-mail não é aceito por conta com e-mail não verificado.
-- [ ] Membro `inactive` em todas as equipes recebe `forbidden` ao assinar `stage-session:<id>` e não lê sessão, músicas nem snapshot do Stage.
-- [ ] O cadastro exige nome de exibição; o usuário o altera depois.
+- [x] Quem cria a equipe é Líder dela; o Owner promove e rebaixa Líder.
+- [x] O Líder adiciona e inativa membros e define funções **só na própria equipe**; tentar em outra equipe é negado pelo banco.
+- [x] O Membro cria música e repertório, edita as próprias funções e não altera as dos outros.
+- [x] Convite aparece como `pending_invite` (derivado de `organization_invites`) até ser aceito.
+- [x] Um usuário novo completa o onboarding em até 5 passos.
+- [x] Funciona offline para leitura. Mudança de papel, status e funções é **só online**: sem rede, a ação falha com aviso e a tela não muda. Demais mutações sobem pela fila e respeitam a autorização no servidor.
+- [x] Todos os casos negativos N1–N18 do `PERMISSIONS.md` têm teste e passam (inclui o cliente que tenta se promover ou criar o próprio vínculo `leader`).
+- [x] Membro `inactive` não age; Líder inativo perde poderes e só Owner ou Admin o reativam.
+- [x] Admin renomeia a organização e não a exclui; Líder renomeia a própria equipe e não cria nem exclui equipes.
+- [x] Tela de Equipe mostra papel, funções e status, filtros e destaque das funções sem ninguém (Blueprint §32.3).
+- [x] Tela de Equipe e presença do Modo Palco mostram o `display_name`, nunca o `userId` nem o prefixo do e-mail.
+- [x] Convite com e-mail não é aceito por conta com e-mail não verificado.
+- [x] Membro `inactive` em todas as equipes recebe `forbidden` ao assinar `stage-session:<id>` e não lê sessão, músicas nem snapshot do Stage.
+- [x] O cadastro exige nome de exibição; o usuário o altera depois.
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -176,9 +177,9 @@ Rastreio: RF-TEAM-001 → RN-03, RN-09, RN-15; RF-TEAM-002 → RN-10, RN-11, RN-
 | Admin promove ou rebaixa Admin (pendência existente) | Registrada; decidir em issue própria |
 
 ## Issues
-- [ ] Épico #46 — VS-01 / Equipe
-- [ ] #42 — débito `react-hooks/set-state-in-effect` (não bloqueia o B2; só não ampliar a lista de exceções)
-- [ ] #57 — `feat/team-roles-schema`: migration em `db/migrations/` + `app.has_permission` + RLS + `stage.run` no Stage + aceite com e-mail verificado + `display_name` + testes em `scripts/db` (ADR-051 aceito; dono da música: alternativa A). Inclui o ajuste do `server/` (`/auth/signup` com nome obrigatório, `/auth/session` e allowlist). Depende do item do B1 "reenvio da verificação de e-mail".
-- [ ] #58 — `feat/team-roles-domain`: domínio + application + Dexie + sync + testes
-- [ ] #59 — `feat/team-onboarding`: onboarding guiado + organização principal
-- [ ] #60 — `feat/team-page`: tela de Equipe
+- [x] Épico #46 — VS-01 / Equipe
+- [x] #42 — débito `react-hooks/set-state-in-effect` (não bloqueia o B2; só não ampliar a lista de exceções)
+- [x] #57 — `feat/team-roles-schema`: migration em `db/migrations/` + `app.has_permission` + RLS + `stage.run` no Stage + aceite com e-mail verificado + `display_name` + testes em `scripts/db` (ADR-051 aceito; dono da música: alternativa A). Inclui o ajuste do `server/` (`/auth/signup` com nome obrigatório, `/auth/session` e allowlist). Depende do item do B1 "reenvio da verificação de e-mail".
+- [x] #58 — `feat/team-roles-domain`: domínio + application + Dexie + sync + testes
+- [x] #59 — `feat/team-onboarding`: onboarding guiado + organização principal
+- [x] #60 — `feat/team-page`: tela de Equipe

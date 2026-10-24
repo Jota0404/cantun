@@ -1,6 +1,8 @@
 # B5 — Navegação & Design System
 
 > Fase 1 · Esforço: ~2 semanas + contínuo · Depende de: B0 · Em paralelo com B2 · Blueprint §17, §32, §52, §61, §62, Apêndices A e B
+>
+> **Status (2026-10-23): ✅ concluído** (PRs #81, #82, #92–#94). Épico #49 fechado. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 A navegação reflete o modelo mental da equipe (não o banco) e o visual segue a direção do Blueprint: escuro, alto contraste, verde como ação e tudo acessível ao toque.

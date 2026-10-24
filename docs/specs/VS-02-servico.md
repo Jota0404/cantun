@@ -1,10 +1,11 @@
 # Feature Spec — VS-02 Serviço: equipe, estados e ordem
 
-- **Status:** Em revisão
+- **Status:** Implementada (B3: PR #73, `0005_service_ops.sql`; épico #47 fechado)
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B3 (`docs/blocks/B3-servico-vs02.md`)
 - **Fatia vertical:** VS-02
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-09
-- **Decisão associada:** [ADR-052](../adr/ADR-052-service-operacional.md) (Proposed) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md) (ADR-051) · Backend: ADR-059
+- **Decisão associada:** [ADR-052](../adr/ADR-052-service-operacional.md) (Accepted) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md) (ADR-051) · Backend: ADR-059
 
 ## Feature
 O Service pertence a uma equipe, tem estado (`draft → ready → in_progress → completed | cancelled`), informações básicas (nome, data/hora, local, observações) e uma ordem de itens genéricos, em que música é um tipo entre outros (Blueprint §8.2, §8.6, §18.2, §48.2).
@@ -32,15 +33,15 @@ Tornar o serviço o centro operacional que o B4 (escala) e o B6 (repertório e m
 - **RN-09** Sem calendário como produto (§8.2): lista por agrupamento, não grade de datas.
 
 ## Acceptance Criteria
-- [ ] O Líder cria um serviço da própria equipe com nome, data/hora, local e observações; nasce `draft`.
-- [ ] O Líder de outra equipe, o Membro e o usuário de outra organização não criam nem editam (negado pelo banco).
-- [ ] A ordem aceita músicas e itens não musicais, reordenáveis por arrastar **e** por subir/descer via teclado.
-- [ ] Item `song` sem música ou item não musical sem título é recusado (domínio e `check`).
-- [ ] `completed → draft`, `cancelled → ready` e similares são recusados no domínio e no banco; `update services set status` direto é negado.
-- [ ] Serviço `completed`/`cancelled` não aceita edição.
-- [ ] O Stage mostra só as músicas, na ordem; anterior/próxima respeitam a ordem e pulam itens não musicais (§34.1, ex. 3).
-- [ ] Lista agrupa próximos, em planejamento e realizados, com estado visível (§53).
-- [ ] Offline: leitura funciona; criação e edição entram na fila e respeitam a autorização ao subir; mudança de status é só online (sem rede: "Sem conexão: tente de novo quando estiver online." e nada muda).
+- [x] O Líder cria um serviço da própria equipe com nome, data/hora, local e observações; nasce `draft`.
+- [x] O Líder de outra equipe, o Membro e o usuário de outra organização não criam nem editam (negado pelo banco).
+- [x] A ordem aceita músicas e itens não musicais, reordenáveis por arrastar **e** por subir/descer via teclado.
+- [x] Item `song` sem música ou item não musical sem título é recusado (domínio e `check`).
+- [x] `completed → draft`, `cancelled → ready` e similares são recusados no domínio e no banco; `update services set status` direto é negado.
+- [x] Serviço `completed`/`cancelled` não aceita edição.
+- [x] O Stage mostra só as músicas, na ordem; anterior/próxima respeitam a ordem e pulam itens não musicais (§34.1, ex. 3).
+- [x] Lista agrupa próximos, em planejamento e realizados, com estado visível (§53).
+- [x] Offline: leitura funciona; criação e edição entram na fila e respeitam a autorização ao subir; mudança de status é só online (sem rede: "Sem conexão: tente de novo quando estiver online." e nada muda).
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -88,7 +89,9 @@ Rastreio: RF-SVC-001 → RN-01, RN-08; RF-SVC-002 → RN-02, RN-03, RN-06; RF-SV
 - **Sync (`TargetSyncEngine`):** mapeia os campos novos. `status` **não** sobe no push (só por RPC) e o pull o sobrescreve sem LWW; demais campos LWW (ADR-026). Transição de status é **só online** (mesmo padrão do B2 para papel/status), sem fila: sem rede, a UI mostra "Sem conexão: tente de novo quando estiver online." e nada muda localmente; recusa do servidor mostra o erro; o estado local muda só com a resposta da RPC. Itens de um serviço sobem depois do serviço e numa mesma transação de push (renumeração com a `unique` deferida). **Confirmado:** `POST /sync/:table` grava todas as linhas do lote numa única transação (`server/src/data.ts:85`); o cliente só precisa enviar os itens renumerados de um serviço no mesmo lote.
 - **RLS / permissões:** `service.*` em `PERMISSIONS.md` §3.4 e casos S1–S8 em §5.1; a UI não é mecanismo de segurança.
 
-## Decisões pendentes do owner (propostas do planner)
+## Decisões do owner (aceitas em 2026-10-09 com o ADR-052)
+
+Revisões posteriores: o item 5 mudou na FIX-01 (D4, 2026-10-15: o Líder ativo da equipe inicia o Palco, `stage.start`); o item 2 ganhou a 0027 (serviço `completed` não se exclui por ninguém, 2026-10-23).
 1. **Proposta:** aceitar o ADR-052; status só pela RPC `transition_service`, com trigger de guarda.
 2. **Proposta:** o Líder exclui só em `draft`; fora disso, cancela. Owner e Admin excluem sempre.
 3. **Proposta:** permitir `ready → draft` (volta ao planejamento).
@@ -96,7 +99,6 @@ Rastreio: RF-SVC-001 → RN-01, RN-08; RF-SVC-002 → RN-02, RN-03, RN-06; RF-SV
 5. **Proposta:** `create_target_stage_session` segue só owner/admin; abrir ao Líder em issue separada, fora do D6.
 6. **Proposta:** `on delete restrict` para equipe com serviços.
 
-Até a decisão, as regras RN-02, RN-08 e as seções correspondentes valem como proposta.
 
 ## Fora do escopo
 - Vagas, atribuições e escala (B4); aplicar repertório, materiais e ensaio (B6) — áreas aparecem como placeholders.
@@ -135,8 +137,8 @@ Casos negativos novos (para o `PERMISSIONS.md`):
 | Status offline divergente | Transição só online por RPC, sem fila; pull autoritativo |
 
 ## Issues
-- [ ] Épico B3 / VS-02
-- [ ] `feat/service-schema` — migration + RLS + guardas + Stage `type = 'song'` + testes `scripts/db` (backend-engineer; depende do B2 #57)
-- [ ] `feat/service-domain` — domínio + application + Dexie v13 + sync + testes (core-engineer)
-- [ ] `feat/service-list-detail` — lista e detalhe (§52.2) com ordem acessível (ui-engineer)
-- [ ] `fix/stage-song-items-only` — ajustes de cliente do Stage (`getServiceStageSongs`, `stageSessionState`) + regressão (core-engineer)
+- [x] Épico B3 / VS-02
+- [x] `feat/service-schema` — migration + RLS + guardas + Stage `type = 'song'` + testes `scripts/db` (backend-engineer; depende do B2 #57)
+- [x] `feat/service-domain` — domínio + application + Dexie v13 + sync + testes (core-engineer)
+- [x] `feat/service-list-detail` — lista e detalhe (§52.2) com ordem acessível (ui-engineer)
+- [x] `fix/stage-song-items-only` — ajustes de cliente do Stage (`getServiceStageSongs`, `stageSessionState`) + regressão (core-engineer)

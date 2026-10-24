@@ -1,10 +1,11 @@
 # Feature Spec — VS-03 Escala: vagas, atribuições e disponibilidade
 
-- **Status:** Em revisão
+- **Status:** Implementada (B4: PR #79, `0006_scheduling.sql`; épico #48 fechado)
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B4 (`docs/blocks/B4-escala-vs03.md`)
 - **Fatia vertical:** VS-03
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-11
-- **Decisões associadas:** [ADR-053](../adr/ADR-053-vagas-e-atribuicoes.md), [ADR-057](../adr/ADR-057-consistencia-por-entidade.md), [ADR-054](../adr/ADR-054-canal-de-notificacao.md) (todos `Proposed`) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md) §3.5 e §5.2 · Base: ADR-051, ADR-052, ADR-059
+- **Decisões associadas:** [ADR-053](../adr/ADR-053-vagas-e-atribuicoes.md), [ADR-057](../adr/ADR-057-consistencia-por-entidade.md), [ADR-054](../adr/ADR-054-canal-de-notificacao.md) (todos `Accepted` em 2026-10-11) · Matriz: [`docs/PERMISSIONS.md`](../PERMISSIONS.md) §3.5 e §5.2 · Base: ADR-051, ADR-052, ADR-059
 
 ## Feature
 O Líder define as **vagas** do serviço (função + quantidade), escala pessoas da equipe, vê as **lacunas** e resolve substituições. Cada membro vê "meus próximos serviços", **confirma ou recusa** a própria escala e informa sua **disponibilidade** por data, que apoia as sugestões do Líder (Blueprint §8.3, §8.4, §12.2, §18.5, §54).
@@ -40,18 +41,18 @@ Fechar o ciclo "o serviço precisa de quem → quem foi chamado → quem confirm
 - **RN-15** Permissões pela matriz (`PERMISSIONS.md` §3.5), decididas no banco por `app.has_permission`; `permissions.ts` só espelha (NFR-005).
 
 ## Acceptance Criteria
-- [ ] O Líder define vagas (função + quantidade) no serviço da própria equipe; o Líder de outra equipe e o Membro não (negado pelo banco).
-- [ ] O Líder convida um membro ativo da equipe; a atribuição nasce `invited`. Pessoa fora da equipe ou `inactive` é recusada.
-- [ ] Só o titular confirma ou recusa; confirmar vai a `confirmed`, recusar a `declined`, e a vaga mostra a lacuna ao Líder.
-- [ ] O membro não altera a atribuição de outra pessoa; escrita direta em `assignments` é negada, por qualquer papel.
-- [ ] Transição inválida (ex.: `declined → confirmed`) é recusada no domínio e no banco.
-- [ ] Depois de confirmar, o titular pede substituição; o Líder substitui em até 2 interações a partir da vaga, e a anterior fica `cancelled`.
-- [ ] O serviço mostra quantas vagas estão abertas e quais, com texto (não só cor), na tela do serviço e no Início.
-- [ ] Sem rede, confirmar, recusar ou pedir substituição mostra o aviso de conexão e não muda nada; vagas e disponibilidade ainda editam offline (fila LWW).
-- [ ] O membro vê, em uma tela, onde, quando, função, músicas e se confirmou (§18.5).
-- [ ] A sugestão ordena e avisa conforme RN-12; a disponibilidade de outro membro nunca aparece para membro comum.
-- [ ] A escala provisória do B3 (prompts, `userId` cru) sai; nomes vêm de `get_organization_member_profiles`.
-- [ ] Serviço `completed`/`cancelled` não aceita mudanças de escala.
+- [x] O Líder define vagas (função + quantidade) no serviço da própria equipe; o Líder de outra equipe e o Membro não (negado pelo banco).
+- [x] O Líder convida um membro ativo da equipe; a atribuição nasce `invited`. Pessoa fora da equipe ou `inactive` é recusada.
+- [x] Só o titular confirma ou recusa; confirmar vai a `confirmed`, recusar a `declined`, e a vaga mostra a lacuna ao Líder.
+- [x] O membro não altera a atribuição de outra pessoa; escrita direta em `assignments` é negada, por qualquer papel.
+- [x] Transição inválida (ex.: `declined → confirmed`) é recusada no domínio e no banco.
+- [x] Depois de confirmar, o titular pede substituição; o Líder substitui em até 2 interações a partir da vaga, e a anterior fica `cancelled`.
+- [x] O serviço mostra quantas vagas estão abertas e quais, com texto (não só cor), na tela do serviço e no Início.
+- [x] Sem rede, confirmar, recusar ou pedir substituição mostra o aviso de conexão e não muda nada; vagas e disponibilidade ainda editam offline (fila LWW).
+- [x] O membro vê, em uma tela, onde, quando, função, músicas e se confirmou (§18.5).
+- [x] A sugestão ordena e avisa conforme RN-12; a disponibilidade de outro membro nunca aparece para membro comum.
+- [x] A escala provisória do B3 (prompts, `userId` cru) sai; nomes vêm de `get_organization_member_profiles`.
+- [x] Serviço `completed`/`cancelled` não aceita mudanças de escala.
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -130,7 +131,7 @@ Rastreio: RF-SCH-001 → RN-01, RN-09; RF-SCH-002 → RN-02, RN-12; RF-SCH-003 �
 | Ajuste do Stage vira feature (D6) | Só trocar status e a origem da função em `get_service_stage_songs` |
 | Corrida: dois Líderes alteram a mesma vaga | RPCs serializam por `for update` na atribuição/vaga; `unique` parcial evita duplicidade |
 
-## Decisões pendentes do owner (propostas do planner)
+## Decisões do owner (fechadas em 2026-10-11 com os ADR-053, ADR-054 e ADR-057; o código seguiu as propostas abaixo)
 1. **Proposta:** aceitar ADR-053 e ADR-057. Toda mudança de estado da atribuição é só online (RN-07), em vez de "confirmar offline" do rascunho do bloco.
 2. **Proposta:** membros veem quem está escalado (RN-13).
 3. **Proposta:** convite pode ser feito a qualquer membro ativo da equipe, com aviso se não tem a função ou está indisponível (não bloqueia).
@@ -139,10 +140,10 @@ Rastreio: RF-SCH-001 → RN-01, RN-09; RF-SCH-002 → RN-02, RN-12; RF-SCH-003 �
 6. **Proposta:** disponibilidade por dia (não por serviço), com nota visível só a gestores.
 
 ## Issues
-- [ ] Épico B4 / VS-03
-- [ ] `feat/schedule-schema` — migration 0006, RLS, RPCs, Stage `musical_role`, testes `scripts/db` (backend-engineer)
-- [ ] `feat/schedule-domain` — domínio + application + Dexie v14 + sync + testes (core-engineer)
-- [ ] `feat/availability` — disponibilidade (domínio, application, UI do membro) (core-engineer + ui-engineer)
-- [ ] `feat/schedule-leader-ui` — aba Escala, lacunas, sugestão, substituição; remove a escala provisória (ui-engineer)
-- [ ] `feat/my-services` — "Meus próximos serviços" e lacunas no Início (ui-engineer)
-- [ ] `feat/schedule-notifications` — outbox + gateway Brevo (backend-engineer)
+- [x] Épico B4 / VS-03
+- [x] `feat/schedule-schema` — migration 0006, RLS, RPCs, Stage `musical_role`, testes `scripts/db` (backend-engineer)
+- [x] `feat/schedule-domain` — domínio + application + Dexie v14 + sync + testes (core-engineer)
+- [x] `feat/availability` — disponibilidade (domínio, application, UI do membro) (core-engineer + ui-engineer)
+- [x] `feat/schedule-leader-ui` — aba Escala, lacunas, sugestão, substituição; remove a escala provisória (ui-engineer)
+- [x] `feat/my-services` — "Meus próximos serviços" e lacunas no Início (ui-engineer)
+- [x] `feat/schedule-notifications` — outbox + gateway Brevo (backend-engineer)
