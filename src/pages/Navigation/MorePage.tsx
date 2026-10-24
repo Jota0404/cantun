@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/authContext'
 import { PendingLocalChangesError } from '../../auth/localSession'
 import { exportMyData } from '../../application/privacy/exportMyData'
 import { useOnline } from '../../components/schedule/useOnline'
+import { Button } from '../../components/ui/Button'
 import { ConfirmModal } from '../../components/ui/ConfirmModal'
 import { labels } from '../../ui/labels'
 import { getInitialTheme, saveTheme, type Theme } from '../../theme'
@@ -16,10 +17,11 @@ const REAUTH_ERRORS = {
   network: 'Não foi possível confirmar sua senha. Verifique a conexão e tente novamente.',
 }
 
-// Apêndice B. Tarefa: acessar o que não é do dia a dia. Prioridade: Repertórios e configurações.
-// Ação óbvia: Sair. Ensaios (B6) e Histórico (B7) ficam escondidos até existirem (RN-01).
+// Perfil (rota /mais). Tarefa: conta, aparência e privacidade. Ação óbvia: Sair; a exclusão fica à parte, na zona de perigo.
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('')
+
 export function MorePage() {
-  const { signOut, deleteAccount, reauth } = useAuth()
+  const { user, signOut, deleteAccount, reauth } = useAuth()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
@@ -145,21 +147,36 @@ export function MorePage() {
 
   return (
     <main className="nav-page">
-      <h2>Mais</h2>
-      <ul className="nav-page__list">
-        <li><Link to="/repertoires">Repertórios</Link></li>
-      </ul>
+      <h2>Perfil</h2>
+      {user && (
+        <header className="profile-header">
+          <span className="profile-header__avatar" aria-hidden="true">{initials(user.displayName)}</span>
+          <div>
+            <p className="profile-header__name">{user.displayName}</p>
+            <p className="profile-header__email">{user.email}</p>
+          </div>
+        </header>
+      )}
       <section aria-labelledby="settings-title">
-        <h3 id="settings-title">Configurações</h3>
-        <button type="button" onClick={toggleTheme}>{theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}</button>
+        <h3 id="settings-title">Aparência</h3>
+        <Button onClick={toggleTheme}>{theme === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}</Button>
         <p>Tema atual: {theme === 'light' ? 'claro' : 'escuro'}.</p>
       </section>
       <section aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacidade</h3>
         <p><Link to="/privacidade">Política de Privacidade</Link> · <Link to="/termos">Termos de Uso</Link></p>
-        <button type="button" disabled={exporting} onClick={() => void handleExport()}>{exporting ? 'Exportando…' : 'Exportar meus dados'}</button>
+        <Button disabled={exporting} onClick={() => void handleExport()}>{exporting ? 'Exportando…' : 'Exportar meus dados'}</Button>
         {exported && <p role="status">Arquivo gerado. Confira seus downloads.</p>}
-        <button type="button" onClick={() => setDeleting(true)}>Excluir minha conta</button>
+      </section>
+      <section aria-labelledby="account-title">
+        <h3 id="account-title">Conta</h3>
+        {error && <p role="alert" className="organization-error">{error}</p>}
+        <Button disabled={signingOut} onClick={() => void handleSignOut()}>{signingOut ? 'Saindo…' : 'Sair'}</Button>
+        {signingOut && <p role="status" aria-live="polite">Saindo da conta…</p>}
+      </section>
+      <section aria-labelledby="danger-title" className="danger-zone">
+        <h3 id="danger-title">Zona de perigo</h3>
+        <Button variant="danger" onClick={() => setDeleting(true)}>Excluir minha conta</Button>
       </section>
       <ConfirmModal
         open={deleting}
@@ -179,11 +196,6 @@ export function MorePage() {
           {deleteError && online && <p role="alert" ref={errorRef} tabIndex={-1} className="delete-error">{deleteError}</p>}
         </div>
       </ConfirmModal>
-      {error && <p role="alert" className="organization-error">{error}</p>}
-      <button type="button" disabled={signingOut} onClick={() => void handleSignOut()}>
-        {signingOut ? 'Saindo…' : 'Sair'}
-      </button>
-      {signingOut && <p role="status" aria-live="polite">Saindo da conta…</p>}
     </main>
   )
 }

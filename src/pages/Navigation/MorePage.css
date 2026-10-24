@@ -15,3 +15,38 @@
   outline: 3px solid currentColor;
   outline-offset: 2px;
 }
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.profile-header__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 800;
+}
+
+.profile-header p {
+  margin: 0;
+}
+
+.profile-header__name {
+  font-weight: 800;
+}
+
+.profile-header__email {
+  color: var(--color-text-muted);
+}
+
+.nav-page .danger-zone {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}

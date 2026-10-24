@@ -7,9 +7,9 @@ import './AppNav.css'
 const DESTINATIONS: Array<{ to: string; label: string; icon: IconName; match: (path: string) => boolean }> = [
   { to: '/', icon: 'home', label: 'Início', match: (path) => path === '/' },
   { to: '/servicos', icon: 'services', label: 'Serviços', match: (path) => path.startsWith('/servicos') || path.startsWith('/meus-servicos') || path.startsWith('/services/') },
-  { to: '/songs', icon: 'music', label: 'Músicas', match: (path) => path.startsWith('/songs') },
+  { to: '/songs', icon: 'music', label: 'Músicas', match: (path) => path.startsWith('/songs') || path.startsWith('/repertoires') },
   { to: '/bandas', icon: 'bands', label: labels.teams, match: (path) => path.startsWith('/bandas') || path.startsWith('/organizations') },
-  { to: '/mais', icon: 'more', label: 'Mais', match: (path) => path.startsWith('/mais') || path.startsWith('/repertoires') },
+  { to: '/mais', icon: 'profile', label: 'Perfil', match: (path) => path.startsWith('/mais') },
 ]
 
 /** Barra inferior no celular (< 900 px) e lateral a partir de 900 px (CSS). `aria-current` marca o destino ativo. */

@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axeViolations } from '../../test/axe'
 import { TeamsPage } from './TeamsPage'
 
-const m = vi.hoisted(() => ({ orgs: [] as unknown[], fail: false }))
+const m = vi.hoisted(() => ({ orgs: [] as unknown[], fail: false, reload: () => {} }))
 vi.mock('../../application/organizations/organizationService', () => ({ listMyOrganizations: async () => { if (m.fail) throw new Error('x'); return m.orgs } }))
-vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: () => () => undefined }))
+vi.mock('../../application/sync/remoteData', () => ({ onRemoteDataApplied: (callback: () => void) => { m.reload = callback; return () => undefined } }))
 vi.mock('../../application/teams/teamService', () => ({ listTeams: async () => [{ id: 't1', organizationId: 'o1', name: 'Louvor' }] }))
 vi.mock('../../components/team/TeamOnboarding', () => ({ TeamOnboarding: () => <p>Vamos preparar sua banda</p> }))
 
@@ -34,5 +34,14 @@ describe('TeamsPage', () => {
   it('shows the onboarding when there is no organization yet', async () => {
     render(<MemoryRouter><TeamsPage /></MemoryRouter>)
     expect(await screen.findByText('Vamos preparar sua banda')).toBeInTheDocument()
+  })
+
+  it('keeps the onboarding after the organization is created in step 1', async () => {
+    render(<MemoryRouter><TeamsPage /></MemoryRouter>)
+    expect(await screen.findByText('Vamos preparar sua banda')).toBeInTheDocument()
+    m.orgs = [{ id: 'o1', name: 'Igreja Esperança' }]
+    await act(async () => { m.reload() })
+    expect(screen.getByText('Vamos preparar sua banda')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Louvor' })).not.toBeInTheDocument()
   })
 })

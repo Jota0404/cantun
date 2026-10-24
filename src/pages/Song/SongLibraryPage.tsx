@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
 import { SongList } from '../../components/song/SongList'
+import { MusicSectionNav } from '../../components/music/MusicSectionNav'
 import type { Song } from '../../domain/songs/song'
 import type { SongRepository } from '../../db/repositories/songRepository'
 import './SongLibraryPage.css'
@@ -51,6 +52,7 @@ export function SongLibraryPage({ repository }: SongLibraryPageProps) {
 
   return (
     <section className="song-library-page">
+      <MusicSectionNav current="library" />
       <div className="song-library-page__actions">
         <button type="button" onClick={() => navigate('/songs/new')}>
           Nova música

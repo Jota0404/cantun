@@ -19,7 +19,8 @@
   border-color: transparent;
   padding-inline: 0;
   background: transparent;
-  color: var(--color-primary-strong);
+  color: var(--color-text);
+  text-decoration: underline;
 }
 
 .email-verification-notice .email-verification-notice__resend:hover:not(:disabled) {

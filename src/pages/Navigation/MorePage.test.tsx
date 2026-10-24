@@ -13,14 +13,19 @@ vi.mock('../../application/privacy/exportMyData', () => ({ exportMyData }))
 const signOut = vi.hoisted(() => vi.fn())
 const deleteAccount = vi.hoisted(() => vi.fn())
 const reauth = vi.hoisted(() => vi.fn())
-vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ signOut, deleteAccount, reauth }) }))
+vi.mock('../../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'ana@example.com', displayName: 'Ana Souza', emailVerified: true }, signOut, deleteAccount, reauth }) }))
 
 describe('MorePage', () => {
-  it('offers Repertórios, Configurações and Sair, and hides Ensaios and Histórico', async () => {
+  it('shows the profile header and the Aparência, Privacidade, Conta and Zona de perigo sections', async () => {
     const { container } = render(<MemoryRouter><MorePage /></MemoryRouter>)
-    expect(screen.getByRole('link', { name: 'Repertórios' })).toHaveAttribute('href', '/repertoires')
-    expect(screen.getByRole('heading', { name: 'Configurações' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Perfil' })).toBeInTheDocument()
+    expect(screen.getByText('Ana Souza')).toBeInTheDocument()
+    expect(screen.getByText('AS')).toBeInTheDocument()
+    expect(screen.getByText('ana@example.com')).toBeInTheDocument()
+    for (const name of ['Aparência', 'Privacidade', 'Conta', 'Zona de perigo']) expect(screen.getByRole('heading', { name })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Repertórios' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Excluir minha conta' })).toBeInTheDocument()
     expect(screen.queryByText(/Ensaios|Histórico/)).not.toBeInTheDocument()
     expect(await axeViolations(container)).toEqual([])
   })

@@ -4,6 +4,7 @@ import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { createRepertoire, listPersonalRepertoires, listRepertoireGroups, type PersonalRepertoireSummary } from '../../application/repertoires/repertoireService'
 import { useAuth } from '../../auth/authContext'
 import type { Repertoire } from '../../domain/repertoires/repertoire'
+import { MusicSectionNav } from '../../components/music/MusicSectionNav'
 import { summarySongs } from '../../components/repertoire/summarySongs'
 import { labels } from '../../ui/labels'
 import './RepertoirePage.css'
@@ -59,7 +60,7 @@ export function RepertoireListPage() {
   return (
     <main className="repertoire-page">
       <header className="repertoire-page__header">
-        <div><h2>Repertórios</h2><p>{labels.repertoireOwnerHint}</p></div>
+        <div><MusicSectionNav current="repertoires" /><p>{labels.repertoireOwnerHint}</p></div>
       </header>
       {error && <p className="repertoire-error" role="alert">{error}</p>}
       <section className="repertoire-create">
