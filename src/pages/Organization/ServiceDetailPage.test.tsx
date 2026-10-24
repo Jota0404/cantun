@@ -61,6 +61,10 @@ function renderWith(service: Partial<Service>, access: AccessContext, list: Serv
   render(<MemoryRouter initialEntries={['/services/sv1']}><Routes><Route path="/services/:serviceId" element={<ServiceDetailPage />} /><Route path="/stage/service-session/:id" element={<p>Palco aberto</p>} /></Routes></MemoryRouter>)
 }
 
+async function openMenu(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole('button', { name }))
+}
+
 describe('ServiceDetailPage', () => {
   beforeEach(() => { m.setServiceItemKey.mockReset().mockResolvedValue({ success: true }); [m.transitionService, m.addServiceItem, m.moveServiceItem, m.removeServiceItem].forEach((fn) => fn.mockReset().mockResolvedValue({ success: true, items: [] })) })
 
@@ -78,10 +82,12 @@ describe('ServiceDetailPage', () => {
   it('shows status in text and only allowed transitions', async () => {
     renderWith({}, leader)
     expect(await screen.findByText('Em planejamento')).toBeInTheDocument()
-    const status = screen.getByRole('region', { name: 'Mudar status' })
-    expect(within(status).getAllByRole('button').map((b) => b.textContent)).toEqual(['Marcar como pronto', 'Cancelar serviço'])
-    await userEvent.setup().click(within(status).getByRole('button', { name: 'Marcar como pronto' }))
+    const user = userEvent.setup()
+    await openMenu(user, 'Mais ações do serviço')
+    expect(screen.getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['Editar informações', 'Marcar como pronto', 'Cancelar serviço', 'Excluir serviço'])
+    await user.click(screen.getByRole('menuitem', { name: 'Marcar como pronto' }))
     expect(m.transitionService).toHaveBeenCalledWith('sv1', 'ready')
+    expect(await screen.findByRole('status')).toHaveTextContent('Status: Pronto.')
   })
 
   it('lists items of every type and reorders by keyboard buttons', async () => {
@@ -89,21 +95,26 @@ describe('ServiceDetailPage', () => {
     renderWith({}, leader)
     expect(await screen.findByText('1. Boas-vindas')).toBeInTheDocument()
     expect(screen.getByText('2. Grande é o Senhor')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Subir Grande é o Senhor' }))
+    await openMenu(user, 'Mais ações de Grande é o Senhor')
+    await user.click(screen.getByRole('menuitem', { name: 'Subir Grande é o Senhor' }))
     expect(m.moveServiceItem).toHaveBeenCalledWith('sv1', 'i2', 0)
-    await user.click(screen.getByRole('button', { name: 'Remover Boas-vindas' }))
+    await openMenu(user, 'Mais ações de Boas-vindas')
+    expect(screen.queryByRole('menuitem', { name: /Subir/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('menuitem', { name: 'Remover Boas-vindas' }))
     expect(m.removeServiceItem).toHaveBeenCalledWith('i1')
   })
 
   it('adds a non-musical item and blocks one without title', async () => {
     const user = userEvent.setup()
     renderWith({}, leader)
+    await user.click(await screen.findByRole('button', { name: 'Adicionar item' }))
     const form = await screen.findByRole('form', { name: 'Adicionar item' })
     await user.selectOptions(within(form).getByLabelText('Tipo'), 'prayer')
     await user.type(within(form).getByLabelText('Título'), 'Oração inicial')
     await user.type(within(form).getByLabelText('Duração em minutos (opcional)'), '5')
     await user.click(within(form).getByRole('button', { name: 'Adicionar item' }))
     expect(m.addServiceItem).toHaveBeenCalledWith('sv1', { type: 'prayer', songId: undefined, title: 'Oração inicial', notes: undefined, durationMinutes: 5 })
+    expect(await screen.findByRole('status')).toHaveTextContent('Item adicionado à ordem.')
   })
 
   it('final service and member cannot edit', async () => {
@@ -124,15 +135,16 @@ describe('ServiceDetailPage', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     m.deleteService.mockResolvedValue({ success: true })
     renderWith({}, leader)
-    const remove = await screen.findByRole('button', { name: 'Excluir serviço' })
-    await user.click(remove)
+    await openMenu(user, 'Mais ações do serviço')
+    await user.click(screen.getByRole('menuitem', { name: 'Excluir serviço' }))
     expect(m.deleteService).toHaveBeenCalledWith('sv1')
   })
 
   it('leader cannot delete a ready service', async () => {
+    const user = userEvent.setup()
     renderWith({ status: 'ready' }, leader)
-    await screen.findByText('Pronto')
-    expect(screen.queryByRole('button', { name: 'Excluir serviço' })).not.toBeInTheDocument()
+    await openMenu(user, 'Mais ações do serviço')
+    expect(screen.queryByRole('menuitem', { name: 'Excluir serviço' })).not.toBeInTheDocument()
   })
 
   it('final service hides stage start and roster, not even the owner deletes', async () => {
@@ -169,36 +181,43 @@ describe('ServiceDetailPage', () => {
 
   it('adds a reprise to a song item (RN-10)', async () => {
     m.addReprise.mockReset().mockResolvedValue({ success: true })
+    const user = userEvent.setup()
     renderWith({}, leader)
-    const trigger = await screen.findByRole('button', { name: 'Adicionar reprise/medley a Grande é o Senhor' })
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    await userEvent.click(trigger)
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
-    expect(document.activeElement).toBe(trigger)
-    await userEvent.click(trigger)
-    await userEvent.selectOptions(screen.getByLabelText('Tipo', { selector: '.service-reprise select' }), 'medley')
-    await userEvent.click(screen.getByRole('button', { name: 'Adicionar à ordem' }))
+    const menuTrigger = await screen.findByRole('button', { name: 'Mais ações de Grande é o Senhor' })
+    expect(menuTrigger).toHaveAttribute('aria-haspopup', 'menu')
+    await user.click(menuTrigger)
+    await user.click(screen.getByRole('menuitem', { name: 'Adicionar reprise/medley a Grande é o Senhor' }))
+    const form = screen.getByRole('form', { name: 'Reprise de Grande é o Senhor' })
+    await user.click(within(form).getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('form', { name: 'Reprise de Grande é o Senhor' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Mais ações de Grande é o Senhor' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Adicionar reprise/medley a Grande é o Senhor' }))
+    await user.selectOptions(screen.getByLabelText('Tipo'), 'medley')
+    await user.click(screen.getByRole('button', { name: 'Adicionar à ordem' }))
     expect(m.addReprise).toHaveBeenCalledWith('sv1', { type: 'medley', refItemId: 'i2' })
-    expect(document.activeElement).toBe(trigger)
   })
 
   it('shows "volta da posição N" and confirms deleting a song with reprises (RN-11)', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderWith({}, leader, [...items, { id: 'i3', serviceId: 'sv1', type: 'reprise', title: 'Reprise: Grande é o Senhor', refItemId: 'i2', position: 2, updatedAt: '' }])
     expect(await screen.findByText('volta da posição 2')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Remover Reprise: Grande é o Senhor (posição 3)' })).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'Remover Grande é o Senhor' }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Mais ações de Reprise: Grande é o Senhor (posição 3)' }))
+    expect(screen.getByRole('menuitem', { name: 'Remover Reprise: Grande é o Senhor (posição 3)' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Mais ações de Grande é o Senhor' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Remover Grande é o Senhor' }))
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining('1 reprise/medley'))
     expect(m.removeServiceItem).not.toHaveBeenCalled()
     confirm.mockReturnValue(true)
-    await userEvent.click(screen.getByRole('button', { name: 'Remover Grande é o Senhor' }))
+    await user.click(screen.getByRole('button', { name: 'Mais ações de Grande é o Senhor' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Remover Grande é o Senhor' }))
     expect(m.removeServiceItem).toHaveBeenCalledWith('i2')
   })
 
   it('does not list a personal song twice once its Ministry copy exists', async () => {
     m.orgSongs = [{ id: 'c1', title: 'Grande é o Senhor', sourceSongId: 's1', organizationId: 'o1' }]
     renderWith({}, leader)
+    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar item' }))
     expect(await screen.findAllByRole('option', { name: 'Grande é o Senhor' })).toHaveLength(1)
     m.orgSongs = []
   })
@@ -239,6 +258,57 @@ describe('ServiceDetailPage', () => {
       renderWith({ status: 'completed' }, leader)
       expect(await screen.findByText('Tom: C')).toBeInTheDocument()
       expect(screen.queryByLabelText('Tom neste serviço')).toBeNull()
+    })
+  })
+
+  describe('layout (ADR-066)', () => {
+    it('has Ordem as default tab and a back link to Serviços', async () => {
+      renderWith({}, leader)
+      expect(await screen.findByRole('tab', { name: 'Ordem', selected: true })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Serviços/ })).toHaveAttribute('href', '/servicos')
+      expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Ordem', 'Escala', 'Ensaios', 'Materiais'])
+    })
+
+    it('disables Iniciar palco when the order has no song', async () => {
+      renderWith({ status: 'ready' }, { organizationRole: 'owner' }, [items[0]])
+      expect(await screen.findByRole('button', { name: 'Iniciar palco' })).toBeDisabled()
+    })
+
+    it('shows no "Mais ações" button to a member without permissions', async () => {
+      renderWith({}, { organizationRole: 'member', teamRole: 'member', teamStatus: 'active' })
+      await screen.findByText('1. Boas-vindas')
+      expect(screen.queryByRole('button', { name: /Mais ações/ })).not.toBeInTheDocument()
+    })
+
+    it('shows the schedule inside the Escala tab and adds Registro when completed', async () => {
+      const user = userEvent.setup()
+      renderWith({ status: 'completed' }, leader)
+      await user.click(await screen.findByRole('tab', { name: 'Escala' }))
+      expect(screen.getByRole('region', { name: 'Escala' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Registro' })).toBeInTheDocument()
+    })
+
+    it('edits the info in a sheet', async () => {
+      const user = userEvent.setup()
+      m.updateServiceInfo.mockResolvedValue({ success: true })
+      renderWith({}, leader)
+      await openMenu(user, 'Mais ações do serviço')
+      await user.click(screen.getByRole('menuitem', { name: 'Editar informações' }))
+      expect(screen.getByRole('dialog', { name: 'Editar informações' })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Salvar' }))
+      expect(m.updateServiceInfo).toHaveBeenCalled()
+      expect(await screen.findByRole('status')).toHaveTextContent('Informações salvas.')
+    })
+
+    it('shows a validation error inside the open sheet', async () => {
+      const user = userEvent.setup()
+      renderWith({}, leader)
+      await user.click(await screen.findByRole('button', { name: 'Adicionar item' }))
+      const dialog = screen.getByRole('dialog', { name: 'Adicionar item' })
+      await user.selectOptions(within(dialog).getByLabelText('Tipo'), 'prayer')
+      await user.type(within(dialog).getByLabelText('Título'), '   ')
+      await user.click(within(dialog).getByRole('button', { name: 'Adicionar item' }))
+      expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
     })
   })
 })

@@ -13,6 +13,11 @@
   background: transparent;
 }
 
+.action-menu .action-menu__trigger:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .action-menu .action-menu__trigger:hover:not(:disabled) {
   border-color: transparent;
   color: var(--color-text);
