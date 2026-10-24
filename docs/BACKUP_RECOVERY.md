@@ -6,7 +6,7 @@
 
 | Item | Valor |
 |---|---|
-| O que é copiado | Todo o PostgreSQL do Neon (schemas `app` e `public`: contas, organizações, músicas, repertórios, serviços, escalas, consentimentos, log administrativo). Dexie (aparelho do usuário) não entra: é cópia local do que já está no banco. |
+| O que é copiado | Todo o PostgreSQL do Neon (schemas `app` e `public`: contas, organizações, músicas, repertórios, serviços, escalas, ensaios, materiais por link, "preparado", registro da execução, log de atividade, consentimentos, log administrativo). Dexie (aparelho do usuário) não entra: é cópia local do que já está no banco. |
 | Frequência | Dump diário **manual** (`scripts/ops/dump.sh`) até existir plano pago com backup automático. Também antes de cada mudança grande. |
 | RPO (perda aceitável) | 24 h |
 | RTO (tempo para voltar) | 4 h |
@@ -45,7 +45,7 @@ Nunca restaure sobre o banco de produção por este roteiro. Ele cria um banco *
    O script cria o banco `cantum_restore`, restaura e imprime: a última migration, o total de migrations e a contagem de linhas de cada tabela.
 3. **Como saber que deu certo:**
    - O script terminou com "Restore concluído" e sem `ERROR`.
-   - A última migration é a mais recente de `db/migrations/` (hoje `0016_minimum_age`; confira a lista em `db/migrations/`).
+   - A última migration é a mais recente aplicada no banco de origem (em `main`, hoje `0027_block_completed_service_delete`; confira a lista em `db/migrations/`). Um dump anterior ao go-live pode parar antes (GO_LIVE_CHECKLIST §4).
    - `app.users` bate com o número de contas que você espera (inclui 1 linha de sistema, o usuário anônimo da ADR-063).
    - Tabelas centrais (`organizations`, `songs`, `services`) não estão zeradas se o app em produção tem dados.
 4. **Teste de login (opcional):** o servidor local contra o banco restaurado ainda não tem roteiro neste repositório; peça ao lead para subir `server/` apontando para `cantum_restore` e entre com uma conta conhecida.
@@ -77,5 +77,7 @@ A exclusão (ADR-063, RN-03) apaga o dado pessoal do banco **na hora**, mas **n�
 | Data | Quem | Arquivo (data do dump) | Resultado | Observações |
 |---|---|---|---|---|
 | _preencher_ | Jota | | | |
+
+Restore: o `pg_restore` não dispara o trigger da 0027 (só `DELETE` o faz), então restaurar serviços concluídos funciona; limpar um banco restaurado exige excluir a organização (cascata), como em OPERATIONS §9.
 
 Teste de integridade dos scripts feito pelo planner em 2026-10-18 contra um PostgreSQL local descartável (migrations 0001–0015, sem dados reais; a 0016 entrou depois): dump e restore OK. **Não substitui** o teste com dump real do Neon.

@@ -1,6 +1,8 @@
 # B3 — Serviço (VS-02)
 
 > Fase 1 · Esforço: 2–3 semanas · Depende de: B2 (`app.has_permission`), B1 · Spec: [`VS-02-servico.md`](../specs/VS-02-servico.md) · Requisitos: RF-SVC-001…004 · Blueprint §8.2, §8.6, §12, §18.2, §32.2, §48.2, §52.2, §53, §57
+>
+> **Status (2026-10-23): ✅ concluído** (PR #73; `0005_service_ops.sql`). Épico #47 fechado. Depois: serviço concluído não se exclui (0027). A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 O **Service** vira o centro operacional: pertence a uma equipe, tem estado claro, informações básicas e uma **ordem** que mistura músicas e outros momentos do culto.

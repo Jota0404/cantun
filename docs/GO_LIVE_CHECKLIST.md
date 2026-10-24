@@ -4,6 +4,7 @@
 > Em cada passo: **Veja** = o que deve aparecer. **Se der errado** = pare e chame o lead; não tente consertar sozinho.
 > `[A CONFIRMAR]` = não foi possível validar contra os scripts do repositório; confira com o lead antes.
 > Nada aqui foi executado contra Neon ou Render. Reserve cerca de 1 hora, sem pressa.
+> **Escopo (2026-10-23):** roteiro para o ambiente atual (Render + Neon, EUA, só dados de teste). Se a produção for para outro provedor (preferência do owner: AWS, `docs/HOSTING_OPTIONS_BR.md` §5), a lógica vale igual (dump → restore testado → migrations e servidor na mesma subida, 0019 antes do servidor novo), mas os passos de painel mudam.
 
 ## 0. Regras
 
@@ -115,8 +116,8 @@ Compare com a lista abaixo. As que **não** aparecem são as pendentes. Se apare
 | 0020 service_preparations | Cria tabela: marcar "preparado" por serviço. | Não. |
 | 0021 rehearsals | Cria tabelas de ensaio e músicas em foco. | Não. |
 | 0022 materials_links | Cria tabela de materiais (links https). | Não ao aplicar (depois, excluir uma música apaga os materiais dela). |
-| 0023 execution_history | Registro do serviço concluído (músicas, tom, equipe confirmada). Concluir fica bloqueado enquanto houver Palco aberto do serviço. **Não gera registro para serviços já concluídos antes dela.** Decisões D1–D3 `[A CONFIRMAR]` com você. | Não. |
-| 0024 activity_events | Log de atividade somente leitura. Guarda 90 dias. | Não ao aplicar (depois, eventos com mais de 90 dias são apagados automaticamente). Decisões D4/D5 `[A CONFIRMAR]`. |
+| 0023 execution_history | Registro do serviço concluído (músicas, tom, equipe confirmada). Concluir fica bloqueado enquanto houver Palco aberto do serviço. **Não gera registro para serviços já concluídos antes dela.** Decisões D1–D3 confirmadas pelo owner em 2026-10-22. | Não. |
+| 0024 activity_events | Log de atividade somente leitura. Guarda 90 dias. | Não ao aplicar (depois, eventos com mais de 90 dias são apagados automaticamente). Decisões D4/D5 confirmadas pelo owner em 2026-10-22. |
 | 0025 stage_open_unique | No máximo uma sessão de Palco aberta por serviço. | **SIM (pouco):** encerra (não apaga) sessões de Palco abertas duplicadas do mesmo serviço; fica a ao vivo ou a mais recente. |
 | 0026 stage_key_reset | Trocar de item no Palco zera o tom ao vivo. | Não. |
 | 0027 block_completed_service_delete | Trigger que impede excluir serviço concluído (preserva o registro da execução). | Não. |
@@ -149,7 +150,7 @@ Marque cada item:
 - [ ] Cadastro: sem marcar a idade (16+) e o aceite de Política e Termos, **não** cria a conta. Marcando, cria, e o e-mail de confirmação chega (olhe o spam). Se o cadastro falhar com erro, **pare**: sinal clássico de servidor antigo com migration nova (ver rollback).
 - [ ] Confirmar o e-mail pelo link e entrar (login).
 - [ ] Sair e entrar de novo.
-- [ ] Exportar meus dados baixa um arquivo JSON, sem senha dentro. `[A CONFIRMAR]` onde fica o botão na tela (Conta/Privacidade).
+- [ ] Exportar meus dados baixa um arquivo JSON, sem senha dentro. O botão "Exportar meus dados" fica na tela **Mais** (`/mais`), junto de "Excluir minha conta".
 - [ ] Criar uma música, um repertório e um serviço com a música.
 - [ ] Abrir o serviço e entrar no **Modo Palco**: abre, troca de música, volta.
 - [ ] Segurança (0014): com uma conta Admin que não é a dona, tentar se promover a dona ou remover a dona não funciona. `[A CONFIRMAR]` o roteiro de UI; se não conseguir testar, peça ao QA.

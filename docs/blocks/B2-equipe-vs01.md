@@ -1,7 +1,7 @@
 # B2 — Equipe (VS-01)
 
 > Fase 1 · Esforço: 2–3 semanas · Depende de: B0, B1 (baseline `db/`, auth e realtime próprios; legado removido) · Requisitos: RF-TEAM-001…004 · Blueprint §5, §6, §8.1, §32.3, §49, §50, §53
-> Status: **spec aceita** (ADR-051 `Accepted`; PR 1 `docs/vs-01-spec`) · revisada para o B1 em 2026-10-09
+> **Status (2026-10-23): ✅ concluído** (issues #57–#60, PR #71; `0004_team_roles.sql`). Épico #46 fechado. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 Owner e Admin estruturam a organização e as equipes; o **Líder** coordena a própria equipe; o **Membro** participa, mantém suas funções e confirma presença. Cada pessoa vê claramente seu papel e suas funções.

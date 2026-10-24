@@ -124,9 +124,9 @@ Leitura de vagas e atribuições (quem está escalado): membro **ativo** na orga
 Sem capacidade nova (o espelho `permissions.ts` não muda). `0023_execution_history.sql`.
 - **Geração:** só o servidor, na transição `in_progress → completed` de `transition_service` (quem tem `service.transition`). Snapshot imutável: `service_executions` (+ `service_execution_songs`, `service_execution_members`). Cancelar não gera. `cantum_user` não tem INSERT/UPDATE/DELETE; `app.record_service_execution` não tem EXECUTE para ele.
 - **Leitura** (tabelas, `get_service_execution`, `get_song_history`): membro **ativo na organização** (seção 4), qualquer equipe. Outra organização, sem vínculo, anônimo e `inactive` em todas as equipes: nada.
-- **Decisões pendentes do owner (adotadas pela recomendação da spec):** D1 tom = `coalesce(service_items.key, songs.current_key)`; D2 concluir com Palco `lobby`/`live` é recusado (`stage session still open`); D3 equipe = só `confirmed`.
+- **Decisões do owner (2026-10-22, iguais à recomendação da spec):** D1 tom = `coalesce(service_items.key, songs.current_key)`; D2 concluir com Palco `lobby`/`live` é recusado (`stage session still open`); D3 equipe = só `confirmed`. Serviço `completed` não se exclui (0027), então o registro vive enquanto a organização existir.
 - **Dado pessoal (ADR-063):** `user_id` e `completed_by_user_id` viram nulos na exclusão da conta ("Ex-membro"); `team_member.remove` não apaga participações; `export_my_data` inclui `service_participations`. Sai com o serviço e a organização.
-- **Log de atividade** (`0024_activity_events.sql`, somente leitura, sem capacidade nova): `activity_events` é gerado só pelo servidor (`app.log_activity`, sem EXECUTE para `cantum_user`) em `transition_service`, `respond_to_assignment`, `request_replacement` e triggers de `rehearsals`, `materials`, `repertoires`/`repertoire_items` (só da organização). Repertório pessoal, preparação e disponibilidade nunca geram evento. Guarda só ids + `kind`. Leitura (tabela e `get_recent_activity`): membro **ativo na organização**; **D4 (b, pendente do owner):** `assignment.declined` e `assignment.replacement_needed` só para quem tem `schedule.manage` na equipe do serviço. **D5 (pendente):** retém 90 dias, a leitura mostra 30 dias, 50 por página. Excluir a conta deixa `actor_user_id` nulo; `export_my_data` não inclui o log.
+- **Log de atividade** (`0024_activity_events.sql`, somente leitura, sem capacidade nova): `activity_events` é gerado só pelo servidor (`app.log_activity`, sem EXECUTE para `cantum_user`) em `transition_service`, `respond_to_assignment`, `request_replacement` e triggers de `rehearsals`, `materials`, `repertoires`/`repertoire_items` (só da organização). Repertório pessoal, preparação e disponibilidade nunca geram evento. Guarda só ids + `kind`. Leitura (tabela e `get_recent_activity`): membro **ativo na organização**; **D4 (b, decidida em 2026-10-22):** `assignment.declined` e `assignment.replacement_needed` só para quem tem `schedule.manage` na equipe do serviço. **D5 (decidida):** retém 90 dias, a leitura mostra 30 dias, 50 por página. Excluir a conta deixa `actor_user_id` nulo; `export_my_data` não inclui o log.
 
 Capacidades ainda fora (Network, solicitações externas) seguem o Blueprint §49 e entram no B10.
 
@@ -259,7 +259,10 @@ Contraste: Owner, Admin e Líder ativo da equipe do serviço gerem a escala; o t
 | Matriz (este documento) | `docs/PERMISSIONS.md` | B2 PR 1 |
 | `app.has_permission` + RLS/RPCs | `db/migrations/0004_team_roles.sql` | B2 PR 2 (`feat/team-roles-schema`) |
 | `service.*` + RLS + `transition_service` | `db/migrations/0005_service_ops.sql` | B3 PR 2 (`feat/service-schema`) |
-| `schedule.manage` + vagas + RPCs de atribuição + disponibilidade | `db/migrations/0006_schedule.sql` | B4 PR 2 (`feat/schedule-schema`) |
+| `schedule.manage` + vagas + RPCs de atribuição + disponibilidade | `db/migrations/0006_scheduling.sql` | B4 PR 2 (`feat/schedule-schema`) |
 | Registro da execução + leituras | `db/migrations/0023_execution_history.sql` | B7 fatia 3 (`feat/execution-history-schema`) |
+| Log de atividade | `db/migrations/0024_activity_events.sql` | B7 fatia 5 (`feat/activity-log-schema`) |
+| Uma sessão de Palco aberta por serviço (`stage.start`) | `db/migrations/0025_stage_open_unique.sql` | PR #140 |
+| Serviço concluído não se exclui (`service.delete`) | `db/migrations/0027_block_completed_service_delete.sql` | PR #151 |
 | Espelho `permissions.ts` | `src/domain/access/` | B2 PR 3 (`feat/team-roles-domain`) |
 | Uso na UI (esconder/desabilitar) | `src/pages`, `src/components` | B2 PR 4 e PR 5 |

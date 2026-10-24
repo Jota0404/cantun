@@ -1,5 +1,7 @@
 # CANTUM — Tarefa X: Status de Preparação da Equipe no Modo Banda
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 ## Objetivo
 Representar o estado efêmero de preparação dos participantes conectados à sessão de Modo Banda usando a Presence existente.
 

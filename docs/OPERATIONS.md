@@ -2,6 +2,7 @@
 
 > Decisão: [ADR-060](adr/ADR-060-hospedagem-render-neon.md) · Configuração: [`render.yaml`](../render.yaml)
 > Quem executa: **só o owner** (ADR-050/058). A IA prepara os arquivos, mas não mexe nos painéis nem nos dados de produção.
+> **Escopo (2026-10-23):** este roteiro vale para o ambiente atual de **teste** (Render + Neon, EUA, ADR-060 `Proposed`). A produção no Brasil ainda será escolhida pelo owner (preferência: AWS; `docs/HOSTING_OPTIONS_BR.md` §5); quando decidir, este documento é reescrito para o provedor escolhido. Schema atual: migrations 0001–0027.
 
 Este roteiro é para quem nunca usou nenhum desses serviços. Você não precisa saber Docker nem usar a linha de comando, exceto para o backup manual (seção 8).
 

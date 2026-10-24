@@ -2,6 +2,8 @@
 
 > Fase 0/1 · Esforço: 4–6 semanas de dedicação parcial · Depende de: B0 · Bloqueia: SQL do B2 (#57) · Absorve o antigo B9
 > Nome do arquivo mantido por causa dos links existentes; o conteúdo antigo (portabilidade gradual, ADR-049 Fase A) foi substituído.
+>
+> **Status (2026-10-23): ✅ concluído** (PRs #63–#66, #68, #69; `docs/BACKEND_MIGRATION_PLAN.md`). Supabase e legado removidos; banco em `db/migrations/`, servidor em `server/`, cliente em `src/platform`. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 Tirar o CANTUM do Supabase de uma vez: banco PostgreSQL reproduzível a partir do Git, backend próprio em Node.js + TypeScript e cliente sem `@supabase/supabase-js`, com a autorização continuando no banco. Como não há usuários reais, não há migração de dados nem convivência.

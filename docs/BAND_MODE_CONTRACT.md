@@ -1,5 +1,7 @@
 # CANTUM — Tarefa J: Contrato do Modo Banda
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 ## Status
 
 **Definição arquitetural / contrato de implementação**.

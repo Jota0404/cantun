@@ -1,5 +1,7 @@
 # CANTUM — Tarefa U: Controle de Execução Compartilhada do Modo Banda
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 ## Objetivo
 
 Consolidar a execução da sessão de palco em um estado compartilhado derivado exclusivamente do `BandStageSnapshot`. O MD continua sendo a autoridade operacional; músicos acompanham a mesma execução em modo somente leitura.

@@ -1,38 +1,46 @@
-# Passagem de trabalho — leia antes de agir (2026-10-22)
+# Passagem de trabalho — leia antes de agir (2026-10-23)
 
-Para qualquer agente ou sessão que continue o CANTUM. Fonte de verdade continua sendo `CLAUDE.md`, `AI_CONTEXT.md`, o Blueprint e os ADRs `Accepted`. Este arquivo só diz **onde paramos**.
+Para qualquer agente ou sessão que continue o CANTUM. Autoridade: `CLAUDE.md`, `AI_CONTEXT.md`, Blueprint e ADRs `Accepted`. Este arquivo só diz **onde paramos** e o que já se aprendeu. Resumo leigo para o owner: `docs/STATUS_DO_PROJETO.md`.
 
-## Estado em `main`
-- B0–B6 e B8 concluídos. B6 completo em código (fatias 1–7), exceto a **fatia 8 (upload de arquivos)**, adiada pelo owner (D10, 2026-10-22): fora do MVP, materiais seguem como links https; ADR-064 continua `Proposed`.
-- QA do #119 (reautenticação para excluir conta) feito com servidor e banco reais: ok; issue #101 fechada. Três ajustes de UX de baixa severidade ficaram **sem issue** por decisão do owner (mensagem de sessão expirada no reauth com sessão revogada, 429 do reauth que fala em "conexão", Enter no campo de senha não envia).
-- QA do bloco B6 (dois usuários, offline, 375/768) feito: ok depois do #126.
-- #126 corrigiu o sync (issue #116): deletes atômicos, o pull não ressuscita linha com delete pendente e espelha o servidor em `serviceItems`, `repertoireItems`, `servicePositions` e `memberAvailability`; o #146 estendeu o espelho a `services` e `repertoires` (com cascata local), acrescentou pull periódico (90 s, foco/visibilidade, fora de `/stage/`) e fez o `signOut` parar os engines antes de limpar o banco. Itens 2 (posições duplicadas) e 6 (janela residual) do **#127** seguem abertos. Também sem correção: 401 no push vira `failed` permanente; `stop()` dos engines sem timeout (fetch travado prende "Sair"). Invariante: o GET `/sync` não pode ganhar limite/paginação sem um marcador de "pull completo".
-- **B7 Execução & Histórico** (VS-06) implementado nas fatias 1–7 (migrations **0023** registro da execução e **0024** log de atividade; "Registro da execução", "Realizados", histórico e repertórios relacionados na música, bloco "Atividade" no Início). Fatia 7 refatorou o `StagePage` solo (581→142 linhas, sem mudar comportamento, com 21 testes de caracterização); o Palco segue congelado para features. QA do bloco feito com servidores reais: ok; achados corrigidos (reuso da sessão de Palco em `startOrResumeStage`, autor nos eventos de serviço).
-- **D1–D6 do VS-06 decididas pelo owner em 2026-10-22** (D1 tom efetivo, D2 bloquear concluir com Palco aberto de MD ativo, D3 só `confirmed`, D4 recusa/substituição só para quem gerencia a equipe, D5 log 90 dias e registro enquanto existir, D6 RF-HIS no Blueprint). Mudar é migration aditiva.
-- Fechados depois do QA do B7: **0025** (no máximo uma sessão de Palco `lobby`/`live` por serviço; criar devolve a existente; PR #140), **0026** (trocar de item no Palco zera o tom ao vivo; #145), "Meus serviços" com a seção "Realizados" do membro (#138), tela cheia nos dois Palcos do serviço (#144). Restam: o status `declined` segue legível em `assignments` (D4 esconde só o evento); a purga de 90 dias só roda quando a organização ganha evento (levar ao B8/LGPD); `GET /sync/activity_events` ignora a janela de 30 dias; corrida residual de `transition_service` concluindo no mesmo instante de um create de Palco.
+## Estado em `origin/main` (`826eafa`)
+- **B0–B8 concluídos em código.** Migrations `db/migrations/0001–0027`, Dexie v21. Detalhe por bloco: `docs/blocks/00-INDICE.md`; specs com status e caixas em `docs/specs/`.
+- **B6** sem a fatia 8 (upload de arquivos): adiada pelo owner (D10). Materiais só como link `https`; ADR-064 segue `Proposed`.
+- **B7** fatias 1–7 + QA; D1–D6 do VS-06 decididas (2026-10-22). Depois: 0025 (uma sessão de Palco `lobby`/`live` por serviço; o create devolve a existente), 0026 (trocar de item zera o tom ao vivo), 0027 (serviço concluído não se exclui: 403 `service_completed`; a cascata da organização ainda apaga), "Realizados" em Meus serviços (#138).
+- **Follow-ups já entregues:** #87 (timeout da sessão), #117 (`service.edit` nos casos de uso), #127 itens 1/3/4/5 (espelho de `services`/`repertoires`, pull periódico, código morto, `pullComplete`), #132 itens 1–5 (topo ao trocar, wake lock, tela cheia, Limpar anotação, 0026, rodapé), sync: ordem pai→filho na fila (#149), timeouts de requisição e `epoch` nos engines (#150), limpeza do que o membro perdeu acesso (#152), `signOut` para os engines antes de limpar (#146).
 
-## Decisões de 2026-10-23
-- Serviço concluído não pode ser excluído por ninguém (migration **0027**, 403 `service_completed`); o Registro da execução só sai com a organização; exclusão de conta não apaga serviços.
-- Acesso perdido: em PR.
+## Decisões já tomadas (não reabrir sem o owner)
+D1–D7 do plano (`docs/DELIVERY_PLAN.md` §2); D1–D10 do VS-04/05; D1–D6 do VS-06; D1–D7 do VS-07; Palco congelado para features (D6 do plano); serviço concluído não se exclui; uma sessão de Palco aberta por serviço; sem lembrete automático nem Web Push na escala (ADR-054); ideias de importação e áudio adiadas (`docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md`: não propor, não criar spec/ADR).
 
-## Ideias adiadas pelo owner (NÃO propor nem implementar sem ele retomar)
-`docs/FUTURE_IDEAS_IMPORT_AND_AUDIO.md`: importação de músicas além do `.txt` (colar texto, PDF/Word, OCR; IA só com decisão) e áudio por música com player fora do Palco. Não crie spec/ADR delas.
+## Abertos (issues reais)
+- #127 itens 2 (posições duplicadas → 409 `failed`) e 6 (janela residual de `removeLocalByOwner` fora da transação).
+- #132 item 6 (`ServiceStageMusicianPage` compartilhar componentes; muda markup visível).
+- #42 (6 páginas com exceção de `react-hooks/set-state-in-effect` em `eslint.config.js`).
+- #22 (Modo Passagem do Palco; congelado, D6). #54 (B10 Network, hipótese).
+- Épicos #50 (B6) e #51 (B7) seguem abertos no GitHub; o lead decide se fecha.
+- Sem issue (limites conhecidos, registrados nos PRs #136/#140/#150/#152): `declined` legível em `assignments` (D4 esconde só o evento); purga de 90 dias do log só roda quando a organização ganha evento; `GET /sync/activity_events` ignora a janela de 30 dias; corrida residual entre `transition_service` concluindo e um create de Palco; RPCs online abortadas por timeout podem já ter sido aplicadas; dados de organização perdida ficam no aparelho até descartar o item `failed` que os prende; três ajustes de UX do reauth de baixa severidade.
+- Palco do serviço sem auto-scroll e transposição rápida (só no Palco avulso): é feature, decisão do owner.
 
-## Pendências do owner (nada disto a IA faz)
-1. **Produção:** aplicar as migrations 0007–0027 seguindo `docs/GO_LIVE_CHECKLIST.md`, com a **0019 antes do servidor novo** (o servidor seleciona `reauth_at`; sem a coluna vira 500). Confirmar antes que o banco só tem dados de teste; restore testado (BACKUP_RECOVERY).
-2. **Texto jurídico** do B8 (D6): contato do controlador, bases legais, retenção, subprocessadores, validação dos 16 anos.
-3. **Hospedagem de produção no Brasil:** preferência do owner por **AWS**; decidir perto do lançamento ("deixar pra mexer quando o app estiver pronto para ser lançado"); comparativo em `docs/HOSTING_OPTIONS_BR.md` (substitui o ADR-060 quando decidido). Brief para o advogado em `docs/privacy/LEGAL_REVIEW_BRIEF.md`.
+## Pendências do owner (a IA não faz)
+1. **Lançamento:** hospedagem no Brasil (preferência **AWS**, decidir perto do lançamento com ajuda de um amigo; `docs/HOSTING_OPTIONS_BR.md` §5) e novo ADR no lugar do ADR-060.
+2. **Migrations 0007–0027 em produção** pelo `docs/GO_LIVE_CHECKLIST.md`: confirmar que só há dados de teste; dump + restore testado; migrations e servidor na mesma subida, **0019 antes do servidor novo** (ele lê `app.sessions.reauth_at`).
+3. **Texto jurídico** (Política, Termos, menores, retenção, controlador): `docs/privacy/LEGAL_REVIEW_BRIEF.md`; depois, PR com nova versão de consentimento.
+4. Registrar um restore de dump real em `docs/BACKUP_RECOVERY.md` §7.
 
-## Ambiente local (nada disto vai ao Git)
-- Banco de teste `cantum_teste` no PostgreSQL local; `server/.env` (copiar de `server/.env.example`) e `.env.local` na raiz com `VITE_API_URL=http://localhost:8787` (use `localhost`, não `127.0.0.1`). Migrations: `node server/src/migrate.ts` com `DATABASE_URL`. Não peça nem leia segredos/`.env` (ADR-050).
+## Como trabalhar
+- **Worktree por fatia:** `git fetch && git worktree add ../s-<nome> -b <branch> origin/main`. Sempre parta de `origin/main` explícito: o `main` local deste clone está atrasado (`f434fa8`) e o worktree principal (`cantun/`) está numa branch antiga.
+- **Gate:** `npm test && npm run lint && npm run build` (o build roda `tsc -b` também nos testes). SQL: `scripts/db/verify-migrations.sh` (banco descartável). Servidor: `cd server && npm run typecheck && npm test` (precisa de PostgreSQL).
+- **Checks do CI:** `validate` (CANTUM CI, todo PR), `verify-migrations` (DB, quando o PR toca `db/` ou `scripts/db/`) e `test` (Server, quando toca `server/`, `db/` ou `scripts/db/`). Merge só com os checks que rodaram verdes.
+- **Fluxo:** planner → backend → core → ui → `/ponytail:ponytail-review` → reviewer → qa → lead (gate + PR). Lead faz todo o Git; agentes não fazem add/commit/push/branch. Push e PR por fatia com gate + Revisor + QA verdes (ADR-061); merge e exclusão de branch só com o ok do Jota.
+- Exclusivo do Jota: push forçado em `main`, settings/secrets do GitHub, qualquer ação em banco ou ambiente de produção.
+- Conflito com ADR `Accepted`: pare e consulte o Jota.
+
+## Armadilhas aprendidas
+- **zsh:** `set -- $var` não divide por espaço (sem word splitting); use arrays (`${=var}` ou `read -A`).
+- **Vitest:** a suíte inteira trava ou estoura tempo sob carga local; rode por pasta (`npx vitest run src/sync`); o CI roda tudo.
 - Com `.env.local` presente, `src/platform/http.test.ts` falha localmente (lê `VITE_API_URL`); o CI não tem esse arquivo.
-- Em máquina sob carga a suíte inteira do vitest pode estourar tempo: rode por arquivo; o CI roda a completa.
-
-## Follow-ups abertos
-#127 (itens 2 e 6), #132 (item 6: `ServiceStageMusicianPage` compartilhar componentes; muda markup visível), #54/#42 (ESLint set-state-in-effect), #22 (Modo Passagem do Palco; congelado até o fim da Fase 2, D6).
-
-## Regras que valem aqui
-- Quem coordena (lead) faz todo o Git; agentes **não** fazem add/commit/push/branch. Push e PR por fatia (ADR-061); merge e exclusão de branch só com o ok do Jota, **salvo autorização explícita dele na sessão**.
-- Exclusivo do Jota: push forçado em `main`, settings/secrets do GitHub e qualquer ação em banco ou ambiente de produção.
-- Esforço: engenheiros baixo, reviewer/qa alto (máximo em auth/RLS/migration/sync). Conflito com ADR `Accepted`: pare e consulte o Jota.
-- `.claude/handoffs/b8-reauth-fatia9.md` guarda prompts por papel (modelo). `.claude/agents/lead.md` segue fora do Git.
+- **Servidor de teste e banco descartável:** banco local `cantum_teste`; `server/.env` copiado de `server/.env.example`; `.env.local` com `VITE_API_URL=http://localhost:8787` (use `localhost`, não `127.0.0.1`: o cookie exige o mesmo site). Migrations: `node server/src/migrate.ts` com `DATABASE_URL`.
+- **Nunca leia nem peça `.env`, senhas, connection strings ou chaves** (ADR-050).
+- **Estilo:** `src/styles/noLiteralColors.test.ts` reprova cor literal em CSS; use `var(--color-*)` de `src/styles/tokens.css` (`tokens.test.ts` confere os tokens e alvos de toque).
+- Não adicione arquivos à lista de exceções de lint (#42). Dexie: só `version(N+1)` novo. SQL: só migration nova em `db/migrations/`, nunca editar aplicada.
+- O GET `/sync` não pode ganhar limite/paginação sem um marcador de "pull completo" (invariante em `server/src/data.ts` e `src/platform/sync.ts`).
+- `.claude/handoffs/b8-reauth-fatia9.md` é um modelo de prompts por papel; `.claude/agents/lead.md` fica fora do Git.

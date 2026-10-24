@@ -1,6 +1,7 @@
 # Feature Spec — VS-04/05 Música no serviço, Ensaio e Materiais
 
-- **Status:** Aprovada (decisões D1–D9 do Jota, 2026-10-18; D10 decidida em 2026-10-22: adiar o upload; fatia 8 fora do MVP, materiais seguem como links https; ADR-064 segue Proposed)
+- **Status:** Implementada nas fatias 1–7 (B6: #108, #113, #115, #121, #123–#125; QA com dois usuários). Decisões D1–D9 do Jota (2026-10-18); **D10 (2026-10-22): upload adiado**, fatia 8 fora do MVP, materiais só como link https; ADR-064 segue `Proposed`
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B6 (`docs/blocks/B6-musica-ensaio-materiais.md`)
 - **Fatia vertical:** VS-04 (música no serviço) e VS-05 (preparação, ensaio, materiais)
 - **Autor / data:** Claude Code (planner) · 2026-10-18
@@ -64,28 +65,28 @@ Responder, numa tela, "qual serviço, horário, função, músicas, tons, materi
 - **RN-25** (Upload, slice 8) fica **bloqueado** até o ADR-064 `Accepted` e a decisão D5; não é implementado nesta spec além do desenho do ADR.
 
 ## Acceptance Criteria
-- [ ] Aplicar um repertório de N músicas a um serviço vazio cria N itens `song` na ordem; o repertório continua igual e utilizável.
-- [ ] Aplicar com músicas já na ordem as ignora e avisa "já está na ordem"; desmarcar e reordenar na marcação é respeitado.
-- [ ] Aplicar depois do item K renumera os seguintes sem colisão de posição, numa só operação.
-- [ ] Duplicar um repertório gera cópia independente (mesmas músicas/ordem); editar a cópia não altera o original.
-- [ ] Definir o tom `D` num item cuja música é `C` mostra `D` no serviço e **não** altera `original_key`/`current_key` da música na biblioteca.
-- [ ] Tom de outro modo (`Am` em música `C`) é recusado no domínio e no banco; item não musical com `key` é recusado.
-- [ ] O Palco do serviço, online e offline, abre a música no tom do serviço; sem tom de serviço, abre no tom atual da música (RN-C4 preservada).
-- [ ] Reprise/medley aponta para um item `song` do mesmo serviço, não duplica `song_id`, não aparece no Palco e some junto com o item referenciado (com confirmação).
-- [ ] A tela do músico mostra, sem sair dela: horário, minha função, músicas com tom, ensaio, materiais e observações; funciona offline com dados já puxados.
-- [ ] "Preparado" persiste e aparece em outro aparelho do mesmo usuário; o Líder vê "n de m"; membro comum não vê os outros.
-- [ ] Líder cria ensaio com horário, local, músicas em foco e observação; membro vê e não edita.
-- [ ] Link `https` é salvo em serviço, ensaio ou música da organização; `http:`/`javascript:` é recusado; abre em nova aba com `noopener`.
-- [ ] Todos os casos negativos de permissão da seção "Plano de testes" passam no harness de RLS.
+- [x] Aplicar um repertório de N músicas a um serviço vazio cria N itens `song` na ordem; o repertório continua igual e utilizável.
+- [x] Aplicar com músicas já na ordem as ignora e avisa "já está na ordem"; desmarcar e reordenar na marcação é respeitado.
+- [x] Aplicar depois do item K renumera os seguintes sem colisão de posição, numa só operação.
+- [x] Duplicar um repertório gera cópia independente (mesmas músicas/ordem); editar a cópia não altera o original.
+- [x] Definir o tom `D` num item cuja música é `C` mostra `D` no serviço e **não** altera `original_key`/`current_key` da música na biblioteca.
+- [x] Tom de outro modo (`Am` em música `C`) é recusado no domínio e no banco; item não musical com `key` é recusado.
+- [x] O Palco do serviço, online e offline, abre a música no tom do serviço; sem tom de serviço, abre no tom atual da música (RN-C4 preservada).
+- [x] Reprise/medley aponta para um item `song` do mesmo serviço, não duplica `song_id`, não aparece no Palco e some junto com o item referenciado (com confirmação).
+- [x] A tela do músico mostra, sem sair dela: horário, minha função, músicas com tom, ensaio, materiais e observações; funciona offline com dados já puxados.
+- [x] "Preparado" persiste e aparece em outro aparelho do mesmo usuário; o Líder vê "n de m"; membro comum não vê os outros.
+- [x] Líder cria ensaio com horário, local, músicas em foco e observação; membro vê e não edita.
+- [x] Link `https` é salvo em serviço, ensaio ou música da organização; `http:`/`javascript:` é recusado; abre em nova aba com `noopener`.
+- [x] Todos os casos negativos de permissão da seção "Plano de testes" passam no harness de RLS.
 
 ## Requisitos
 | ID | Descrição | Origem |
 |---|---|---|
 | RF-REP-004 | Reutilizar repertórios em serviços (aplicar, duplicar). | Blueprint §8.5, §28 |
 | RF-SVC-005 | Associar repertório e materiais ao serviço. | Blueprint §28 |
-| RF-SVC-006 | Tom por serviço sem alterar a música. *(id proposto)* | Blueprint §8.7, ADR-007 |
-| RF-SVC-007 | Visão do músico do serviço. *(id proposto)* | Blueprint §56 |
-| RF-SVC-008 | Marcar "preparado" por serviço. *(id proposto)* | Blueprint §8.8, §56 |
+| RF-SVC-006 | Tom por serviço sem alterar a música. *(registrado no Blueprint §28 em 2026-10-23)* | Blueprint §8.7, ADR-007 |
+| RF-SVC-007 | Visão do músico do serviço. *(registrado no Blueprint §28 em 2026-10-23)* | Blueprint §56 |
+| RF-SVC-008 | Marcar "preparado" por serviço. *(registrado no Blueprint §28 em 2026-10-23)* | Blueprint §8.8, §56 |
 | RF-MUS-005 | Materiais e observações da música. | Blueprint §28 |
 | RF-REH-001 | Relacionar ensaio a serviço. | Blueprint §28 |
 | RF-REH-002 | Centralizar materiais de preparação. | Blueprint §28 |
@@ -144,7 +145,7 @@ Migrations em `db/migrations/` (aditivas, RLS na mesma migration, `security defi
 | 5 | `feat/service-preparation` (persistir "preparado", contagem do Líder) | backend → core → ui | 0020 (+ `export_my_data`) | 4 |
 | 6 | `feat/rehearsals` | backend → core → ui | 0021 | 4 |
 | 7 | `feat/materials-links` | backend → core → ui | 0022 | 6 |
-| 8 | `feat/materials-upload` | backend → core → ui | 0023 | ADR-064 `Accepted`, B8, D5; fora do primeiro corte |
+| 8 | `feat/materials-upload` (**adiada, D10**) | backend → core → ui | próximo número livre (0023 já foi usada pelo B7) | ADR-064 `Accepted`, B8, D5; fora do primeiro corte |
 
 Cada slice com SQL: o `backend-engineer` entrega migration + harness + `PERMISSIONS.md` antes do core. `database.ts` e `docs/adr/README.md` são do lead/core (um dono por PR).
 
@@ -171,8 +172,8 @@ Aprovadas em 2026-10-18, como recomendado: **D1 a D9**. **D10** (provedor e limi
 - **D6** Só o Líder (e Admin/Owner) anexa links; Membro não? Recomendo **sim** no primeiro corte.
 - **D7** Material em música pessoal: fora do B6 (só música da organização)? Recomendo **sim**.
 - **D8** Vários ensaios por serviço, sem convite nem lembrete? Recomendo **sim**.
-- **D9** Ids de requisito novos (RF-SVC-006/007/008) a registrar no Blueprint §28? Recomendo **sim**.
+- **D9** Ids de requisito novos (RF-SVC-006/007/008) a registrar no Blueprint §28? Recomendo **sim**. **Aplicada em 2026-10-23** (Blueprint §28).
 - **D10** Provedor de storage (R2, Backblaze B2 ou outro) e limites do ADR-064: decidir antes da slice 8. **Decidido (2026-10-22): adiar o upload; fatia 8 fora do MVP; materiais seguem como links https; ADR-064 continua Proposed.**
 
 ## Issues
-- [ ] #<n> — épico B6 e uma issue por fatia 1–8 (lead cria).
+- [ ] Épico #50 (aberto no GitHub; fatias 1–7 entregues pelos PRs #108, #113, #115, #121, #123–#125; fatia 8 adiada)

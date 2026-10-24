@@ -2,7 +2,7 @@
 
 > Fase 2/3 · Esforço: 2–3 semanas · Depende de: B6 · Blueprint §8.9, §9, §52.1, §57, NFR-007
 
-> **Status:** implementado (fatias 1–7; 0023 e 0024). QA do bloco feito. D1–D6 decididas pelo Jota (2026-10-22). Pendente do Jota: aplicação das migrations 0007–0024 em produção.
+> **Status (2026-10-23): ✅ concluído** (fatias 1–7, #130–#137; 0023 e 0024) e QA. D1–D6 decididas pelo owner (2026-10-22). Depois do QA: 0025 (uma sessão de Palco aberta por serviço), 0026 (trocar de item zera o tom ao vivo), 0027 (serviço concluído não se exclui), "Realizados" em Meus serviços (#138). Épico #51 ainda aberto no GitHub. A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 Fechar o ciclo **Executar → Registrar**: o serviço executado vira histórico útil para a liderança, e o Stage, descongelado, é refinado e simplificado.

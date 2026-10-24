@@ -1,6 +1,7 @@
 # Feature Spec — VS-06 Execução & Histórico
 
-- **Status:** Accepted — fatias 1–7 implementadas; D1–D6 decididas pelo Jota em 2026-10-22
+- **Status:** Implementada — fatias 1–7 (#130–#137) e QA; D1–D6 decididas pelo Jota em 2026-10-22; depois 0025–0027 e "Realizados" em Meus serviços (#138, #140, #145, #151)
+- **Verificação (2026-10-23, `main` @ `826eafa`):** caixas marcadas pelo código em `main`, pelas issues/PRs fechados e pelo QA do bloco; não reauditadas item a item nesta revisão. Caixa aberta = pendência real.
 - **Bloco:** B7 (`docs/blocks/B7-execucao-historico.md`)
 - **Fatia vertical:** VS-06
 - **Autor / data:** Claude Code (planner), sob revisão do Jota · 2026-10-22
@@ -59,18 +60,18 @@ Fechar o ciclo Executar → Registrar (§9): o Líder escolhe repertório e tom 
 - **RN-25** Saída da sessão descarta o estado temporário (§57): já é o comportamento do Stage canônico (ADR-042/047); a fatia de refatoração só acrescenta o teste que o comprova. Fim automático ao concluir o serviço: D2.
 
 ## Acceptance Criteria
-- [ ] Concluir um serviço `in_progress` cria exatamente um registro com data, músicas na ordem, tom efetivo de cada uma, equipe confirmada com função e, se houve Palco, início e fim.
-- [ ] Cancelar não cria registro; tentar concluir de novo é recusado (transição inválida) e não duplica.
-- [ ] `insert`, `update` e `delete` diretos nas tabelas do registro e do log são negados para qualquer papel; editar a música ou a ordem depois não muda o registro.
-- [ ] A tela do serviço concluído mostra "Registro da execução"; a lista de serviços tem o filtro "Realizados".
-- [ ] A música da organização mostra "Última vez tocada em <data>", "Tocada N vezes nos últimos 12 meses" e os tons usados com contagem; sem registro, "Ainda não tocada em um serviço".
-- [ ] O Início mostra "Atividade" com no máximo 10 eventos recentes da organização ativa, cada um com texto, autor e hora; nenhum botão, campo ou ícone de interação social existe no bloco (teste por papel/label).
-- [ ] Repertório pessoal, preparação e disponibilidade nunca aparecem na atividade.
-- [ ] Usuário de outra organização, anônimo e membro `inactive` em todas as equipes não leem registro, histórico nem atividade (negado pelo banco).
-- [ ] Após `delete_my_account`, a participação do titular aparece como "Ex-membro" e o registro continua; `export_my_data` inclui as participações do titular.
-- [ ] Sem rede, as seções de histórico e atividade mostram "Disponível com conexão." e o resto da tela funciona.
-- [ ] Stage: nenhum texto "Band", "MODO BANDA" ou "Setlist" na UI do Stage canônico nem classe `band-stage-*` em `src/`; testes de regressão do Stage e do Realtime passam; nenhum arquivo do Stage passa de ~300 linhas; `ServiceStagePage.tsx` sai da exceção de lint.
-- [ ] Teste manual §58.4 do Stage registrado no PR da refatoração.
+- [x] Concluir um serviço `in_progress` cria exatamente um registro com data, músicas na ordem, tom efetivo de cada uma, equipe confirmada com função e, se houve Palco, início e fim.
+- [x] Cancelar não cria registro; tentar concluir de novo é recusado (transição inválida) e não duplica.
+- [x] `insert`, `update` e `delete` diretos nas tabelas do registro e do log são negados para qualquer papel; editar a música ou a ordem depois não muda o registro.
+- [x] A tela do serviço concluído mostra "Registro da execução"; a lista de serviços tem o filtro "Realizados".
+- [x] A música da organização mostra "Última vez tocada em <data>", "Tocada N vezes nos últimos 12 meses" e os tons usados com contagem; sem registro, "Ainda não tocada em um serviço".
+- [x] O Início mostra "Atividade" com no máximo 10 eventos recentes da organização ativa, cada um com texto, autor e hora; nenhum botão, campo ou ícone de interação social existe no bloco (teste por papel/label).
+- [x] Repertório pessoal, preparação e disponibilidade nunca aparecem na atividade.
+- [x] Usuário de outra organização, anônimo e membro `inactive` em todas as equipes não leem registro, histórico nem atividade (negado pelo banco).
+- [x] Após `delete_my_account`, a participação do titular aparece como "Ex-membro" e o registro continua; `export_my_data` inclui as participações do titular.
+- [x] Sem rede, as seções de histórico e atividade mostram "Disponível com conexão." e o resto da tela funciona.
+- [x] Stage: nenhum texto "Band", "MODO BANDA" ou "Setlist" na UI do Stage canônico nem classe `band-stage-*` em `src/`; testes de regressão do Stage e do Realtime passam; nenhum arquivo do Stage passa de ~300 linhas; `ServiceStagePage.tsx` sai da exceção de lint.
+- [x] Teste manual §58.4 do Stage registrado no PR da refatoração.
 
 ## Requisitos
 | ID | Descrição | Origem |
@@ -186,7 +187,7 @@ QA do bloco (qa) ao fim: §58.4 + jornada musical com 2 usuários. `database.ts`
 Defaults adotados (sem decisão pendente): leitura só online (RN-20); histórico só de músicas da organização (RN-09); frequência em 12 meses e 5 últimos serviços (RN-07); `service.ready` no lugar de "escala publicada" (RN-15); nenhum ADR novo; fatia 7 opcional.
 
 ## Issues
-- [ ] Épico B7 / VS-06
+- [ ] Épico #51 (aberto no GitHub; fatias entregues)
 - [x] `refactor/stage-naming` (ui-engineer)
 - [x] `refactor/service-stage-page` (ui-engineer; lead: `eslint.config.js`)
 - [x] `feat/execution-history-schema` — 0023 (backend-engineer)

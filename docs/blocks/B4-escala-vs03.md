@@ -1,6 +1,8 @@
 # B4 — Escala (VS-03)
 
 > Fase 1 · Esforço: 4–6 semanas · Depende de: B3, B1 (Render + Neon, e-mail Brevo) · Spec: [`VS-03-escala.md`](../specs/VS-03-escala.md) · Requisitos: RF-SCH-001…005, RF-TEAM-005 · Blueprint §8.3, §8.4, §12.2, §18.5, §34.1 (ex. 1), §51, §53, §54, §62
+>
+> **Status (2026-10-23): ✅ concluído** (PR #79; `0006_scheduling.sql`). Épico #48 fechado. Sem lembrete automático nem Web Push (ADR-054). A seção "Estado atual" abaixo é o retrato de antes da execução.
 
 ## Objetivo
 O líder define as **vagas** do serviço, escala pessoas, vê **lacunas** na hora e resolve substituições; cada membro **confirma ou recusa** a própria escala e sabe exatamente o que fazer.

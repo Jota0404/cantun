@@ -6,22 +6,23 @@ Plataforma para equipes de louvor organizarem pessoas e funções, montarem serv
 
 > *Mais do que cifras: uma plataforma para organizar, preparar e operar uma equipe de louvor.*
 
-**App:** https://cantum.onrender.com (pode levar ~1 min no primeiro acesso depois de inatividade).
+**Ambiente de teste:** Render + Neon gratuitos, nos EUA (ADR-060, `Proposed`; `render.yaml`), só com dados de teste. Pode levar ~1 min no primeiro acesso depois de inatividade. A hospedagem de produção ainda será decidida pelo owner.
 
-A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/CANTUM_PROJECT_BLUEPRINT.md)**.
+A fonte de verdade de produto é o **[CANTUM Project & Product Blueprint](docs/CANTUM_PROJECT_BLUEPRINT.md)**. Resumo do estado para leigos: **[`docs/STATUS_DO_PROJETO.md`](docs/STATUS_DO_PROJETO.md)**.
 
-## Status
+## Status (2026-10-23)
 
 | Fase (Blueprint §33) | Situação |
 |---|---|
-| Fase 0 — Fundação atual | ✅ Domínio canônico consolidado em `main`; B0 (CI, governança da IA, templates, plano de blocos) concluído |
-| Fase 1 — Operação de equipe | 🟡 Em andamento: B1 Backend próprio concluído (Supabase removido, ADR-059); B2 Equipe (spec e ADR-051 aceitos); depois B3 Serviço e B4 Escala |
-| Fase 2 — Operação musical integrada | ⏳ |
-| Fase 3 — Execução madura | 🟡 Parte adiantada: Modo Palco compartilhado, presença e readiness já existem |
+| Fase 0 — Fundação | ✅ B0 (CI, governança da IA, templates, plano de blocos) e B1 (backend próprio, ADR-059) |
+| Fase 1 — Operação de equipe | ✅ B2 Equipe, B3 Serviço, B4 Escala, B5 Navegação/Design System, B8 Privacidade (texto jurídico pendente) |
+| Fase 2 — Operação musical integrada | ✅ B6 (fatias 1–7; upload de arquivos adiado pelo owner, materiais só por link) |
+| Fase 3 — Execução madura | ✅ B7 Execução & Histórico (registro da execução, histórico da música, log de atividade) |
 | Fase 4 — Eficiência | ⏳ |
-| Fase 5 — Network | ⏳ Futuro, condicionado à validação do core |
+| Fase 5 — Network | ⏳ Futuro, condicionado à validação do core (B10) |
+| Lançamento | ⏳ Com o owner: hospedagem no Brasil, migrations em produção, jurídico (`docs/GO_LIVE_CHECKLIST.md`) |
 
-O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído e validado em agosto/2026 e permanece como núcleo musical do produto.
+O MVP v0.1 (cifras, repertórios e Modo Palco offline) foi concluído em agosto/2026 e permanece como núcleo musical do produto.
 
 ## O que o CANTUM é — e o que não é
 
@@ -60,8 +61,22 @@ npm run dev
 | `npm run lint` | ESLint |
 | `npm run build` | type-check (`tsc -b`) + build de produção |
 | `npm run preview` | servir o build localmente |
+| `cd server && npm test` | testes de integração do servidor (exigem PostgreSQL) |
+| `scripts/db/verify-migrations.sh` | aplica `db/migrations/` e roda `db/tests/` num PostgreSQL descartável |
 
-Servidor e banco locais: ver `server/README.md` e `db/README.md`. O app exige login: sem servidor acessível (como hoje no link público, até a hospedagem ser definida), não é possível entrar.
+Servidor e banco locais: ver `server/README.md` e `db/README.md`. O app exige login: sem servidor acessível, não é possível entrar.
+
+CI (`.github/workflows/`): `validate` (test + lint + build, todo PR), `verify-migrations` (SQL em PostgreSQL 16, quando muda `db/`) e `test` do servidor (typecheck + integração, quando muda `server/` ou `db/`). O deploy no Render roda as migrations pendentes na subida (`render.yaml`).
+
+## Estrutura
+
+| Pasta | Conteúdo |
+|---|---|
+| `src/` | app React (`pages`, `components`, `application`, `domain`, `db` = Dexie, `sync`, `platform` = cliente HTTP/WebSocket, `auth`) |
+| `server/` | servidor Node.js/TypeScript (Fastify, `pg`): auth, `/rpc`, `/sync`, `/realtime` |
+| `db/` | `migrations/` (0001–0027) e `tests/` SQL de RLS |
+| `scripts/` | `db/` (migrar, verificar) e `ops/` (`dump.sh`, `restore-test.sh`) |
+| `docs/` | Blueprint, arquitetura, ADRs, specs, blocos, operação e privacidade |
 
 ## Documentação
 
@@ -74,7 +89,10 @@ Servidor e banco locais: ver `server/README.md` e `db/README.md`. O app exige lo
 | [`docs/specs/`](docs/specs/) | Feature Specs (Blueprint §34.1) |
 | [`docs/BACKEND_MIGRATION_PLAN.md`](docs/BACKEND_MIGRATION_PLAN.md) | Histórico da saída do Supabase (ADR-059, concluída) |
 | [`AI_CONTEXT.md`](AI_CONTEXT.md) / [`CLAUDE.md`](CLAUDE.md) | Regras operacionais para desenvolvimento assistido por IA |
-| `docs/BAND_*.md`, `docs/LEGACY_DEXIE_MIGRATION_GATES.md` | Contratos e gates do runtime legado (compatibilidade) |
+| [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) · [`docs/REALTIME_CONTRACT.md`](docs/REALTIME_CONTRACT.md) | Matriz de permissões · contrato do tempo real do Palco |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) · [`docs/GO_LIVE_CHECKLIST.md`](docs/GO_LIVE_CHECKLIST.md) · [`docs/BACKUP_RECOVERY.md`](docs/BACKUP_RECOVERY.md) · [`docs/HOSTING_OPTIONS_BR.md`](docs/HOSTING_OPTIONS_BR.md) | Operação, go-live, backup e opções de hospedagem |
+| [`docs/privacy/`](docs/privacy/) | Política e Termos (rascunho), mapa de dados, briefing jurídico |
+| `docs/BAND_*.md`, `docs/LEGACY_DEXIE_MIGRATION_GATES.md` | **Históricos**: contratos e gates do runtime legado, removido no B1 |
 | `docs/TASK_*.md` | Especificações históricas de tarefas |
 | `docs/SALMODIA_*.md` | Documentos **históricos** do MVP v0.1 (nome preservado pelo ADR-011) |
 

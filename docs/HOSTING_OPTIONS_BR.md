@@ -46,7 +46,7 @@ Observações:
 | Cenário | Escolha | Por quê |
 |---|---|---|
 | **Começar barato** (recomendado agora) | **Fly.io `gru` + Neon Launch `aws-sa-east-1`** | ~US$ 10–20; mantém Neon (mesmo roteiro de dump/restore, mesmas strings diretas); app e banco em SP; 1 Machine sempre ligada sem partida a frio; deploy por `fly deploy` ou GitHub Action. |
-| **Compliance forte** | **AWS `sa-east-1`: RDS PostgreSQL 16 + EC2 (ou ECS Fargate) com 1 tarefa** | PITR de até 35 dias, Multi-AZ opcional, DPA e certificações consolidadas, tudo em uma conta e região. Custa ~3× e exige IAM/VPC/segurança de rede: só quando houver contrato ou exigência de cliente. |
+| **Compliance forte** (preferência do owner, §5) | **AWS `sa-east-1`: RDS PostgreSQL 16 + EC2 (ou ECS Fargate) com 1 tarefa** | PITR de até 35 dias, Multi-AZ opcional, DPA e certificações consolidadas, tudo em uma conta e região. Custa ~3× e exige IAM/VPC/segurança de rede: só quando houver contrato ou exigência de cliente. |
 | **Menor esforço** | **Fly.io `gru` app + Fly Managed Postgres `gru`** | Um fornecedor, um painel, HA e backups inclusos. ~US$ 45. Ressalva: usar o host `direct.` para o servidor (LISTEN) e para migrations. |
 
 Evitar por ora: Render pago (não resolve a região), Railway (sem BR), Supabase (contra o ADR-059), VPS com Postgres próprio (backup e PITR viram trabalho do dev solo; só se o custo for decisivo). Magalu Cloud é a alternativa nacional a reavaliar quando houver documentação de PITR e preço.
@@ -73,6 +73,21 @@ Pré-condição: só dados de teste ou janela combinada. Quem executa em produç
 5. Brevo: nada muda no código; com domínio próprio, configurar SPF/DKIM e trocar `MAIL_FROM`.
 
 **Riscos:** preço de `gru` acima do estimado; limite de conexões diretas no Neon (pool pequeno já previsto); escala horizontal continua bloqueada pelo Realtime em memória (não é problema para 5–20 igrejas).
+
+## 5. Preferência do owner: AWS (2026-10-23)
+
+- O owner **prefere AWS** e decide perto do lançamento ("quando o app estiver pronto para ser lançado"), **com ajuda de um amigo**. Até lá nada muda: Render + Neon seguem só com dados de teste.
+- Cenário AWS que atende R1–R7: região `sa-east-1`, **RDS PostgreSQL 16** (backups automáticos com PITR) + **uma** instância EC2 (ou uma tarefa ECS Fargate) rodando o servidor com o mesmo `Dockerfile` do §4 (a criar). Estimativa ~US$ 45–60/mês (§2; confirmar na calculadora da AWS).
+- Pontos para conferir na montagem:
+  1. Um único processo do servidor, sem autoescala horizontal (R2).
+  2. Conexão **direta** ao RDS no servidor (R3: `LISTEN/NOTIFY`); sem RDS Proxy nem pooler em modo transação nesse caminho.
+  3. Load balancer com WebSocket e tempo ocioso acima do ping de 25 s (o padrão do ALB é 60 s); `TRUST_PROXY` = número de proxies na frente (OPERATIONS §5).
+  4. HTTPS com domínio próprio; `APP_ORIGIN` e `VITE_API_URL` explícitos (não há `RENDER_EXTERNAL_URL`).
+  5. Segredos (`DATABASE_URL`, `BREVO_API_KEY`, `MAIL_FROM`) digitados pelo owner no painel (ex.: Secrets Manager/Parameter Store); nunca no Git nem em chat.
+  6. Migrations na subida, antes do servidor (`node src/migrate.ts && node src/index.ts`), como no Render (GO_LIVE §5: 0019 antes do servidor novo).
+  7. Retenção de backup do RDS definida + dump manual (BACKUP_RECOVERY) e restore testado antes do primeiro usuário real.
+- E-mail: o Brevo continua (o código só fala com a API do Brevo); com domínio próprio, configurar SPF/DKIM. Trocar para Amazon SES exigiria mudar o `server/src/mailer.ts` e não é necessário.
+- Antes de executar: novo ADR (próximo número livre) substituindo o ADR-060 e atualização de OPERATIONS, GO_LIVE_CHECKLIST, BACKUP_RECOVERY e `docs/privacy/DATA_MAP.md` (operadores e países).
 
 ## Fontes (consultadas em 2026-10-22)
 

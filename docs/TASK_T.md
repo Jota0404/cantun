@@ -1,5 +1,7 @@
 # CANTUM — Tarefa T: Anotações do MD no Modo Banda
 
+> **Histórico (2026-10-23).** Documento do Modo Banda/runtime legado, removido no B1 (ADR-059). Não é escopo atual; ver `AI_CONTEXT.md` §2–3.
+
 ## Objetivo
 
 Permitir que o MD publique uma anotação operacional compartilhada durante uma sessão ao vivo do Modo Banda. A anotação pertence ao estado da sessão, é limitada a 500 caracteres e pode ser limpa ou atualizada.

@@ -1,6 +1,6 @@
 # CANTUM — Blocos de entrega: índice
 
-> v1.0 · 2026-10-01 · status atualizado em 2026-10-21 (`main` @ `2ceaf8e`)
+> v1.0 · 2026-10-01 · status atualizado em 2026-10-23 (`main` @ `826eafa`; migrations 0001–0027)
 > Fonte de verdade de produto: `docs/CANTUM_PROJECT_BLUEPRINT.md`. Plano consolidado: `docs/DELIVERY_PLAN.md`.
 
 Cada bloco tem um documento próprio com: objetivo, estado atual no código, requisitos do Blueprint, escopo, entregáveis por PR, mudanças de dados, critérios de aceite, testes, riscos e dependências.
@@ -13,9 +13,11 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 | B3 | `B3-servico-vs02.md` | 1 | B2 | ✅ concluído |
 | B4 | `B4-escala-vs03.md` | 1 | B3 | ✅ concluído |
 | B5 | `B5-navegacao-design-system.md` | 1 | B0 (paralelo ao B2) | ✅ concluído |
-| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | ✔ fatias 1–7 em `main` (#108–#125, #126 sync); fatia 8 (upload) adiada pelo owner (D10, 2026-10-22): fora do MVP, materiais só por link |
-| B7 | `B7-execucao-historico.md` | 2/3 | B6 | ✔ implementado e com QA; D1–D5 e migrations 0007–0024 em produção pendentes do Jota |
-| B8 | `B8-privacidade-minima.md` | 0/1 | B2 | ✅ concluído (jurídico pendente; antes de usuários reais) |
+| B6 | `B6-musica-ensaio-materiais.md` | 2 | B4 | ✅ fatias 1–7 (#108–#125; 0017, 0018, 0020–0022) + QA; fatia 8 (upload) adiada pelo owner (D10): fora do MVP, materiais só por link |
+| B7 | `B7-execucao-historico.md` | 2/3 | B6 | ✅ fatias 1–7 (#129–#137; 0023, 0024) + QA; D1–D6 decididas; depois 0025–0027 e "Realizados" (#138–#151) |
+| B8 | `B8-privacidade-minima.md` | 0/1 | B2 | ✅ em código (0011–0016, 0019); pendente do owner: texto jurídico e restore de dump real |
+
+Migrations em produção (0007–0027) e hospedagem no Brasil: com o owner (`docs/GO_LIVE_CHECKLIST.md`).
 | B9 | `B9-backend-proprio.md` | — | — | absorvido pelo B1 |
 | B10 | `B10-network.md` | 5 | validação do core | hipótese |
 
@@ -37,12 +39,14 @@ Cada bloco tem um documento próprio com: objetivo, estado atual no código, req
 
 | ADR | Tema | Bloco |
 |---|---|---|
-| 052 | Service operacional (equipe, estados, itens genéricos) | B3 |
-| 053 | Vagas e atribuições | B4 |
-| 054 | Canal de notificação | B4 |
-| 055 | Design system | B5 |
-| 056 → 064 | Materiais e storage (escrito como ADR-064, Proposed) | B6 |
-| 057 | Política de consistência por entidade (LWW × autoridade × online-only) | B4 |
+| 052 | Service operacional (equipe, estados, itens genéricos) — Accepted | B3 |
+| 053 | Vagas e atribuições — Accepted | B4 |
+| 054 | Canal de notificação — Accepted | B4 |
+| 055 | Design system — Accepted | B5 |
+| 056 → 064 | Materiais e storage (escrito como ADR-064, `Proposed`; upload adiado, D10) | B6 |
+| 057 | Política de consistência por entidade — Accepted | B4 |
+
+Sem reservas abertas; próximo número livre em `docs/adr/README.md`.
 
 ## Fluxo padrão de cada bloco
 
