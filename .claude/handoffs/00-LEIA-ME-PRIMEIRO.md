@@ -2,7 +2,7 @@
 
 Para qualquer agente ou sessão que continue o CANTUM. Autoridade: `CLAUDE.md`, `AI_CONTEXT.md`, Blueprint e ADRs `Accepted`. Este arquivo só diz **onde paramos** e o que já se aprendeu. Resumo leigo para o owner: `docs/STATUS_DO_PROJETO.md`.
 
-## Estado em `origin/main` (`826eafa`)
+## Estado em `origin/main` (`79ca901`, docs atualizados em 2026-10-23)
 - **B0–B8 concluídos em código.** Migrations `db/migrations/0001–0027`, Dexie v21. Detalhe por bloco: `docs/blocks/00-INDICE.md`; specs com status e caixas em `docs/specs/`.
 - **B6** sem a fatia 8 (upload de arquivos): adiada pelo owner (D10). Materiais só como link `https`; ADR-064 segue `Proposed`.
 - **B7** fatias 1–7 + QA; D1–D6 do VS-06 decididas (2026-10-22). Depois: 0025 (uma sessão de Palco `lobby`/`live` por serviço; o create devolve a existente), 0026 (trocar de item zera o tom ao vivo), 0027 (serviço concluído não se exclui: 403 `service_completed`; a cascata da organização ainda apaga), "Realizados" em Meus serviços (#138).
@@ -16,7 +16,7 @@ D1–D7 do plano (`docs/DELIVERY_PLAN.md` §2); D1–D10 do VS-04/05; D1–D6 do
 - #132 item 6 (`ServiceStageMusicianPage` compartilhar componentes; muda markup visível).
 - #42 (6 páginas com exceção de `react-hooks/set-state-in-effect` em `eslint.config.js`).
 - #22 (Modo Passagem do Palco; congelado, D6). #54 (B10 Network, hipótese).
-- Épicos #50 (B6) e #51 (B7) seguem abertos no GitHub; o lead decide se fecha.
+- Épicos #50 (B6) e #51 (B7) foram fechados em 2026-10-23.
 - Sem issue (limites conhecidos, registrados nos PRs #136/#140/#150/#152): `declined` legível em `assignments` (D4 esconde só o evento); purga de 90 dias do log só roda quando a organização ganha evento; `GET /sync/activity_events` ignora a janela de 30 dias; corrida residual entre `transition_service` concluindo e um create de Palco; RPCs online abortadas por timeout podem já ter sido aplicadas; dados de organização perdida ficam no aparelho até descartar o item `failed` que os prende; três ajustes de UX do reauth de baixa severidade.
 - Palco do serviço sem auto-scroll e transposição rápida (só no Palco avulso): é feature, decisão do owner.
 
@@ -43,4 +43,4 @@ D1–D7 do plano (`docs/DELIVERY_PLAN.md` §2); D1–D10 do VS-04/05; D1–D6 do
 - **Estilo:** `src/styles/noLiteralColors.test.ts` reprova cor literal em CSS; use `var(--color-*)` de `src/styles/tokens.css` (`tokens.test.ts` confere os tokens e alvos de toque).
 - Não adicione arquivos à lista de exceções de lint (#42). Dexie: só `version(N+1)` novo. SQL: só migration nova em `db/migrations/`, nunca editar aplicada.
 - O GET `/sync` não pode ganhar limite/paginação sem um marcador de "pull completo" (invariante em `server/src/data.ts` e `src/platform/sync.ts`).
-- `.claude/handoffs/b8-reauth-fatia9.md` é um modelo de prompts por papel; `.claude/agents/lead.md` fica fora do Git.
+- `.claude/handoffs/b8-reauth-fatia9.md` é um modelo de prompts por papel; `.claude/agents/lead.md` fica fora do Git; para iniciar um novo lead use `.claude/handoffs/PROMPT-NOVO-LEAD.md`.
