@@ -24,13 +24,14 @@
 | `--color-danger-surface`, `--color-success-surface` | fundo de mensagens de erro e sucesso |
 | `--color-focus` | anel de foco (≥ 3:1 sobre o fundo e as superfícies) |
 | `--color-overlay` | fundo escurecido atrás de diálogos |
-| `--shadow-soft` | sombra de cartões |
+| `--color-live`, `--color-on-live` | indicador "AO VIVO" do Palco (iguais nos dois temas; sempre com ponto e rótulo) |
+| `--shadow-soft` | sombra de cartões (ADR-066: cartões sem borda) |
 
 ## Escalas (iguais nos dois temas)
 
 - Espaçamento: `--space-1…8` = 4, 8, 12, 16, 24, 32, 48, 64 px.
-- Raio: `--radius-sm/md/lg/pill` = 6, 8, 12 px, 999 px.
-- Tipografia: `--font-sans`, `--font-mono`, `--font-size-sm/md/lg/xl`, `--line-height-tight/base`. Fonte do sistema, sem webfont.
+- Raio: `--radius-sm/md/lg/xl/pill` = 6, 8, 12, 20 px, 999 px (`xl` para cartões e folhas; botões, abas e navegação em pílula).
+- Tipografia: `--font-sans`, `--font-mono`, `--font-size-sm/md/lg/xl`, `--line-height-tight/base`. Fonte Nunito Sans (400, 600, 800) via `@fontsource/nunito-sans`, só latim, importada em `main.tsx` e pré-cacheada pelo PWA (offline, sem CDN); fallback na pilha do sistema.
 - Foco: `--focus-ring-width` = 2 px.
 - Alvo de toque: `--size-touch-min` = 44 px; `--size-touch-stage` = 48 px (navegação entre músicas e auto-scroll no Palco).
 
@@ -52,3 +53,12 @@ Nomes anteriores aos tokens continuam funcionando até as telas migrarem: `--col
 1. Edite `tokens.css` nos dois temas, se for cor.
 2. Rode `npx vitest run src/styles`: o teste falha se algum par de cores cair abaixo do mínimo.
 3. Atualize esta tabela se o uso mudar.
+
+## Componentes (`src/components/ui/`, ADR-066)
+
+- `Button`: `variant` primary (uma por tela), secondary (padrão), ghost (ação discreta), danger (contorno vermelho; prefira o `ActionMenu` + confirmação).
+- `Card`: agrupa conteúdo sem borda, com `--radius-xl` e `--shadow-soft`.
+- `Tabs`: seções da mesma tela (tablist ARIA, setas/Home/End); aba ativa controlada por `value`/`onChange`.
+- `ActionMenu`: "⋯" para ações secundárias e destrutivas; `label` obrigatório; itens `danger` vão ao fim.
+- `Sheet`: formulário ou escolha curta sobre a tela; folha de baixo no celular, diálogo no desktop; `ConfirmModal` segue para confirmações.
+- `Icon`: SVG próprio (home, services, music, bands, profile, more, back, add, play); decorativo, sempre ao lado de texto.

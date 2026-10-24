@@ -108,19 +108,21 @@ h4 {
 
 h1 {
   font-family: var(--heading);
-  font-weight: 750;
+  font-weight: 800;
   font-size: clamp(28px, 5vw, 40px);
   letter-spacing: -0.04em;
   margin: 0;
 }
 
 h2 {
+  font-weight: 800;
   font-size: clamp(24px, 4vw, 32px);
   line-height: 1.15;
   letter-spacing: -0.025em;
 }
 
 h3 {
+  font-weight: 800;
   font-size: 18px;
   line-height: 1.25;
 }
