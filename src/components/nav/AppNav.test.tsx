@@ -15,7 +15,7 @@ describe('AppNav', () => {
   it('shows the five destinations, in order, with text', () => {
     renderAt('/')
     const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
-    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Início', 'Serviços', 'Músicas', 'Bandas', 'Mais'])
+    expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Início', 'Serviços', 'Músicas', 'Bandas', 'Perfil'])
   })
 
   it.each([
@@ -24,7 +24,8 @@ describe('AppNav', () => {
     ['/services/abc', 'Serviços'],
     ['/songs/new', 'Músicas'],
     ['/organizations/o1/teams/t1', 'Bandas'],
-    ['/repertoires', 'Mais'],
+    ['/repertoires', 'Músicas'],
+    ['/mais', 'Perfil'],
   ])('marks the current destination for %s', (path, label) => {
     renderAt(path)
     const current = screen.getAllByRole('link').filter((link) => link.getAttribute('aria-current') === 'page')

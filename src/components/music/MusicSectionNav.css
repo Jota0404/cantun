@@ -1,0 +1,36 @@
+.music-section-nav {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.music-section-nav h2 {
+  margin: 0;
+}
+
+.music-section-nav nav {
+  display: flex;
+  gap: var(--space-1);
+  width: fit-content;
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+}
+
+.music-section-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-touch-min);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Estado além da cor: fundo cheio e peso. */
+.music-section-nav a[aria-current='page'] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 800;
+}

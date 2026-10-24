@@ -16,6 +16,8 @@ export function TeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  // Trava o assistente: criar o Ministério (passo 1) faz a lista passar a ter organização, mas o assistente segue até o fim.
+  const [onboarding, setOnboarding] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -24,6 +26,7 @@ export function TeamsPage() {
       const organizationTeams = principal ? await listTeams(principal.id) : []
       if (cancelled) return
       setOrganization(principal)
+      if (!principal) setOnboarding(true)
       setTeams(organizationTeams)
       setFailed(false)
       setLoaded(true)
@@ -35,7 +38,7 @@ export function TeamsPage() {
 
   if (failed) return <main className="nav-page"><h2>{labels.teams}</h2><p role="alert">Não foi possível carregar.</p></main>
 
-  if (loaded && !organization) return <main className="nav-page"><h2>{labels.teams}</h2><TeamOnboarding /></main>
+  if (onboarding) return <main className="nav-page"><h2>{labels.teams}</h2><TeamOnboarding onFinished={() => setOnboarding(false)} /></main>
 
   return (
     <main className="nav-page">

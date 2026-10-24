@@ -36,9 +36,10 @@ describe('ActivityPanel', () => {
     expect(await screen.findByText('Sem atividade recente.')).toBeInTheDocument()
   })
 
-  it('shows the service error message', async () => {
-    mocks.result = { success: false, errors: ['Disponível com conexão.'] }
+  it('shows a generic pt-BR message, never the raw server error', async () => {
+    mocks.result = { success: false, errors: ['Rate limit exceeded, retry in 3 seconds'] }
     renderPanel()
-    expect(await screen.findByText('Disponível com conexão.')).toBeInTheDocument()
+    expect(await screen.findByText('Não foi possível carregar a atividade. Tente de novo em instantes.')).toBeInTheDocument()
+    expect(screen.queryByText(/Rate limit/)).not.toBeInTheDocument()
   })
 })
