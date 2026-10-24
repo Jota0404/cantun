@@ -114,6 +114,8 @@
   --focus-ring-width: 2px;
   --size-touch-min: 44px;
   --size-touch-stage: 48px;
+  /* Altura mínima da barra inferior (AppNav); telas com ação fixa acima dela usam o mesmo valor. */
+  --size-app-nav: 76px;
 
   /* Nomes anteriores aos tokens: aliases até as telas migrarem. */
   --color-background: var(--color-bg);

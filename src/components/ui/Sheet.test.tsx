@@ -2,14 +2,8 @@
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Sheet } from './Sheet'
-
-// jsdom não implementa showModal/close.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() { this.setAttribute('open', '') }
-  HTMLDialogElement.prototype.close = function close() { this.removeAttribute('open') }
-})
 
 describe('Sheet', () => {
   it('opens as a modal dialog named by its title', () => {

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type DragEvent, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { onRemoteDataApplied } from '../../application/sync/remoteData'
 import { listSongs } from '../../application/songs/listSongs'
 import { listOrganizationSongs } from '../../application/songs/listOrganizationSongs'
@@ -9,7 +9,15 @@ import { addReprise } from '../../application/services/addReprise'
 import { addServiceItem, listServiceItems, moveServiceItem, removeServiceItem } from '../../application/services/serviceScheduleService'
 import { setServiceItemKey } from '../../application/services/applyRepertoire'
 import { useAuth } from '../../auth/authContext'
+import { ActionMenu, type ActionMenuItem } from '../../components/ui/ActionMenu'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
+import { Icon } from '../../components/ui/Icon'
+import { Sheet } from '../../components/ui/Sheet'
+import { Tabs } from '../../components/ui/Tabs'
+import { AddServiceItemForm, type NewItemInput } from '../../components/service/AddServiceItemForm'
+import { ServiceInfoForm, type ServiceInfoValues } from '../../components/service/ServiceInfoForm'
+import { ServiceOrderList } from '../../components/service/ServiceOrderList'
 import { ApplyRepertoireDialog } from '../../components/service/ApplyRepertoireDialog'
 import { MaterialsPanel } from '../../components/service/MaterialsPanel'
 import { ExecutionRecordPanel } from '../../components/service/ExecutionRecordPanel'
@@ -20,13 +28,12 @@ import { getMyAccessContext } from '../../application/teams/teamMemberService'
 import { hasPermission, type AccessContext } from '../../domain/access/permissions'
 import { MAJOR_KEYS, MINOR_KEYS, type MusicalKey } from '../../domain/music/musicalKey'
 import type { Service } from '../../domain/services/service'
-import { SERVICE_ITEM_TYPES, countDependents, effectiveKey, validateServiceItem, type ServiceItem, type ServiceItemType } from '../../domain/services/serviceItem'
+import { countDependents, effectiveKey, validateServiceItem, type ServiceItem } from '../../domain/services/serviceItem'
 import { canDeleteService, isFinalStatus, nextStatuses } from '../../domain/services/serviceLifecycle'
 import type { Song } from '../../domain/songs/song'
 import { SERVICE_ITEM_TYPE_LABEL, SERVICE_STATUS_LABEL, SERVICE_STATUS_TONE, SERVICE_TRANSITION_LABEL, formatServiceDate, toLocalInput } from '../../components/service/serviceLabels'
 import './OrganizationPage.css'
 import './ServiceDetailPage.css'
-import { labels } from '../../ui/labels'
 
 type Result = { success: true } | { success: false; errors: string[] }
 
@@ -42,18 +49,12 @@ export function ServiceDetailPage() {
   const [personalSongs, setPersonalSongs] = useState<Song[]>([])
   const songs = [...organizationSongs, ...personalSongs]
   const [access, setAccess] = useState<AccessContext>({ organizationRole: null })
-  const [editingInfo, setEditingInfo] = useState(false)
-  const [info, setInfo] = useState({ name: '', startsAt: '', location: '', notes: '' })
-  const [itemType, setItemType] = useState<ServiceItemType>('song')
-  const [itemSongId, setItemSongId] = useState('')
-  const [itemTitle, setItemTitle] = useState('')
-  const [itemMinutes, setItemMinutes] = useState('')
-  const [itemNotes, setItemNotes] = useState('')
+  const [sheet, setSheet] = useState<'info' | 'add' | { repriseFor: string }>()
   const [applying, setApplying] = useState(false)
-  const [repriseFor, setRepriseFor] = useState<string>()
   const [repriseType, setRepriseType] = useState<'reprise' | 'medley'>('reprise')
-  const [dragged, setDragged] = useState<string>()
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [params, setParams] = useSearchParams()
 
   const load = useCallback(async () => {
     try {
@@ -81,8 +82,9 @@ export function ServiceDetailPage() {
     return onRemoteDataApplied(() => { void load() })
   }, [load])
 
-  async function run(action: () => Promise<Result>) {
+  async function run(action: () => Promise<Result>, success?: string) {
     setError('')
+    setNotice('')
     try {
       const result = await action()
       if (!result.success) { setError(result.errors.join(' ')); return false }
@@ -91,6 +93,7 @@ export function ServiceDetailPage() {
       return false
     }
     await load()
+    if (success) setNotice(success)
     return true
   }
 
@@ -101,71 +104,48 @@ export function ServiceDetailPage() {
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível iniciar o palco deste serviço.') }
   }
 
-  function openInfo() {
-    if (!service) return
-    setInfo({ name: service.name, startsAt: toLocalInput(service.startsAt), location: service.location ?? '', notes: service.notes ?? '' })
-    setEditingInfo(true)
-  }
-
-  async function saveInfo(event: FormEvent) {
-    event.preventDefault()
+  async function saveInfo(info: ServiceInfoValues) {
     const saved = await run(() => updateServiceInfo(serviceId, {
       name: info.name, startsAt: new Date(info.startsAt).toISOString(), location: info.location, notes: info.notes,
-    }))
-    if (saved) setEditingInfo(false)
+    }), 'Informações salvas.')
+    if (saved) setSheet(undefined)
   }
 
   async function transition(to: Service['status']) {
     if (to === 'cancelled' && !window.confirm('Cancelar este serviço? Serviços cancelados não podem ser reabertos.')) return
-    await run(() => transitionService(serviceId, to))
+    await run(() => transitionService(serviceId, to), `Status: ${SERVICE_STATUS_LABEL[to]}.`)
   }
 
-  async function addItem(event: FormEvent) {
-    event.preventDefault()
-    const input = {
-      type: itemType,
-      songId: itemType === 'song' ? itemSongId || undefined : undefined,
-      title: itemType === 'song' ? undefined : itemTitle,
-      notes: itemNotes || undefined,
-      durationMinutes: itemMinutes ? Number(itemMinutes) : undefined,
-    }
+  async function addItem(input: NewItemInput) {
+    setNotice('')
     const errors = validateServiceItem(input)
-    if (errors.length) { setError(errors.join(' ')); return }
-    if (input.type === 'song' && personalSongs.some((song) => song.id === input.songId) && !navigator.onLine) { setError(OFFLINE_COPY_MESSAGE); return }
+    if (errors.length) { setError(errors.join(' ')); return false }
+    if (input.type === 'song' && personalSongs.some((song) => song.id === input.songId) && !navigator.onLine) { setError(OFFLINE_COPY_MESSAGE); return false }
     if (input.type === 'song' && items.some((item) => item.type === 'song' && item.songId === input.songId)) {
       setError(`"${songs.find((song) => song.id === input.songId)?.title ?? 'Esta música'}" já está na ordem.`)
-      return
+      return false
     }
-    if (await run(() => addServiceItem(serviceId, input))) { setItemSongId(''); setItemTitle(''); setItemMinutes(''); setItemNotes('') }
+    const added = await run(() => addServiceItem(serviceId, input), 'Item adicionado à ordem.')
+    if (added) setSheet(undefined)
+    return added
   }
 
   async function submitReprise(event: FormEvent, refItemId: string) {
     event.preventDefault()
-    if (await run(() => addReprise(serviceId, { type: repriseType, refItemId }))) closeReprise(refItemId)
-  }
-
-  function closeReprise(itemId: string) {
-    setRepriseFor(undefined)
-    document.getElementById(`reprise-trigger-${itemId}`)?.focus()
+    if (await run(() => addReprise(serviceId, { type: repriseType, refItemId }), 'Adicionado à ordem.')) setSheet(undefined)
   }
 
   async function removeItem(item: ServiceItem) {
     const dependents = countDependents(items, item.id)
     if (dependents > 0 && !window.confirm(`Excluir "${itemLabel(item)}" também apaga ${dependents} ${dependents === 1 ? 'reprise/medley que volta' : 'reprises/medleys que voltam'} a esta música. Continuar?`)) return
-    await run(() => removeServiceItem(item.id))
-  }
-
-  function dropOn(event: DragEvent, toIndex: number) {
-    event.preventDefault()
-    if (dragged) void run(() => moveServiceItem(serviceId, dragged, toIndex))
-    setDragged(undefined)
+    await run(() => removeServiceItem(item.id), 'Item removido.')
   }
 
   async function handleDelete() {
     if (!service || !window.confirm(`Excluir o serviço "${service.name}"? A ordem e a escala também serão removidas.`)) return
     const result = await deleteService(serviceId)
     if (!result.success) { setError(result.errors.join(' ')); return }
-    navigate(`/organizations/${service.organizationId}`, { replace: true })
+    navigate('/servicos', { replace: true })
   }
 
   if (!service && error === NOT_FOUND) return <main className="organization-page"><p role="alert">{NOT_FOUND}</p><Link to="/servicos">Voltar para Serviços</Link></main>
@@ -180,8 +160,6 @@ export function ServiceDetailPage() {
     ? songs.find((song) => song.id === item.songId)?.title ?? 'Música indisponível'
     : item.title ?? SERVICE_ITEM_TYPE_LABEL[item.type]
 
-  const at = (item: ServiceItem, index: number) => item.refItemId ? ` (posição ${index + 1})` : ''
-
   const keyField = (item: ServiceItem) => {
     const song = songs.find((candidate) => candidate.id === item.songId)
     const effective = song ? effectiveKey(item, song) : item.key
@@ -195,99 +173,75 @@ export function ServiceDetailPage() {
       {effective && <span>Tom: {effective}</span>}</>
   }
 
-  return <main className="organization-page"><section className="organization-card">
-    <header>
-      <Link to={`/organizations/${service.organizationId}`}>{labels.backToOrganization}</Link>
-      <span>SERVIÇO</span>
-      <Link className="service-prepare-link" to={`/services/${service.id}/prepare`}>Preparar</Link>
-      <h2>{service.name}</h2>
-      <p>{formatServiceDate(service.startsAt)}{service.location && <> · {service.location}</>}</p>
-      <p>Status: <Badge tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Badge></p>
-      {canDelete && <p><button type="button" onClick={() => void handleDelete()}>Excluir serviço</button></p>}
-      {final && <p role="note">Serviço {SERVICE_STATUS_LABEL[service.status].toLowerCase()}: informações e ordem não podem mais ser editadas.</p>}
-    </header>
-    {error && <p role="alert" className="organization-error">{error}</p>}
+  const reprising = typeof sheet === 'object' ? items.find((item) => item.id === sheet.repriseFor) : undefined
+  const errorAlert = error && <p role="alert" className="organization-error">{error}</p>
+  const sheetOpen = sheet === 'info' || sheet === 'add' || reprising !== undefined
+  const hasSongs = items.some((item) => item.type === 'song')
 
-    {canTransition && nextStatuses(service.status).length > 0 && <section aria-labelledby="service-status-title">
-      <h3 id="service-status-title">Mudar status</h3>
-      <div className="service-actions">
-        {nextStatuses(service.status).map((to) => <button key={to} type="button" onClick={() => void transition(to)}>{SERVICE_TRANSITION_LABEL[to]}</button>)}
+  const menu: ActionMenuItem[] = [
+    ...(canEdit ? [{ label: 'Editar informações', onSelect: () => { setError(''); setSheet('info') } }] : []),
+    ...(canTransition ? nextStatuses(service.status).map((to) => ({ label: SERVICE_TRANSITION_LABEL[to], danger: to === 'cancelled', onSelect: () => void transition(to) })) : []),
+    ...(canDelete ? [{ label: 'Excluir serviço', danger: true, onSelect: () => void handleDelete() }] : []),
+  ]
+
+  const tabs = [
+    { value: 'ordem', label: 'Ordem', content: <>
+      <p className="service-summary">{items.filter((item) => item.type === 'song').length} música(s) · {items.length} item(ns) na ordem{service.notes && <> · {service.notes}</>}</p>
+      {canEdit && <div className="service-actions">
+        <Button onClick={() => { setError(''); setSheet('add') }}>Adicionar item</Button>
+        <Button onClick={() => setApplying(true)}>Aplicar repertório</Button>
+      </div>}
+      <ServiceOrderList items={items} canEdit={canEdit} itemLabel={itemLabel} renderKey={keyField}
+        onMove={(itemId, toIndex) => void run(() => moveServiceItem(serviceId, itemId, toIndex))}
+        onRemove={(item) => void removeItem(item)}
+        onReprise={(item) => { setError(''); setSheet({ repriseFor: item.id }) }} />
+    </> },
+    { value: 'escala', label: 'Escala', content: <ServiceSchedule service={service} access={access} currentUserId={user?.id ?? ''} /> },
+    { value: 'ensaios', label: 'Ensaios', content: <RehearsalPanel serviceId={serviceId} items={items} itemLabel={itemLabel} final={final} /> },
+    { value: 'materiais', label: 'Materiais', content: <MaterialsPanel owner={{ type: 'service', id: serviceId }} title="Materiais do serviço" final={final} /> },
+    ...(service.status === 'completed' ? [{ value: 'registro', label: 'Registro', content: <ExecutionRecordPanel serviceId={serviceId} /> }] : []),
+  ]
+  const tab = tabs.find((item) => item.value === params.get('aba'))?.value ?? 'ordem'
+
+  return <main className="organization-page service-page">
+    <header className="service-header">
+      <Link to="/servicos"><Icon name="back" size={20} /> Serviços</Link>
+      <div className="service-header__title">
+        <h2>{service.name}</h2>
+        {menu.length > 0 && <ActionMenu label="Mais ações do serviço" items={menu} />}
       </div>
-    </section>}
+      <p className="service-header__meta">
+        <Badge tone={SERVICE_STATUS_TONE[service.status]}>{SERVICE_STATUS_LABEL[service.status]}</Badge>
+        <span>{formatServiceDate(service.startsAt)}</span>
+        {service.location && <span>{service.location}</span>}
+        <Link className="service-prepare-link" to={`/services/${service.id}/prepare`}>Preparar</Link>
+      </p>
+      {final && <p role="note">Serviço {SERVICE_STATUS_LABEL[service.status].toLowerCase()}: informações e ordem não podem mais ser editadas.</p>}
+      {hasPermission(access, 'stage.start') && !final && <div className="service-primary-action">
+        <Button variant="primary" onClick={() => void startStage()} disabled={!hasSongs}>Iniciar palco</Button>
+      </div>}
+    </header>
+    {!sheetOpen && errorAlert}
+    {notice && <p role="status">{notice}</p>}
 
-    <section aria-labelledby="service-overview-title">
-      <h3 id="service-overview-title">Visão geral</h3>
-      {editingInfo ? (
-        <form className="service-form" onSubmit={(event) => void saveInfo(event)}>
-          <label>Nome<input value={info.name} onChange={(event) => setInfo({ ...info, name: event.target.value })} required pattern=".*\S.*" /></label>
-          <label>Data e hora<input type="datetime-local" value={info.startsAt} onChange={(event) => setInfo({ ...info, startsAt: event.target.value })} required /></label>
-          <label>Local<input value={info.location} onChange={(event) => setInfo({ ...info, location: event.target.value })} /></label>
-          <label>Observações<textarea rows={3} value={info.notes} onChange={(event) => setInfo({ ...info, notes: event.target.value })} /></label>
-          <div className="service-actions"><button type="submit">Salvar</button><button type="button" onClick={() => setEditingInfo(false)}>Cancelar edição</button></div>
-        </form>
-      ) : <>
-        <p>{items.filter((item) => item.type === 'song').length} música(s) · {items.length} item(ns) na ordem</p>
-        <h4>Observações</h4>
-        <p>{service.notes || 'Sem observações.'}</p>
-        {canEdit && <button type="button" onClick={openInfo}>Editar informações</button>}
-      </>}
-    </section>
+    <Tabs label="Seções do serviço" items={tabs} value={tab} onChange={(next) => setParams({ aba: next }, { replace: true })} />
 
-    <section aria-labelledby="service-order-title">
-      <header className="service-actions">
-        <h3 id="service-order-title">Ordem do serviço</h3>
-        {hasPermission(access, 'stage.start') && !final && <button type="button" onClick={() => void startStage()} disabled={!items.some((item) => item.type === 'song')}>Iniciar palco</button>}
-      </header>
-      {items.length === 0 ? <p>Nenhum item na ordem.</p> : (
-        <ol className="service-order">
-          {items.map((item, index) => (
-            <li key={item.id} draggable={canEdit} onDragStart={() => setDragged(item.id)} onDragOver={(event) => canEdit && event.preventDefault()} onDrop={(event) => dropOn(event, index)}>
-              <div>
-                <strong>{index + 1}. {itemLabel(item)}</strong>
-                <span>{item.refItemId ? `volta da posição ${items.findIndex((other) => other.id === item.refItemId) + 1}` : SERVICE_ITEM_TYPE_LABEL[item.type]}{item.durationMinutes && <> · {item.durationMinutes} min</>}</span>
-                {item.notes && <span>{item.notes}</span>}
-                {item.type === 'song' && keyField(item)}
-              </div>
-              {canEdit && <div className="service-actions">
-                <button type="button" aria-label={`Subir ${itemLabel(item)}${at(item, index)}`} disabled={index === 0} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index - 1))}>↑</button>
-                <button type="button" aria-label={`Descer ${itemLabel(item)}${at(item, index)}`} disabled={index === items.length - 1} onClick={() => void run(() => moveServiceItem(serviceId, item.id, index + 1))}>↓</button>
-                <button type="button" aria-label={`Remover ${itemLabel(item)}${at(item, index)}`} onClick={() => void removeItem(item)}>Remover</button>
-                {item.type === 'song' && <button type="button" id={`reprise-trigger-${item.id}`} aria-expanded={repriseFor === item.id} aria-label={`Adicionar reprise/medley a ${itemLabel(item)}`} onClick={() => setRepriseFor(repriseFor === item.id ? undefined : item.id)}>Adicionar reprise/medley</button>}
-              </div>}
-              {canEdit && repriseFor === item.id && <form className="service-form service-reprise" aria-label={`Reprise de ${itemLabel(item)}`} onSubmit={(event) => void submitReprise(event, item.id)}>
-                <label>Tipo<select value={repriseType} onChange={(event) => setRepriseType(event.target.value as 'reprise' | 'medley')}><option value="reprise">Reprise</option><option value="medley">Medley</option></select></label>
-                <div className="service-actions"><button type="submit">Adicionar à ordem</button><button type="button" onClick={() => closeReprise(item.id)}>Cancelar</button></div>
-              </form>}
-            </li>
-          ))}
-        </ol>
-      )}
-      {canEdit && <p><button type="button" onClick={() => setApplying(true)}>Aplicar repertório</button></p>}
-      {applying && <ApplyRepertoireDialog serviceId={serviceId} items={items} itemLabel={itemLabel} onClose={() => setApplying(false)} onApplied={() => { setApplying(false); void load() }} />}
-      {canEdit && <form className="service-form" onSubmit={(event) => void addItem(event)} aria-label="Adicionar item">
-        <label>Tipo
-          <select value={itemType} onChange={(event) => setItemType(event.target.value as ServiceItemType)}>
-            {SERVICE_ITEM_TYPES.filter((type) => type !== 'reprise' && type !== 'medley').map((type) => <option key={type} value={type}>{SERVICE_ITEM_TYPE_LABEL[type]}</option>)}
-          </select>
-        </label>
-        {itemType === 'song'
-          ? <label>Música<select value={itemSongId} onChange={(event) => setItemSongId(event.target.value)} required>
-              <option value="">Escolha a música</option>
-              <optgroup label={labels.fromOrganization}>{organizationSongs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
-              <optgroup label={`${labels.fromMyLibrary} (será copiada para o Ministério)`}>{personalSongs.filter((song) => !organizationSongs.some((copy) => copy.sourceSongId === song.id)).map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</optgroup>
-            </select></label>
-          : <label>Título<input value={itemTitle} onChange={(event) => setItemTitle(event.target.value)} required maxLength={120} /></label>}
-        <label>Duração em minutos (opcional)<input type="number" min={1} max={600} value={itemMinutes} onChange={(event) => setItemMinutes(event.target.value)} /></label>
-        <label>Observações do item (opcional)<input value={itemNotes} onChange={(event) => setItemNotes(event.target.value)} /></label>
-        <button type="submit">Adicionar item</button>
+    {applying && <ApplyRepertoireDialog serviceId={serviceId} items={items} itemLabel={itemLabel} onClose={() => setApplying(false)} onApplied={() => { setApplying(false); setNotice('Repertório aplicado.'); void load() }} />}
+
+    <Sheet open={sheet === 'info'} title="Editar informações" onClose={() => setSheet(undefined)}>
+      <ServiceInfoForm initial={{ name: service.name, startsAt: toLocalInput(service.startsAt), location: service.location ?? '', notes: service.notes ?? '' }} onSave={(values) => void saveInfo(values)} onCancel={() => setSheet(undefined)} />
+      {errorAlert}
+    </Sheet>
+    <Sheet open={sheet === 'add'} title="Adicionar item" onClose={() => setSheet(undefined)}>
+      <AddServiceItemForm organizationSongs={organizationSongs} personalSongs={personalSongs} onSubmit={addItem} />
+      {errorAlert}
+    </Sheet>
+    <Sheet open={reprising !== undefined} title="Adicionar reprise/medley" onClose={() => setSheet(undefined)}>
+      {reprising && <form className="service-form service-reprise" aria-label={`Reprise de ${itemLabel(reprising)}`} onSubmit={(event) => void submitReprise(event, reprising.id)}>
+        <label>Tipo<select value={repriseType} onChange={(event) => setRepriseType(event.target.value as 'reprise' | 'medley')}><option value="reprise">Reprise</option><option value="medley">Medley</option></select></label>
+        <div className="service-actions"><Button type="submit" variant="primary">Adicionar à ordem</Button><Button onClick={() => setSheet(undefined)}>Cancelar</Button></div>
       </form>}
-    </section>
-
-    {service.status === 'completed' && <ExecutionRecordPanel serviceId={serviceId} />}
-
-    <MaterialsPanel owner={{ type: 'service', id: serviceId }} title="Materiais do serviço" final={final} />
-    <RehearsalPanel serviceId={serviceId} items={items} itemLabel={itemLabel} final={final} />
-
-    <ServiceSchedule service={service} access={access} currentUserId={user?.id ?? ''} />
-  </section></main>
+      {errorAlert}
+    </Sheet>
+  </main>
 }

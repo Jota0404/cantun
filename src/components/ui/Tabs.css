@@ -1,4 +1,7 @@
+.ui-tabs { min-width: 0; }
+
 .ui-tabs__list {
+  scrollbar-width: none;
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -31,3 +34,5 @@
 .ui-tabs [role='tabpanel'] {
   margin-top: var(--space-4);
 }
+
+.ui-tabs__list::-webkit-scrollbar { display: none; }
