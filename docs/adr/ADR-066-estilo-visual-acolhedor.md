@@ -1,6 +1,6 @@
 # ADR-066 — Estilo visual "Acolhedor" e componentes de interface (revisa o ADR-055)
 
-- **Status:** Proposed
+- **Status:** Accepted (aprovado pelo owner em 2026-10-24)
 - **Data:** 2026-10-24
 - **Decisor:** Jota (owner)
 - **Escopo:** Interface / tema / componentes

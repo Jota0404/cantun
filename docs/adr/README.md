@@ -60,7 +60,7 @@
 | [ADR-052](ADR-052-service-operacional.md) | Service operacional (equipe, estados, itens genéricos) | Accepted |
 | [ADR-053](ADR-053-vagas-e-atribuicoes.md) | Vagas e atribuições | Accepted |
 | [ADR-054](ADR-054-canal-de-notificacao.md) | Canal de notificação | Accepted |
-| [ADR-055](ADR-055-design-system-tokens.md) | Design system: tokens em CSS custom properties | Accepted |
+| [ADR-055](ADR-055-design-system-tokens.md) | Design system: tokens em CSS custom properties | Accepted (itens 2, 6 e 7 revisados pelo ADR-066) |
 | [ADR-057](ADR-057-consistencia-por-entidade.md) | Política de consistência por entidade | Accepted |
 | [ADR-060](ADR-060-hospedagem-render-neon.md) | Hospedagem: Render + Neon (gratuito) | Proposed (ambiente de teste; produção no Brasil a decidir pelo owner, ver `docs/HOSTING_OPTIONS_BR.md`) |
 | [ADR-061](ADR-061-aprovacao-de-push-e-pr-por-bloco.md) | Revisão do ADR-058: aprovação de push e PR por bloco/fatia | Accepted |
@@ -68,7 +68,7 @@
 | [ADR-063](ADR-063-saida-do-titular-e-anonimizacao.md) | Saída do titular: exclusão de conta, anonimização de autoria e exportação | Accepted |
 | [ADR-064](ADR-064-materiais-e-storage.md) | Materiais e storage de arquivos (substitui a reserva do 056) | Proposed (upload adiado pelo owner, D10 de 2026-10-22) |
 | [ADR-065](ADR-065-reautenticacao-acoes-destrutivas.md) | Reautenticação para ações destrutivas (exclusão de conta; #101) | Accepted |
-| [ADR-066](ADR-066-estilo-visual-acolhedor.md) | Estilo visual "Acolhedor" e componentes de interface (revisa o ADR-055) | Proposed |
+| [ADR-066](ADR-066-estilo-visual-acolhedor.md) | Estilo visual "Acolhedor" e componentes de interface (revisa o ADR-055) | Accepted |
 
 ## Números reservados
 
